@@ -1,0 +1,39 @@
+# Architecture Hardening Notes
+
+These are current audit notes for future refactoring passes. They are intentionally practical rather than aspirational.
+
+## Fixed In This Pass
+
+- Commands that write state now implement `ITransactionalCommand<TResponse>`.
+- The command UoW behavior commits exactly one module-owned `IUnitOfWork`.
+- Application handlers resolve outbox writers through `IOutboxWriterRegistry`.
+- Inbox failure handling rolls back handler side effects before recording failure metadata.
+- Outbox publishing starts only when a host opts into a concrete messaging adapter.
+- Disabled NATS consumers can be registered without a NATS connection; the connection is resolved only after consumer runtime is enabled.
+- NATS pull fetch expiration is clamped above the client minimum, while polling/retry delay remains configurable.
+- NATS stream name lives in `NatsJetStream` options; the `gma` subject prefix remains a contract convention.
+- Architecture tests now guard production project package references so `System.CommandLine` stays in CLI front doors and backend adapter packages stay out of module projects.
+- Repeated architecture-test module assembly lists were replaced with one explicit test-only `ArchitectureCatalog`.
+- Feature-module typed admin permission constants moved into optional `<Module>.Admin.Contracts` projects, leaving public `.Contracts` free of `Shared.Administration`.
+
+## Keep Watching
+
+- Design-time EF factories and provider migration project files are repetitive. A shared design-time helper would reduce boilerplate once the module examples settle.
+- `Shared.ErrorHandling` may eventually fit better under a broader `Shared.Primitives` or `Shared.Kernel` name, but renaming it now would churn stable code.
+
+## Reflection And Magic Boundary
+
+Runtime host composition remains explicit. Reflection is acceptable for dispatch, diagnostics, or architecture tests when it is documented and covered by tests. New reflection-based behavior should not silently register modules, handlers, persistence, or transports by default.
+
+Allowed production reflection is currently limited to:
+
+- `RequestDispatcher`, which compiles cached typed delegates for runtime command/query instances.
+- `DomainEventDispatcher`, which compiles cached typed delegates for runtime domain-event instances.
+- `IntegrationEventHandlerInvoker`, which compiles cached typed delegates for integration-event consumers.
+- EF `ApplyConfigurationsFromAssembly` inside module-owned `DbContext` classes.
+- host assembly marker classes used by test hosts and architecture tests.
+- observability module-name inference from assembly names.
+
+Do not use reflection or attributes to auto-register modules, handlers, persistence stores, admin surfaces, messaging transports, or cache adapters without a separate ADR plus architecture tests proving the default host composition remains explicit.
+
+`ArchitectureCatalog` is a test/tooling catalog only. It centralizes architecture-test inputs, but it must not be used by runtime hosts to compose modules.

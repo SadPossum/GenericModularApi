@@ -1,0 +1,40 @@
+namespace Auth.Persistence;
+
+using Auth.Application.Ports;
+using Auth.Domain.Repositories;
+using Auth.Persistence.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Shared.Application.Messaging;
+using Shared.Application.UnitOfWork;
+using Shared.Infrastructure.Persistence;
+
+public static class DependencyInjection
+{
+    public static IHostApplicationBuilder AddAuthPersistence(this IHostApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.Services.AddPersistenceOptions(builder.Configuration);
+
+        builder.Services.TryAddModuleDbContext<AuthDbContext>(options =>
+            options.UseConfiguredProvider(
+                builder.Configuration,
+                AuthMigrations.SqlServerAssembly,
+                AuthMigrations.PostgreSqlAssembly,
+                AuthMigrations.Schema,
+                AuthMigrations.HistoryTable));
+
+        builder.Services.TryAddScoped<IMemberRepository, MemberRepository>();
+        builder.Services.TryAddScoped<IAdminMemberReadRepository, AdminMemberReadRepository>();
+        builder.Services.TryAddEnumerable([
+            ServiceDescriptor.Scoped<IUnitOfWork, AuthUnitOfWork>(),
+            ServiceDescriptor.Scoped<IOutboxWriter, AuthOutboxWriter>(),
+            ServiceDescriptor.Scoped<IOutboxStore, AuthOutboxStore>()
+        ]);
+
+        return builder;
+    }
+}

@@ -1,0 +1,152 @@
+# Testing Guidelines
+
+## Test Projects
+
+```text
+Shared.Tests
+Auth.Tests
+Architecture.Tests
+Integration.Tests
+```
+
+Every test project must declare:
+
+- `<IsTestProject>true</IsTestProject>` so `dotnet test` discovers it reliably.
+- `<IsPackable>false</IsPackable>` so test assemblies are never packaged accidentally.
+- `Microsoft.NET.Test.Sdk`, `xunit`, and `xunit.runner.visualstudio`.
+- `<PrivateAssets>all</PrivateAssets>` on `xunit.runner.visualstudio` so the runner stays test-local.
+
+## Categories
+
+Use xUnit traits:
+
+```csharp
+[Trait("Category", "Unit")]
+[Trait("Category", "Architecture")]
+[Trait("Category", "Integration")]
+[Trait("Category", "Docker")]
+```
+
+Docker-backed tests should include both:
+
+```csharp
+[Trait("Category", "Integration")]
+[Trait("Category", "Docker")]
+```
+
+Every test source file that contains `[Fact]`, `[Theory]`, or `[DockerFact]` must declare its expected category somewhere in the file:
+
+- `Architecture.Tests` files use `Architecture`.
+- `Integration.Tests` files use `Integration`.
+- all other test projects use `Unit`.
+- files with `[DockerFact]` also declare `Docker`.
+
+## Commands
+
+Fast tests exclude Docker-backed tests through `Category!=Docker`:
+
+```powershell
+.\eng\test-fast.ps1 -NoBuild
+```
+
+Docker tests run only `Category=Docker`, set `GMA_REQUIRE_DOCKER_TESTS=true`, and restore the previous environment value when finished:
+
+```powershell
+.\eng\test-docker.ps1 -NoBuild
+```
+
+`eng/verify.ps1` intentionally runs the fast test script only after restore, build, and the provider migration drift check. Run `eng/test-docker.ps1` separately when the current slice touches containers, Redis, SQL Server, PostgreSQL, NATS, or other Docker-backed infrastructure.
+
+Full local test command:
+
+```powershell
+dotnet test GenericModularApi.sln --no-build --logger "console;verbosity=minimal"
+```
+
+If .NET 10 is installed outside `PATH`, set `GMA_DOTNET` and use the `eng/*.ps1` scripts so local tooling still resolves the pinned SDK intentionally.
+
+## Unit Tests
+
+Use unit tests for:
+
+- aggregate invariants;
+- value object rules;
+- result behavior;
+- domain event collection;
+- command validation;
+- unit-of-work behavior that can run in memory.
+
+## Architecture Tests
+
+Architecture tests should protect:
+
+- module dependency boundaries;
+- domain independence from EF Core and ASP.NET Core;
+- application independence from persistence and API;
+- explicit module catalog coverage in `ArchitectureCatalog`;
+- solution project membership;
+- namespace alignment;
+- package-reference boundaries for CLI and infrastructure adapters;
+- test naming;
+- no `EnsureCreated` in integration tests.
+
+When a module adds or removes compiled projects, update `tests/Architecture.Tests/ArchitectureCatalog.cs`. Keep this catalog explicit and test-only; it is not a runtime registration mechanism.
+
+## Integration Tests
+
+Use integration tests for:
+
+- endpoint lifecycle behavior;
+- provider-specific persistence behavior;
+- migration-backed schema behavior;
+- tenant isolation;
+- outbox publishing;
+- infrastructure adapters.
+- admin CLI flows that cross RBAC, tenancy, module application handlers, and persistence.
+
+Integration tests should use migrations:
+
+```csharp
+await dbContext.Database.MigrateAsync();
+```
+
+Do not use:
+
+```csharp
+await dbContext.Database.EnsureCreatedAsync();
+```
+
+## Docker Tests
+
+`DockerFact` skips locally when Docker is unavailable unless:
+
+```powershell
+$env:GMA_REQUIRE_DOCKER_TESTS = 'true'
+```
+
+`eng/test-docker.ps1` sets this automatically.
+
+## Test Naming
+
+Class names:
+
+```text
+<Behavior>Tests
+<Feature>IntegrationTests
+```
+
+Method names should read as behavior statements:
+
+```text
+Create_raises_registered_domain_event
+Members_and_sessions_are_isolated_by_tenant
+Admin_cli_bootstraps_rbac_and_manages_auth_members_against_sql_server_and_postgre_sql
+```
+
+## Test Data
+
+- Keep tenant ids explicit.
+- Use unique database names or isolated containers.
+- Avoid relying on test order.
+- Prefer deterministic timestamps for domain tests.
+- Tests that redirect process-wide state such as `Console.Out`, `Console.Error`, or `Console.In` must use a dedicated xUnit collection so they do not race with each other. `Shared.Tests` uses `ConsoleTestIsolation` for this.

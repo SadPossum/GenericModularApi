@@ -1,0 +1,6 @@
+namespace Shared.Application.Cqrs;
+
+public interface IQueryValidator<in TQuery>
+{
+    IEnumerable<string> Validate(TQuery query);
+}

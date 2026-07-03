@@ -1,0 +1,134 @@
+# Persistence and Tenancy
+
+Persistence is module-owned. The shared infrastructure provides abstractions and provider selection, but modules own their DbContexts, schemas, migrations, repositories, and outbox tables.
+
+## Providers
+
+Supported providers:
+
+- SQL Server
+- PostgreSQL
+
+Default provider:
+
+```json
+{
+  "Persistence": {
+    "Provider": "SqlServer"
+  }
+}
+```
+
+Connection keys:
+
+- `ConnectionStrings:SqlServer`
+- `ConnectionStrings:PostgreSql`
+
+Persistence configuration is validated at startup by modules that register persistence. `Persistence:Provider` must be `SqlServer` or `PostgreSql`, and the matching provider connection string must be present. Shared infrastructure alone does not require database configuration.
+
+## Module-Owned Migrations
+
+Each module with persistence should have provider-specific migration projects:
+
+```text
+<Module>.Persistence.SqlServerMigrations/
+<Module>.Persistence.PostgreSqlMigrations/
+```
+
+Auth uses:
+
+```text
+auth.__ef_migrations_history
+```
+
+as its schema-local migration history table.
+
+## Adding Migrations
+
+```powershell
+.\eng\add-migration.ps1 -Module Auth -Provider SqlServer -Name AddExample
+.\eng\add-migration.ps1 -Module Auth -Provider PostgreSql -Name AddExample
+```
+
+`eng/add-migration.ps1` works for any module with `<Module>.Persistence`, `<Module>.Persistence.SqlServerMigrations`, and `<Module>.Persistence.PostgreSqlMigrations` projects. It discovers the DbContext from the persistence project; pass `-Context <Name>DbContext` when discovery is ambiguous.
+
+Create migrations for both providers when a schema change is provider-agnostic.
+
+Check model-to-migration drift before finishing persistence work:
+
+```powershell
+.\eng\check-migrations.ps1 -NoBuild
+```
+
+The script discovers every provider migration project under `src/Modules` and runs EF's pending-model-change check against the matching design-time factory. `eng/verify.ps1` includes this check by default after build; pass `-SkipMigrationCheck` only for a deliberately narrow local loop.
+
+Design-time factories live in provider-specific migration projects, not runtime persistence projects:
+
+- SQL Server factory: `<Module>.Persistence.SqlServerMigrations`
+- PostgreSQL factory: `<Module>.Persistence.PostgreSqlMigrations`
+
+The pinned local `dotnet-ef` tool in `.config/dotnet-tools.json` uses the same version as `Microsoft.EntityFrameworkCore.Design`; update both together when EF Core is upgraded.
+
+`eng/add-migration.ps1` uses the selected migration project as both the EF target project and startup project. Factories should use `DesignTimeDbContextOptionsFactory.CreateSqlServerOptions(...)` or `CreatePostgreSqlOptions(...)` from `Shared.Infrastructure.Persistence` so default local connection strings and migration history configuration stay consistent.
+
+`Microsoft.EntityFrameworkCore.Design` belongs only in provider migration projects.
+
+## Applying Migrations
+
+Do not auto-apply migrations from `Host.Api` startup.
+
+Use explicit migration steps in tests, local development, or deployment automation. Integration tests use `MigrateAsync`, not `EnsureCreated`.
+
+## Indexing Tenant-Scoped Reads
+
+Tenant-scoped tables should index the tenant id together with the next selective read-path column. Examples:
+
+- unique tenant-local identifiers, such as `(TenantId, Sku)`;
+- tenant-local list ordering, such as `(TenantId, RegisteredAtUtc)`;
+- tenant-scoped authorization lookups, such as `(PrincipalId, TenantId)` when global and tenant assignments are checked together.
+
+Do not add cross-module foreign keys to optimize reads. Use local projections, duplicated identifiers, or module-owned indexes instead.
+
+## Unit of Work
+
+EF Core `DbContext` is the practical unit of work. A module unit of work wraps:
+
+- domain event collection;
+- domain event dispatch;
+- outbox writes;
+- EF Core commit;
+- domain event clearing after successful commit.
+
+## Tenancy Strategy
+
+V1 tenancy uses a shared database:
+
+- tenant-scoped entities include `TenantId`;
+- tenant-scoped endpoints require `X-Tenant-Id` when tenancy is enabled;
+- tenant-aware EF filters isolate reads and writes;
+- local development can use the `default` tenant.
+
+Tenancy configuration is validated at startup. `Tenancy:HeaderName` must be a valid HTTP header name and `Tenancy:LocalDefaultTenantId` must be non-empty, no longer than 128 characters, and free of whitespace or control characters, because the default/null tenant context also uses it when the optional Tenancy module is omitted.
+
+`ITenantContextAccessor` is mutable runtime state, not authoritative domain data. Host/front-door/runtime boundaries set it from the request, CLI operation, or integration-event envelope and clear it before applying a new tenant so reused scopes cannot inherit a stale tenant id. Domain entities and integration events still store their own normalized tenant ids.
+
+## No Cross-Module Foreign Keys
+
+Modules must not create foreign keys to another module's tables.
+
+Use one of these instead:
+
+- duplicate stable identifiers;
+- consume another module's contract;
+- publish/consume integration events;
+- use an application-level consistency check.
+
+## Tenant Safety Checklist
+
+For tenant-scoped behavior:
+
+- endpoint calls `.RequireTenant()`;
+- command includes tenant context implicitly or explicitly;
+- aggregate stores `TenantId`;
+- repository queries preserve tenant filters;
+- tests prove tenant isolation.

@@ -1,0 +1,90 @@
+# Catalog Example Module
+
+Catalog is a compiled optional example module. It is not registered in `Host.Api`, `Host.AdminCli`, or `Host.AdminApi` by default.
+
+## Purpose
+
+Catalog demonstrates stored tenant-scoped domain data, CQRS commands and queries, provider-split EF persistence, explicit cache-aside reads, admin CLI/API front doors, and integration events through outbox.
+
+## Projects
+
+```text
+Catalog.Contracts
+Catalog.Domain
+Catalog.Application
+Catalog.Persistence
+Catalog.Persistence.SqlServerMigrations
+Catalog.Persistence.PostgreSqlMigrations
+Catalog.Api
+Catalog.Admin.Contracts
+Catalog.Admin
+Catalog.AdminApi
+```
+
+## Domain
+
+`CatalogItem` owns:
+
+- tenant id;
+- SKU;
+- name;
+- price;
+- currency;
+- status: active or discontinued.
+
+Core rules:
+
+- tenant id, SKU, name, price, and currency are required;
+- price must be positive;
+- price must fit the module's mapped decimal precision without rounding;
+- SKU is normalized and unique per tenant;
+- SKU, name, and three-letter currency limits are domain invariants before persistence;
+- discontinued items cannot be discontinued again.
+
+## Cache
+
+Queries use explicit cache-aside through `IApplicationCache`.
+
+Keys:
+
+- `catalog:item:{itemId}`
+- `catalog:items:{page}:{pageSize}`
+
+Tags:
+
+- `catalog:items`
+
+Create/update/discontinue commands enqueue invalidation through `ICacheInvalidationQueue`. Cache data is non-authoritative and tenant-scoped.
+
+## Admin Permissions
+
+Permission code strings live in `Catalog.Contracts` for module metadata. Typed `AdminPermission` constants live in `Catalog.Admin.Contracts` for CLI/API front doors.
+
+```text
+catalog.items.read
+catalog.items.create
+catalog.items.update
+catalog.items.discontinue
+```
+
+## Integration Events
+
+| Event | Subject |
+| --- | --- |
+| `CatalogItemCreatedIntegrationEvent` | `gma.catalog.item-created.v1` |
+| `CatalogItemUpdatedIntegrationEvent` | `gma.catalog.item-updated.v1` |
+| `CatalogItemDiscontinuedIntegrationEvent` | `gma.catalog.item-discontinued.v1` |
+
+Events are written by domain-event handlers through the module outbox.
+
+## Compose Explicitly
+
+Add project references from the host to the front doors you want, then register:
+
+```csharp
+builder.AddModule<CatalogModule>();
+builder.AddAdminModule<CatalogAdminModule>();
+builder.AddAdminApiModule<CatalogAdminApiModule>();
+```
+
+Only add the registrations to hosts that should expose Catalog.

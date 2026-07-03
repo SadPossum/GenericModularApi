@@ -1,0 +1,201 @@
+# Local Development
+
+## Daily Loop
+
+Use the repo scripts from the root:
+
+```powershell
+.\eng\restore.ps1
+.\eng\build.ps1 -NoRestore
+.\eng\test-fast.ps1 -NoBuild
+```
+
+For a full local confidence pass:
+
+```powershell
+.\eng\verify.ps1
+```
+
+`verify.ps1` runs restore, build, provider migration drift checks, and fast tests.
+
+## Running the App
+
+Prefer Aspire when testing infrastructure behavior:
+
+```powershell
+.\eng\run-aspire.ps1
+```
+
+The default Aspire graph runs `Host.Api` plus infrastructure. To add the optional admin API to the local graph, set:
+
+```text
+AppHost__AdminApi__Enabled=true
+```
+
+Use API-only mode when external services are already running:
+
+```powershell
+.\eng\run-api.ps1
+```
+
+## Running the Admin CLI
+
+The admin CLI is optional and uses its own host:
+
+```powershell
+.\eng\run-admin.ps1 --help
+```
+
+`run-admin.ps1` defaults `DOTNET_ENVIRONMENT` to `Development` for that local process when the caller has not already set it, so the CLI uses the same disposable local settings as the HTTP hosts. Set `DOTNET_ENVIRONMENT` explicitly for non-local runs.
+
+Bootstrap the first owner:
+
+```powershell
+.\eng\run-admin.ps1 -- admin bootstrap --actor owner --yes
+```
+
+Create and assign a tenant-scoped support role:
+
+```powershell
+.\eng\run-admin.ps1 -- admin roles create --actor owner --name support
+.\eng\run-admin.ps1 -- admin roles grant --actor owner --role support --permission auth.members.read
+.\eng\run-admin.ps1 -- admin roles grant --actor owner --role support --permission auth.members.create
+.\eng\run-admin.ps1 -- admin roles assign --actor owner --target-actor support --role support --tenant default
+```
+
+Create an Auth member with a generated password:
+
+```powershell
+.\eng\run-admin.ps1 -- auth members create --actor support --tenant default --username user@example.com --username-type email --generate-password
+```
+
+Generated passwords are printed once and are not logged or audited.
+
+## Running the Admin API
+
+The admin API is optional and uses its own host:
+
+```powershell
+.\eng\run-admin-api.ps1
+```
+
+`Host.AdminApi` requires bearer authentication. The current local setup uses the Auth JWT configuration, so obtain a token through the public Auth API or another configured identity provider and call admin routes with:
+
+```http
+Authorization: Bearer <access-token>
+X-Tenant-Id: default
+```
+
+By default, tenant-scoped admin API calls require any present token `tenant_id` claim to match `X-Tenant-Id`. That default claim name is centralized as `GmaClaimNames.TenantId`. Tokens without a tenant claim are allowed for external identity-provider or global-admin scenarios, but RBAC must still grant the actor access to the requested tenant. The knobs are:
+
+```text
+Administration__Api__TenantIdClaim=tenant_id
+Administration__Api__RequireTenantClaimMatch=true
+```
+
+`Host.Api` does not expose `/api/admin/*`.
+
+Generated password responses are disabled by default for admin HTTP. To allow `generatePassword=true` responses in local or controlled environments:
+
+```text
+Administration__Api__AllowGeneratedPasswordResponses=true
+```
+
+Keep this disabled in environments where gateway, proxy, or client logs may capture response bodies.
+The checked-in `requests/admin-api.http` examples use manual password fields so they work with the default disabled policy.
+
+## Optional Caching
+
+Caching is disabled by default. Enable in-process memory caching with:
+
+```text
+Caching__Enabled=true
+Caching__Provider=Memory
+```
+
+To run Redis through Aspire, set `AppHost:Redis:Enabled=true` for the AppHost. Aspire starts Redis, injects `ConnectionStrings:redis`, and selects the Redis provider for the Aspire-composed HTTP hosts.
+
+For standalone API, admin API, or admin CLI Redis mode, provide:
+
+```text
+Caching__Enabled=true
+Caching__Provider=Redis
+ConnectionStrings__redis=localhost:6379
+```
+
+Redis is not part of the normal local stack unless explicitly enabled.
+
+## Switching Persistence Providers
+
+Set `Persistence:Provider` to:
+
+- `SqlServer`
+- `PostgreSql`
+
+The default provider is SQL Server.
+
+Each provider has its own migration assembly for each module that owns persistence.
+
+## Adding Migrations
+
+```powershell
+.\eng\add-migration.ps1 -Module Auth -Provider SqlServer -Name AddExample
+.\eng\add-migration.ps1 -Module Auth -Provider PostgreSql -Name AddExample
+.\eng\add-migration.ps1 -Module Catalog -Provider SqlServer -Name AddExample
+.\eng\add-migration.ps1 -Module Ordering -Provider PostgreSql -Name AddExample
+```
+
+The script discovers the module persistence project, provider-specific migrations project, and DbContext. Use `-Context <Name>DbContext` only when a module has more than one DbContext or uses a non-obvious name.
+
+After changing EF mappings or migrations, check all provider snapshots:
+
+```powershell
+.\eng\check-migrations.ps1 -NoBuild
+```
+
+The script runs `dotnet-ef migrations has-pending-model-changes` for every provider migration project under `src/Modules`.
+
+## Adding a Module
+
+Create a minimal module:
+
+```powershell
+.\eng\new-module.ps1 -Name Billing
+```
+
+Create a module with persistence and provider migration projects:
+
+```powershell
+.\eng\new-module.ps1 -Name Billing -Persistence -SqlServerMigrations -PostgreSqlMigrations
+```
+
+Create a richer optional-module shell:
+
+```powershell
+.\eng\new-module.ps1 -Name Billing -Persistence -SqlServerMigrations -PostgreSqlMigrations -Outbox -Inbox -Admin -AdminApi -Cache
+```
+
+Register the module in `Host.Api` during scaffolding:
+
+```powershell
+.\eng\new-module.ps1 -Name Billing -RegisterInHost
+```
+
+`-RegisterInHost` inserts the module at the explicit `// gma:new-module:public-api-modules` marker in `src/Host.Api/Program.cs`.
+Manual registration is usually better until the module is real. Optional modules should remain explicit host choices.
+
+## Build Discipline
+
+- Keep warnings as errors.
+- Use central package management in `Directory.Packages.props`.
+- Do not hide package versions in individual project files.
+- Do not introduce cross-module project references except to `.Contracts` projects.
+- Keep SQL Server and PostgreSQL migration snapshots synchronized.
+- Do not apply database migrations from `Host.Api` startup.
+
+## When Something Fails
+
+- Restore first: `.\eng\restore.ps1`
+- Rebuild without stale artifacts: `.\eng\build.ps1`
+- Run fast tests: `.\eng\test-fast.ps1`
+- If infrastructure behavior is involved, run Docker tests: `.\eng\test-docker.ps1`

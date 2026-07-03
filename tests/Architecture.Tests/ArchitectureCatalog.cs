@@ -1,0 +1,141 @@
+namespace Architecture.Tests;
+
+using System.Reflection;
+using Administration.Admin;
+using Administration.AdminApi;
+using Administration.Application;
+using Administration.Contracts;
+using Administration.Persistence;
+using Auth.Admin.Contracts;
+using Auth.Admin;
+using Auth.AdminApi;
+using Auth.Api;
+using Auth.Contracts;
+using Auth.Domain.Aggregates;
+using Auth.Infrastructure;
+using Auth.Infrastructure.JwtBearer;
+using Auth.Persistence;
+using Catalog.Admin;
+using Catalog.Admin.Contracts;
+using Catalog.AdminApi;
+using Catalog.Api;
+using Catalog.Contracts;
+using Catalog.Domain.Aggregates;
+using Catalog.Persistence;
+using Host.AdminApi;
+using Host.AdminCli;
+using Ordering.Contracts;
+using Ordering.Domain.Aggregates;
+using Ordering.Persistence;
+using Shared.Application.Modules;
+using Tenancy.Api;
+using Tenancy.Contracts;
+
+internal static class ArchitectureCatalog
+{
+    public static IReadOnlyList<ModuleProject> ModuleProjects { get; } =
+    [
+        new("Administration", "Administration.Admin", ModuleProjectKind.Admin, typeof(AdministrationAdminModule).Assembly),
+        new("Administration", "Administration.AdminApi", ModuleProjectKind.AdminApi, typeof(AdministrationAdminApiModule).Assembly),
+        new("Administration", "Administration.Application", ModuleProjectKind.Application, typeof(Administration.Application.DependencyInjection).Assembly),
+        new("Administration", "Administration.Contracts", ModuleProjectKind.Contracts, typeof(AdministrationModuleMetadata).Assembly),
+        new("Administration", "Administration.Persistence", ModuleProjectKind.Persistence, typeof(Administration.Persistence.DependencyInjection).Assembly),
+
+        new("Auth", "Auth.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(AuthAdminPermissions).Assembly),
+        new("Auth", "Auth.Admin", ModuleProjectKind.Admin, typeof(AuthAdminModule).Assembly),
+        new("Auth", "Auth.AdminApi", ModuleProjectKind.AdminApi, typeof(AuthAdminApiModule).Assembly),
+        new("Auth", "Auth.Api", ModuleProjectKind.Api, typeof(AuthModule).Assembly),
+        new("Auth", "Auth.Application", ModuleProjectKind.Application, typeof(Auth.Application.DependencyInjection).Assembly),
+        new("Auth", "Auth.Contracts", ModuleProjectKind.Contracts, typeof(AuthModuleMetadata).Assembly),
+        new("Auth", "Auth.Domain", ModuleProjectKind.Domain, typeof(Member).Assembly),
+        new("Auth", "Auth.Infrastructure", ModuleProjectKind.Infrastructure, typeof(Auth.Infrastructure.DependencyInjection).Assembly),
+        new("Auth", "Auth.Infrastructure.JwtBearer", ModuleProjectKind.Infrastructure, typeof(Auth.Infrastructure.JwtBearer.DependencyInjection).Assembly),
+        new("Auth", "Auth.Persistence", ModuleProjectKind.Persistence, typeof(Auth.Persistence.DependencyInjection).Assembly),
+
+        new("Catalog", "Catalog.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(CatalogAdminPermissions).Assembly),
+        new("Catalog", "Catalog.Admin", ModuleProjectKind.Admin, typeof(CatalogAdminModule).Assembly),
+        new("Catalog", "Catalog.AdminApi", ModuleProjectKind.AdminApi, typeof(CatalogAdminApiModule).Assembly),
+        new("Catalog", "Catalog.Api", ModuleProjectKind.Api, typeof(CatalogModule).Assembly),
+        new("Catalog", "Catalog.Application", ModuleProjectKind.Application, typeof(Catalog.Application.DependencyInjection).Assembly),
+        new("Catalog", "Catalog.Contracts", ModuleProjectKind.Contracts, typeof(CatalogModuleMetadata).Assembly),
+        new("Catalog", "Catalog.Domain", ModuleProjectKind.Domain, typeof(CatalogItem).Assembly),
+        new("Catalog", "Catalog.Persistence", ModuleProjectKind.Persistence, typeof(Catalog.Persistence.DependencyInjection).Assembly),
+
+        new("Ordering", "Ordering.Application", ModuleProjectKind.Application, typeof(Ordering.Application.DependencyInjection).Assembly),
+        new("Ordering", "Ordering.Contracts", ModuleProjectKind.Contracts, typeof(OrderingModuleMetadata).Assembly),
+        new("Ordering", "Ordering.Domain", ModuleProjectKind.Domain, typeof(Order).Assembly),
+        new("Ordering", "Ordering.Persistence", ModuleProjectKind.Persistence, typeof(Ordering.Persistence.DependencyInjection).Assembly),
+
+        new("Tenancy", "Tenancy.Api", ModuleProjectKind.Api, typeof(TenancyModule).Assembly),
+        new("Tenancy", "Tenancy.Contracts", ModuleProjectKind.Contracts, typeof(TenancyModuleMetadata).Assembly),
+    ];
+
+    public static IReadOnlyList<ModuleDescriptor> ModuleDescriptors { get; } =
+    [
+        AuthModuleMetadata.Descriptor,
+        AdministrationModuleMetadata.Descriptor,
+        CatalogModuleMetadata.Descriptor,
+        OrderingModuleMetadata.Descriptor,
+        TenancyModuleMetadata.Descriptor,
+    ];
+
+    public static IReadOnlyList<string> ModulePrefixes { get; } = ModuleProjects
+        .Select(project => project.ModulePrefix)
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
+
+    public static IReadOnlyList<Assembly> ModuleBoundaryAssemblies { get; } = ModuleProjects
+        .Select(project => project.Assembly)
+        .Distinct()
+        .ToArray();
+
+    public static IReadOnlyList<Assembly> ApplicationAssemblies { get; } = ModuleProjects
+        .Where(project => project.Kind == ModuleProjectKind.Application)
+        .Select(project => project.Assembly)
+        .Distinct()
+        .ToArray();
+
+    public static IReadOnlyList<Assembly> OrderingAssemblies { get; } = ModuleProjects
+        .Where(project => string.Equals(project.ModulePrefix, "Ordering", StringComparison.Ordinal))
+        .Select(project => project.Assembly)
+        .Distinct()
+        .ToArray();
+
+    public static IReadOnlyList<Assembly> CommandLineAllowedAssemblies { get; } =
+    [
+        typeof(AdministrationAdminModule).Assembly,
+        typeof(AuthAdminModule).Assembly,
+        typeof(CatalogAdminModule).Assembly,
+        typeof(Shared.Administration.Cli.AdminCliExecutor).Assembly,
+        AdminCliAssemblyReference.Assembly,
+    ];
+
+    public static IReadOnlyList<Assembly> CommandLineCheckedAssemblies { get; } = ModuleBoundaryAssemblies
+        .Concat(
+        [
+            typeof(Shared.Administration.Cli.AdminCliExecutor).Assembly,
+            typeof(Shared.Administration.Api.AdminApiExecutor).Assembly,
+            AdminApiAssemblyReference.Assembly,
+        ])
+        .Distinct()
+        .ToArray();
+}
+
+internal sealed record ModuleProject(
+    string ModulePrefix,
+    string ProjectName,
+    ModuleProjectKind Kind,
+    Assembly Assembly);
+
+internal enum ModuleProjectKind
+{
+    Admin,
+    AdminContracts,
+    AdminApi,
+    Api,
+    Application,
+    Contracts,
+    Domain,
+    Infrastructure,
+    Persistence,
+}

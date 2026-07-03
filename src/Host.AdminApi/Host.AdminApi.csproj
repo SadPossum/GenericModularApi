@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Administration\Administration.AdminApi\Administration.AdminApi.csproj" />
+    <ProjectReference Include="..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj" />
+    <ProjectReference Include="..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj" />
+    <ProjectReference Include="..\Modules\Auth\Auth.AdminApi\Auth.AdminApi.csproj" />
+    <ProjectReference Include="..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj" />
+    <ProjectReference Include="..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj" />
+    <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Api\Shared.Api.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj" />
+  </ItemGroup>
+</Project>

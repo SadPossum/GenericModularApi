@@ -1,0 +1,94 @@
+# Documentation Guidelines
+
+Docs are part of the architecture. If a module or boundary changes, update the docs in the same change.
+
+## Format
+
+Use plain Markdown.
+
+The docs should work in:
+
+- GitHub;
+- Visual Studio;
+- Rider;
+- VS Code;
+- Obsidian.
+
+Do not require Obsidian plugins or `.obsidian` settings.
+
+## Structure
+
+```text
+docs/
+  README.md
+  getting-started/
+  architecture/
+  modules/
+  guidelines/
+  templates/
+  adr/
+```
+
+## What to Document
+
+Document when a change affects:
+
+- module public API;
+- module behavior;
+- persistence schema;
+- configuration;
+- deployment;
+- integration events;
+- tenant behavior;
+- test strategy;
+- developer workflow.
+
+## Module Docs
+
+Each module should have a page in `docs/modules/`.
+
+Use [../templates/module.md](../templates/module.md).
+
+Minimum sections:
+
+- purpose;
+- projects;
+- public contracts;
+- endpoints;
+- domain model;
+- persistence;
+- integration events;
+- tests;
+- extension points.
+
+## ADRs
+
+Use ADRs for decisions that are hard to reverse or likely to be questioned later.
+
+Examples:
+
+- adopting a tenancy strategy;
+- introducing a new infrastructure adapter;
+- changing module boundaries;
+- replacing Auth implementation;
+- changing event subject format.
+
+Use [../templates/adr.md](../templates/adr.md).
+
+## Writing Style
+
+- Prefer present tense.
+- Be specific about paths and commands.
+- Keep claims tied to the current repo.
+- Avoid marketing language.
+- Avoid copying implementation details that will drift quickly unless the detail matters.
+- Link to source files when useful.
+
+## Docs Review Checklist
+
+- Does the doc match current code?
+- Are commands runnable from repo root?
+- Are config keys spelled exactly?
+- Are module boundaries clear?
+- Is the page linked from `docs/README.md`?
+- Is a template needed for repeating this doc shape?

@@ -1,0 +1,91 @@
+# Messaging Consumers
+
+NATS consumers are optional infrastructure. Production HTTP hosts enable publishing through the configured `Shared.Messaging.Nats.Aspire` adapter with `AddConfiguredNatsJetStreamMessaging()`. Consumers start only when a host also calls `AddNatsJetStreamConsumers()` and explicitly composes modules that register subscriptions.
+`AddNatsJetStreamConsumers()` composes `AddSharedInfrastructure()` idempotently for custom hosts, but it does not discover modules or subscriptions. A host still has to register each subscribing module explicitly.
+
+## Contracts
+
+Consumer-facing contracts live in `Shared.Application.Messaging`:
+
+- `IIntegrationEventHandler<TEvent>`
+- `IntegrationEventSubscription`
+- `IIntegrationEventSubscriptionRegistry`
+- `IInboxStore`
+- `InboxMessageRecord`
+- `InboxProcessResult`
+
+Application code depends on these abstractions only. It does not depend on NATS.
+Create `InboxProcessResult` values through its factories. `Processed` and `Duplicate` carry no error text; `Failed` carries a bounded, normalized error string for retry diagnostics.
+
+## Runtime
+
+`NatsJetStreamConsumerService` lives in `Shared.Infrastructure.Messaging`.
+
+The service:
+
+- validates that every subscription has a matching module-owned inbox store;
+- creates a durable JetStream pull consumer per subscription;
+- names durable consumers as a NATS-safe physical key shaped like `gma-<environment>-<consumer-module>-<handler-name>`;
+- deserializes messages by subscription event type;
+- sets tenant context from the event tenant id for tenant-scoped subscriptions;
+- invokes the handler through DI with a cached typed delegate;
+- acknowledges only after the inbox store returns processed or duplicate;
+- negatively acknowledges failed processing so JetStream can redeliver.
+
+NATS durable names cannot use subject-style dots. Keep subjects dotted, but keep physical durable names hyphenated and derived from the stable handler name.
+The consumer runtime uses reflection only when compiling a per-subscription handler invoker. Message processing then calls the cached typed delegate, preserving direct handler exceptions for inbox failure metadata and retry diagnostics. Keep this framework magic covered by focused tests whenever the invocation path changes.
+Subscription metadata is validated when it is created: module names, event names, and stable handler names are lowercase kebab-case segments, and subjects follow `gma.<module>.<event>.v<version>`.
+
+## Options
+
+```json
+{
+  "NatsConsumers": {
+    "Enabled": false,
+    "DurablePrefix": "gma",
+    "FetchBatchSize": 10,
+    "PollInterval": "00:00:01",
+    "AckWait": "00:00:30",
+    "MaxDeliver": 5,
+    "HandlerTimeout": "00:00:30",
+    "NakDelay": "00:00:01"
+  }
+}
+```
+
+`Enabled=false` is the default. A host may register the hosted service without starting consumers until configuration enables it.
+Stream name is configured through `NatsJetStream` options and uses the same restricted portable character set as publishing: ASCII letters, digits, `-`, and `_`. The `gma` subject prefix is part of the event contract convention.
+`DurablePrefix` is the first segment of the physical durable consumer name, not a subject prefix.
+The runtime keeps NATS fetch expiration above the NATS client minimum even when `PollInterval` is configured below one second. Short poll intervals may still be useful for retry delays and tests, but the pull fetch window must remain valid for the client.
+Consumer runtime values are validated at startup. `DurablePrefix` is required and must be a lowercase kebab-case durable-name segment, `FetchBatchSize` must be between 1 and 500, and `PollInterval`, `AckWait`, `MaxDeliver`, `HandlerTimeout`, and `NakDelay` must be positive. Environment names used by consumer hosts must also normalize to a lowercase kebab-case durable-name segment; use values like `development`, `staging`, or `production`.
+
+## Inbox
+
+Each module maps `InboxMessage` into its own schema. The shared `EfInboxStore<TDbContext>` handles the common idempotency flow, but the table belongs to the module.
+On success, handler effects and the inbox processed marker commit in the same transaction.
+On failure, handler effects are rolled back before failure metadata is recorded.
+Handler timeout cancellation is treated as a failed attempt and is negatively acknowledged for retry.
+Host shutdown cancellation still propagates so consumers can stop without writing misleading failure metadata.
+Inbox metadata limits are declared by `InboxMessage` and consumed by each module EF mapping. Handler names, subjects, event type names, tenant ids, worker ids, and last-error text are validated or bounded in shared infrastructure before persistence.
+
+Inbox rows track:
+
+- event id;
+- handler name;
+- subject;
+- event type and version;
+- tenant id;
+- processing status;
+- attempt count;
+- timestamps;
+- processing owner;
+- last error.
+
+## Handler Rules
+
+- Handlers must be idempotent.
+- Handler effects and inbox completion should use the same module DbContext where possible.
+- Consumers should store external ids as scalars.
+- Consumers should not create database foreign keys to producer-module tables.
+- Poison messages caused by deserialization failure are terminated by the runtime.
+- Disabled consumers must not require a NATS connection at host startup.

@@ -1,0 +1,23 @@
+namespace Catalog.Application.Handlers;
+
+using Catalog.Contracts;
+using Catalog.Domain.Events;
+using Shared.Application.Events;
+using Shared.Application.Messaging;
+
+internal sealed class CatalogItemCreatedOutboxProjector(IOutboxWriterRegistry outboxWriters)
+    : IDomainEventHandler<CatalogItemCreatedDomainEvent>
+{
+    public Task HandleAsync(CatalogItemCreatedDomainEvent domainEvent, CancellationToken cancellationToken) =>
+        outboxWriters.GetRequired(CatalogModuleMetadata.Name).EnqueueAsync(
+            new CatalogItemCreatedIntegrationEvent(
+                domainEvent.EventId,
+                domainEvent.TenantId,
+                domainEvent.OccurredAtUtc,
+                domainEvent.ItemId,
+                domainEvent.Sku,
+                domainEvent.Name,
+                domainEvent.Price,
+                domainEvent.Currency),
+            cancellationToken);
+}

@@ -1,0 +1,272 @@
+namespace Auth.AdminApi;
+
+using Auth.Admin.Contracts;
+using Auth.Application;
+using Auth.Application.Commands;
+using Auth.Application.Queries;
+using Auth.Application.Security;
+using Auth.Contracts;
+using Auth.Domain.Errors;
+using Auth.Infrastructure;
+using Auth.Infrastructure.JwtBearer;
+using Auth.Persistence;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Shared.Administration;
+using Shared.Administration.Api;
+using Shared.Api.Results;
+using Shared.Api.Observability;
+using Shared.Application;
+using Shared.Application.Cqrs;
+using Shared.Application.Queries;
+using Shared.ErrorHandling;
+
+public sealed class AuthAdminApiModule : IAdminApiModule
+{
+    public string Name => AuthModuleMetadata.Name;
+
+    public void AddServices(IHostApplicationBuilder builder)
+    {
+        builder.Services.AddAuthApplication(builder.Configuration);
+        builder.Services.AddAuthInfrastructure(builder.Configuration);
+        builder
+            .AddAuthJwtBearerAuthentication()
+            .AddAuthPersistence();
+    }
+
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        RouteGroupBuilder members = endpoints.MapGroup("/api/admin/auth/members")
+            .WithModuleName(this.Name)
+            .WithTags("Auth Admin")
+            .RequireAuthorization();
+
+        members.MapGet("/", async (
+            int? page,
+            int? pageSize,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+            await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersList, AuthAdminPermissions.MembersRead),
+                requireTenant: true,
+                token => dispatcher.QueryAsync(
+                    new ListAdminMembersQuery(page ?? PageRequest.DefaultPage, pageSize ?? PageRequest.DefaultPageSize),
+                    token),
+                cancellationToken).ConfigureAwait(false));
+
+        members.MapGet("/{memberId:guid}", async (
+            Guid memberId,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+            await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersGet, AuthAdminPermissions.MembersRead),
+                requireTenant: true,
+                token => dispatcher.QueryAsync(new GetAdminMemberQuery(memberId), token),
+                cancellationToken,
+                errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false));
+
+        members.MapPost("/", async (
+            CreateAdminMemberRequest request,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            IOptions<AdminApiOptions> adminApiOptions,
+            CancellationToken cancellationToken) =>
+        {
+            return await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersCreate, AuthAdminPermissions.MembersCreate),
+                requireTenant: true,
+                token => CreateMemberAsync(dispatcher, request, adminApiOptions.Value, token),
+                cancellationToken,
+                errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
+        });
+
+        members.MapPost("/{memberId:guid}/disable", async (
+            Guid memberId,
+            DisableAdminMemberRequest request,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            return await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersDisable, AuthAdminPermissions.MembersDisable),
+                requireTenant: true,
+                token => request.Confirmed
+                    ? dispatcher.SendAsync(new DisableMemberCommand(memberId, request.Reason), token)
+                    : Task.FromResult(Result.Failure<Unit>(AdminErrors.ConfirmationRequired)),
+                cancellationToken,
+                errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
+        });
+
+        members.MapPost("/{memberId:guid}/enable", async (
+            Guid memberId,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+            await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersEnable, AuthAdminPermissions.MembersEnable),
+                requireTenant: true,
+                token => dispatcher.SendAsync(new EnableMemberCommand(memberId), token),
+                cancellationToken,
+                errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false));
+
+        members.MapPost("/{memberId:guid}/reset-password", async (
+            Guid memberId,
+            ResetAdminMemberPasswordRequest request,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            IOptions<AdminApiOptions> adminApiOptions,
+            CancellationToken cancellationToken) =>
+        {
+            return await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersResetPassword, AuthAdminPermissions.MembersResetPassword),
+                requireTenant: true,
+                token => ResetPasswordAsync(dispatcher, memberId, request, adminApiOptions.Value, token),
+                cancellationToken,
+                errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
+        });
+
+        members.MapPost("/{memberId:guid}/revoke-sessions", async (
+            Guid memberId,
+            RevokeAdminMemberSessionsRequest request,
+            HttpContext httpContext,
+            AdminApiExecutor executor,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            return await executor.ExecuteAsync(
+                httpContext,
+                AdminOperation.Create(AuthAdminOperationNames.MembersRevokeSessions, AuthAdminPermissions.MembersRevokeSessions),
+                requireTenant: true,
+                token => request.Confirmed
+                    ? dispatcher.SendAsync(new RevokeMemberSessionsCommand(memberId), token)
+                    : Task.FromResult(Result.Failure<AdminRevokeSessionsResponse>(AdminErrors.ConfirmationRequired)),
+                cancellationToken,
+                errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
+        });
+    }
+
+    private static async Task<Result<AdminCreatedMemberApiResponse>> CreateMemberAsync(
+        IRequestDispatcher dispatcher,
+        CreateAdminMemberRequest request,
+        AdminApiOptions options,
+        CancellationToken cancellationToken)
+    {
+        Result<PasswordInput> password = ResolvePassword(
+            request.Password,
+            request.GeneratePassword,
+            options.AllowGeneratedPasswordResponses);
+
+        if (password.IsFailure)
+        {
+            return Result.Failure<AdminCreatedMemberApiResponse>(password.Error);
+        }
+
+        Result<AdminCreatedMemberResponse> result = await dispatcher.SendAsync(
+            new AdminCreateMemberCommand(request.Username, request.UsernameType, password.Value.Password),
+            cancellationToken).ConfigureAwait(false);
+
+        return result.IsFailure
+            ? Result.Failure<AdminCreatedMemberApiResponse>(result.Error)
+            : Result.Success(new AdminCreatedMemberApiResponse(
+                result.Value.MemberId,
+                result.Value.Username,
+                password.Value.Generated ? password.Value.Password : null));
+    }
+
+    private static async Task<Result<ResetAdminMemberPasswordResponse>> ResetPasswordAsync(
+        IRequestDispatcher dispatcher,
+        Guid memberId,
+        ResetAdminMemberPasswordRequest request,
+        AdminApiOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (!request.Confirmed)
+        {
+            return Result.Failure<ResetAdminMemberPasswordResponse>(AdminErrors.ConfirmationRequired);
+        }
+
+        Result<PasswordInput> password = ResolvePassword(
+            request.NewPassword,
+            request.GeneratePassword,
+            options.AllowGeneratedPasswordResponses);
+
+        if (password.IsFailure)
+        {
+            return Result.Failure<ResetAdminMemberPasswordResponse>(password.Error);
+        }
+
+        Result<Unit> result = await dispatcher.SendAsync(new ResetMemberPasswordCommand(memberId, password.Value.Password), cancellationToken)
+            .ConfigureAwait(false);
+
+        return result.IsFailure
+            ? Result.Failure<ResetAdminMemberPasswordResponse>(result.Error)
+            : Result.Success(new ResetAdminMemberPasswordResponse(password.Value.Generated ? password.Value.Password : null));
+    }
+
+    private static Result<PasswordInput> ResolvePassword(
+        string? password,
+        bool generatePassword,
+        bool allowGeneratedPasswordResponse)
+    {
+        if (generatePassword && !string.IsNullOrWhiteSpace(password))
+        {
+            return Result.Failure<PasswordInput>(AdminApiErrors.PasswordSourceConflict);
+        }
+
+        if (generatePassword && !allowGeneratedPasswordResponse)
+        {
+            return Result.Failure<PasswordInput>(AdminApiErrors.GeneratedPasswordResponsesDisabled);
+        }
+
+        if (generatePassword)
+        {
+            return Result.Success(new PasswordInput(AdminPasswordGenerator.Generate(), Generated: true));
+        }
+
+        return string.IsNullOrWhiteSpace(password)
+            ? Result.Failure<PasswordInput>(AdminApiErrors.PasswordRequired)
+            : Result.Success(new PasswordInput(password, Generated: false));
+    }
+
+    private sealed record PasswordInput(string Password, bool Generated);
+    public sealed record CreateAdminMemberRequest(string Username, UsernameType UsernameType, string? Password, bool GeneratePassword);
+    public sealed record AdminCreatedMemberApiResponse(Guid MemberId, string Username, string? GeneratedPassword);
+    public sealed record DisableAdminMemberRequest(string Reason, bool Confirmed);
+    public sealed record ResetAdminMemberPasswordRequest(string? NewPassword, bool GeneratePassword, bool Confirmed);
+    public sealed record ResetAdminMemberPasswordResponse(string? GeneratedPassword);
+    public sealed record RevokeAdminMemberSessionsRequest(bool Confirmed);
+
+    private static readonly ApiErrorStatusCodeMap AdminErrorStatusCodes = ApiErrorStatusCodeMap.Create(
+        new(AuthDomainErrors.MemberNotFound.Code, StatusCodes.Status404NotFound),
+        new(AuthDomainErrors.UsernameAlreadyExists.Code, StatusCodes.Status409Conflict),
+        new(AuthDomainErrors.MemberStatusUnknown.Code, StatusCodes.Status409Conflict),
+        new(AuthDomainErrors.MemberAlreadyDisabled.Code, StatusCodes.Status409Conflict),
+        new(AuthDomainErrors.MemberAlreadyActive.Code, StatusCodes.Status409Conflict));
+
+    private static class AdminApiErrors
+    {
+        public static readonly Error PasswordRequired = new("Admin.PasswordRequired", "A password is required unless password generation is requested.");
+        public static readonly Error PasswordSourceConflict = new("Admin.PasswordSourceConflict", "Provide a password or request password generation, not both.");
+        public static readonly Error GeneratedPasswordResponsesDisabled = new(
+            "Admin.GeneratedPasswordResponsesDisabled",
+            "Generated password responses are disabled for the admin API.");
+    }
+}

@@ -1,0 +1,64 @@
+namespace Shared.Application.Messaging;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+public static class IntegrationEventSubscriptionServiceCollectionExtensions
+{
+    public static IServiceCollection AddIntegrationEventHandler<TEvent, THandler>(
+        this IServiceCollection services,
+        string consumerModule,
+        string subject,
+        string handlerName,
+        bool tenantScoped = true)
+        where TEvent : IIntegrationEvent
+        where THandler : class, IIntegrationEventHandler<TEvent>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        IntegrationEventSubscription subscription = IntegrationEventSubscription.Create<TEvent, THandler>(
+            consumerModule,
+            subject,
+            handlerName,
+            tenantScoped);
+
+        services.TryAddSingleton<IIntegrationEventSubscriptionRegistry, IntegrationEventSubscriptionRegistry>();
+        services.TryAddScoped<THandler>();
+        AddSubscription(services, subscription);
+
+        return services;
+    }
+
+    private static void AddSubscription(IServiceCollection services, IntegrationEventSubscription subscription)
+    {
+        foreach (IntegrationEventSubscription existing in services
+                     .Where(descriptor => descriptor.ServiceType == typeof(IntegrationEventSubscription))
+                     .Select(descriptor => descriptor.ImplementationInstance)
+                     .OfType<IntegrationEventSubscription>())
+        {
+            if (!string.Equals(existing.ConsumerModule, subscription.ConsumerModule, StringComparison.Ordinal) ||
+                !string.Equals(existing.HandlerName, subscription.HandlerName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (IsSameSubscription(existing, subscription))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Integration event handler '{subscription.ConsumerModule}.{subscription.HandlerName}' is already registered with different metadata.");
+        }
+
+        services.AddSingleton(subscription);
+    }
+
+    private static bool IsSameSubscription(
+        IntegrationEventSubscription existing,
+        IntegrationEventSubscription subscription) =>
+        string.Equals(existing.Subject, subscription.Subject, StringComparison.Ordinal) &&
+        existing.EventType == subscription.EventType &&
+        existing.HandlerType == subscription.HandlerType &&
+        existing.TenantScoped == subscription.TenantScoped;
+}

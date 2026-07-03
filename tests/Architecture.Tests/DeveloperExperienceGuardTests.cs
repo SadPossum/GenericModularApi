@@ -1,0 +1,5424 @@
+namespace Architecture.Tests;
+
+using System.Reflection;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using Shared.Administration;
+using Shared.Application.Cqrs;
+using Shared.Application.Observability;
+using Shared.ErrorHandling;
+using Shared.Infrastructure.Messaging;
+using Xunit;
+
+[Trait("Category", "Architecture")]
+public sealed partial class DeveloperExperienceGuardTests
+{
+    [Fact]
+    public void Projects_under_src_and_tests_are_in_solution()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string solution = File.ReadAllText(Path.Combine(repositoryRoot, "GenericModularApi.sln"));
+        string[] projectPaths = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => IsUnder(path, Path.Combine(repositoryRoot, "src")) ||
+                           IsUnder(path, Path.Combine(repositoryRoot, "tests")))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path).Replace('/', '\\'))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        string[] missingProjects = projectPaths
+            .Where(path => !solution.Contains(path, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Assert.Empty(missingProjects);
+    }
+
+    [Fact]
+    public void Project_files_live_in_matching_project_folders()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => IsUnder(path, Path.Combine(repositoryRoot, "src")) ||
+                           IsUnder(path, Path.Combine(repositoryRoot, "tests")))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path =>
+            {
+                string projectName = Path.GetFileNameWithoutExtension(path);
+                string folderName = new DirectoryInfo(Path.GetDirectoryName(path)!).Name;
+                return !string.Equals(projectName, folderName, StringComparison.Ordinal);
+            })
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Project_files_do_not_override_default_namespace_or_assembly_name()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => IsUnder(path, Path.Combine(repositoryRoot, "src")) ||
+                           IsUnder(path, Path.Combine(repositoryRoot, "tests")))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(path =>
+            {
+                XDocument project = XDocument.Load(path);
+                return project
+                    .Descendants()
+                    .Where(element => element.Name.LocalName is "RootNamespace" or "AssemblyName")
+                    .Select(element => $"{Path.GetRelativePath(repositoryRoot, path)}:{element.Name.LocalName}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Operational_docs_scripts_and_requests_are_solution_items()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string solution = File.ReadAllText(Path.Combine(repositoryRoot, "GenericModularApi.sln"));
+        string[] expectedSolutionItems = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "docs"), "*.md", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(Path.Combine(repositoryRoot, "eng"), "*.ps1", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.EnumerateFiles(Path.Combine(repositoryRoot, "requests"), "*.*", SearchOption.TopDirectoryOnly))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path).Replace('/', '\\'))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] offenders = expectedSolutionItems
+            .Where(path => !solution.Contains($"{path} = {path}", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Repository_root_policy_files_are_solution_items()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string solution = File.ReadAllText(Path.Combine(repositoryRoot, "GenericModularApi.sln"));
+        string[] expectedSolutionItems =
+        [
+            @".config\dotnet-tools.json",
+            ".editorconfig",
+            ".gitattributes",
+            ".gitignore",
+            "Directory.Build.props",
+            "Directory.Packages.props",
+            "global.json",
+            "LICENSE",
+            "nuget.config",
+            "README.md"
+        ];
+        string[] offenders = expectedSolutionItems
+            .Where(path => !solution.Contains($"{path} = {path}", StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Repository_ignore_rules_keep_local_workspace_state_out_of_source()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string gitignore = File.ReadAllText(Path.Combine(repositoryRoot, ".gitignore"));
+        string[] requiredTokens =
+        [
+            ".agents/",
+            ".codex/",
+            ".vs/",
+            "[Tt]est[Rr]esult*/",
+            "[Bb]in/",
+            "[Oo]bj/",
+            "artifacts/"
+        ];
+        string[] forbiddenTokens =
+        [
+            ".config/",
+            "dotnet-tools.json"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !gitignore.Contains(token, StringComparison.Ordinal))
+            .Select(token => $".gitignore missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => gitignore.Contains(token, StringComparison.OrdinalIgnoreCase))
+                .Select(token => $".gitignore should not ignore tracked tool manifest token {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Documentation_templates_do_not_ship_unresolved_placeholder_language()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string templatesRoot = Path.Combine(repositoryRoot, "docs", "templates");
+        string[] forbiddenTokens =
+        [
+            "TODO",
+            "FIXME",
+            "TBD",
+            "Unknown until implemented"
+        ];
+        string[] offenders = Directory
+            .EnumerateFiles(templatesRoot, "*.md", SearchOption.AllDirectories)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.OrdinalIgnoreCase))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Markdown_local_links_resolve_to_repository_files()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] markdownFiles = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "docs"), "*.md", SearchOption.AllDirectories)
+            .Append(Path.Combine(repositoryRoot, "README.md"))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] offenders = markdownFiles
+            .SelectMany(path => FindBrokenMarkdownLocalLinks(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Documentation_index_links_every_docs_page()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string docsRoot = Path.Combine(repositoryRoot, "docs");
+        string indexPath = Path.Combine(docsRoot, "README.md");
+        string indexSource = File.ReadAllText(indexPath);
+        string[] expectedDocs = Directory
+            .EnumerateFiles(docsRoot, "*.md", SearchOption.AllDirectories)
+            .Where(path => !string.Equals(path, indexPath, StringComparison.OrdinalIgnoreCase))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => Path.GetRelativePath(docsRoot, path).Replace('\\', '/'))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] indexedDocs = MarkdownLinkPattern()
+            .Matches(indexSource)
+            .Select(match => match.Groups["target"].Value.Trim())
+            .Where(target => !IsExternalOrAnchorMarkdownTarget(target))
+            .Select(target => target.Split('#')[0].Trim())
+            .Where(target => target.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+            .Select(target => Path.GetFullPath(Path.Combine(docsRoot, target.Replace('/', Path.DirectorySeparatorChar))))
+            .Where(path => IsUnder(path, docsRoot))
+            .Select(path => Path.GetRelativePath(docsRoot, path).Replace('\\', '/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] missing = expectedDocs
+            .Except(indexedDocs, StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void Local_request_hosts_and_docs_match_launch_settings()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string apiLaunchSettings = Path.Combine(repositoryRoot, "src", "Host.Api", "Properties", "launchSettings.json");
+        string adminApiLaunchSettings = Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Properties", "launchSettings.json");
+
+        string apiHttpsUrl = GetLaunchProfileUrls(apiLaunchSettings, "https")
+            .Single(url => url.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
+        string apiHttpUrl = GetLaunchProfileUrls(apiLaunchSettings, "https")
+            .Single(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
+        string adminApiHttpsUrl = GetLaunchProfileUrls(adminApiLaunchSettings, "Host.AdminApi")
+            .Single(url => url.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
+        string adminApiHttpUrl = GetLaunchProfileUrls(adminApiLaunchSettings, "Host.AdminApi")
+            .Single(url => url.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
+
+        string authRequests = File.ReadAllText(Path.Combine(repositoryRoot, "requests", "auth.http"));
+        string adminApiRequests = File.ReadAllText(Path.Combine(repositoryRoot, "requests", "admin-api.http"));
+        string setupDocs = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "getting-started", "setup.md"));
+        string adminApiLaunchJson = File.ReadAllText(adminApiLaunchSettings);
+
+        Assert.Contains($"@host = {apiHttpsUrl}", authRequests, StringComparison.Ordinal);
+        Assert.Contains($"@host = {adminApiHttpsUrl}", adminApiRequests, StringComparison.Ordinal);
+        Assert.Contains($"API HTTPS: `{apiHttpsUrl}`", setupDocs, StringComparison.Ordinal);
+        Assert.Contains($"API HTTP: `{apiHttpUrl}`", setupDocs, StringComparison.Ordinal);
+        Assert.Contains($"Admin API HTTPS: `{adminApiHttpsUrl}`", setupDocs, StringComparison.Ordinal);
+        Assert.Contains($"Admin API HTTP: `{adminApiHttpUrl}`", setupDocs, StringComparison.Ordinal);
+        Assert.Contains("\"launchUrl\": \"swagger\"", adminApiLaunchJson, StringComparison.Ordinal);
+        Assert.Contains("\"dotnetRunMessages\": true", adminApiLaunchJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Local_run_scripts_select_development_configuration()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string runApi = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-api.ps1"));
+        string runAdminApi = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-admin-api.ps1"));
+        string runAdmin = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-admin.ps1"));
+        string appHost = File.ReadAllText(Path.Combine(repositoryRoot, "src", "AppHost", "Program.cs"));
+
+        Assert.Contains("'--launch-profile'", runApi, StringComparison.Ordinal);
+        Assert.Contains("'--launch-profile'", runAdminApi, StringComparison.Ordinal);
+        Assert.Contains("'Host.AdminApi'", runAdminApi, StringComparison.Ordinal);
+        Assert.Contains("DOTNET_ENVIRONMENT", runAdmin, StringComparison.Ordinal);
+        Assert.Contains("'Development'", runAdmin, StringComparison.Ordinal);
+        Assert.Contains(".WithEnvironment(\"ASPNETCORE_ENVIRONMENT\", \"Development\")", appHost, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Admin_api_requests_match_default_generated_password_policy()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string adminApiAppsettings = Path.Combine(repositoryRoot, "src", "Host.AdminApi", "appsettings.json");
+        string adminApiRequests = File.ReadAllText(Path.Combine(repositoryRoot, "requests", "admin-api.http"));
+
+        Assert.True(HasRequiredBoolean(
+            adminApiAppsettings,
+            ["Administration", "Api", "AllowGeneratedPasswordResponses"],
+            expected: false));
+        Assert.DoesNotContain("\"generatePassword\": true", adminApiRequests, StringComparison.Ordinal);
+        Assert.Contains("\"generatePassword\": false", adminApiRequests, StringComparison.Ordinal);
+        Assert.Contains("\"password\": \"{{adminPassword}}\"", adminApiRequests, StringComparison.Ordinal);
+        Assert.Contains("\"newPassword\": \"{{newAdminPassword}}\"", adminApiRequests, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Request_samples_do_not_commit_concrete_tokens_or_generated_password_flows()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] requestFiles = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "requests"), "*.http")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] offenders = requestFiles
+            .SelectMany(path =>
+            {
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                string source = File.ReadAllText(path);
+                List<string> fileOffenders = [];
+
+                if (source.Contains("Bearer eyJ", StringComparison.Ordinal))
+                {
+                    fileOffenders.Add($"{relativePath} contains a concrete JWT bearer token");
+                }
+
+                if (ConcreteRequestVariablePattern().Matches(source)
+                    .Any(match => IsSensitiveRequestVariable(match.Groups["name"].Value)))
+                {
+                    fileOffenders.Add($"{relativePath} assigns a concrete access or refresh token variable");
+                }
+
+                if (source.Contains("\"generatePassword\": true", StringComparison.Ordinal))
+                {
+                    fileOffenders.Add($"{relativePath} uses generated admin password responses");
+                }
+
+                return fileOffenders;
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Http_hosts_use_shared_openapi_adapter()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostPrograms =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Program.cs")
+        ];
+        string[] hostProjects =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Host.Api.csproj"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Host.AdminApi.csproj")
+        ];
+        string openApiProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api.OpenApi",
+            "Shared.Api.OpenApi.csproj"));
+        string openApiSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api.OpenApi",
+            "DependencyInjection.cs"));
+
+        Assert.Contains("Swashbuckle.AspNetCore", openApiProject, StringComparison.Ordinal);
+        Assert.Contains("AddEndpointsApiExplorer", openApiSource, StringComparison.Ordinal);
+        Assert.Contains("AddSwaggerGen", openApiSource, StringComparison.Ordinal);
+        Assert.Contains("UseSwagger()", openApiSource, StringComparison.Ordinal);
+        Assert.Contains("UseSwaggerUI()", openApiSource, StringComparison.Ordinal);
+
+        foreach (string hostProgram in hostPrograms)
+        {
+            string source = File.ReadAllText(hostProgram);
+
+            Assert.Contains("AddGmaOpenApi()", source, StringComparison.Ordinal);
+            Assert.Contains("UseGmaOpenApi()", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("AddEndpointsApiExplorer", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("AddSwaggerGen", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("UseSwagger", source, StringComparison.Ordinal);
+        }
+
+        foreach (string hostProject in hostProjects)
+        {
+            Assert.DoesNotContain("Swashbuckle.AspNetCore", File.ReadAllText(hostProject), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Http_hosts_do_not_register_unconfigured_cors()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostPrograms =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Program.cs")
+        ];
+
+        foreach (string hostProgram in hostPrograms)
+        {
+            string source = File.ReadAllText(hostProgram);
+
+            Assert.DoesNotContain("AddCors(", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("UseCors(", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Http_hosts_map_health_through_service_defaults()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostPrograms =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Program.cs")
+        ];
+        string serviceDefaults = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "ServiceDefaults",
+            "Extensions.cs"));
+
+        Assert.Contains("MapHealthChecks(\"/health\")", serviceDefaults, StringComparison.Ordinal);
+        Assert.Contains("MapHealthChecks(\"/alive\")", serviceDefaults, StringComparison.Ordinal);
+
+        foreach (string hostProgram in hostPrograms)
+        {
+            string source = File.ReadAllText(hostProgram);
+
+            Assert.Contains("MapDefaultEndpoints()", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("MapHealthChecks(", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Http_hosts_use_shared_api_security_defaults()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostPrograms =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Program.cs")
+        ];
+        string sharedSecurity = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api",
+            "Security",
+            "ApiSecurityServiceCollectionExtensions.cs"));
+
+        Assert.Contains("AddAuthentication()", sharedSecurity, StringComparison.Ordinal);
+        Assert.Contains("AddAuthorization()", sharedSecurity, StringComparison.Ordinal);
+
+        foreach (string hostProgram in hostPrograms)
+        {
+            string source = File.ReadAllText(hostProgram);
+
+            Assert.Contains("AddGmaApiSecurityDefaults()", source, StringComparison.Ordinal);
+            Assert.Contains("UseAuthentication()", source, StringComparison.Ordinal);
+            Assert.Contains("UseAuthorization()", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("AddAuthentication(", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("AddAuthorization(", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Production_sources_use_shared_claim_name_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string claimNamesPath = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Application",
+            "Security",
+            "GmaClaimNames.cs");
+        string[] rawClaimNameLiterals =
+        [
+            "\"tenant_id\"",
+            "\"sid\"",
+            "\"sub\""
+        ];
+        string[] offenders = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path => !string.Equals(path, claimNamesPath, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return rawClaimNameLiterals
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Auth_jwt_bearer_adapter_is_explicitly_http_only()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string authApiModule = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Api",
+            "AuthModule.cs"));
+        string authAdminApiModule = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.AdminApi",
+            "AuthAdminApiModule.cs"));
+        string authAdminCliModule = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Admin",
+            "AuthAdminModule.cs"));
+        string authInfrastructureProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "Auth.Infrastructure.csproj"));
+        string authInfrastructureSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "DependencyInjection.cs"));
+        string authJwtBearerProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure.JwtBearer",
+            "Auth.Infrastructure.JwtBearer.csproj"));
+        string authAdminCliProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Admin",
+            "Auth.Admin.csproj"));
+        string authApiProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Api",
+            "Auth.Api.csproj"));
+        string authAdminApiProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.AdminApi",
+            "Auth.AdminApi.csproj"));
+
+        Assert.Contains("AddAuthInfrastructure(builder.Configuration)", authApiModule, StringComparison.Ordinal);
+        Assert.Contains("AddAuthJwtBearerAuthentication()", authApiModule, StringComparison.Ordinal);
+        Assert.Contains("AddAuthInfrastructure(builder.Configuration)", authAdminApiModule, StringComparison.Ordinal);
+        Assert.Contains("AddAuthJwtBearerAuthentication()", authAdminApiModule, StringComparison.Ordinal);
+        Assert.Contains("AddAuthInfrastructure(builder.Configuration)", authAdminCliModule, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddAuthJwtBearerAuthentication()", authAdminCliModule, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.AspNetCore.Authentication.JwtBearer", authInfrastructureProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.AspNetCore.App", authInfrastructureProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.Extensions.Hosting", authInfrastructureProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("IHostApplicationBuilder", authInfrastructureSource, StringComparison.Ordinal);
+        Assert.Contains("IServiceCollection AddAuthInfrastructure", authInfrastructureSource, StringComparison.Ordinal);
+        Assert.Contains("System.IdentityModel.Tokens.Jwt", authInfrastructureProject, StringComparison.Ordinal);
+        Assert.Contains("Microsoft.Extensions.Identity.Core", authInfrastructureProject, StringComparison.Ordinal);
+        Assert.Contains("Microsoft.AspNetCore.Authentication.JwtBearer", authJwtBearerProject, StringComparison.Ordinal);
+        Assert.Contains("Auth.Infrastructure.csproj", authJwtBearerProject, StringComparison.Ordinal);
+        Assert.Contains("Auth.Infrastructure.JwtBearer.csproj", authApiProject, StringComparison.Ordinal);
+        Assert.Contains("Auth.Infrastructure.JwtBearer.csproj", authAdminApiProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("Auth.Infrastructure.JwtBearer.csproj", authAdminCliProject, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Http_hosts_use_shared_request_logging_enrichment()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostPrograms =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Program.cs")
+        ];
+        string[] hostProjects =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "Host.Api.csproj"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "Host.AdminApi.csproj")
+        ];
+        string sharedApiProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api",
+            "Shared.Api.csproj"));
+        string serilogHostAdapterProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Logging.Serilog",
+            "Shared.Logging.Serilog.csproj"));
+        string serilogAdapterProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api.Serilog",
+            "Shared.Api.Serilog.csproj"));
+        string sharedExtension = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api.Serilog",
+            "RequestLoggingApplicationBuilderExtensions.cs"));
+
+        Assert.DoesNotContain("Serilog", sharedApiProject, StringComparison.Ordinal);
+        Assert.Contains("Serilog.AspNetCore", serilogHostAdapterProject, StringComparison.Ordinal);
+        Assert.Contains("Serilog.Settings.Configuration", serilogHostAdapterProject, StringComparison.Ordinal);
+        Assert.Contains("Serilog.Sinks.Console", serilogHostAdapterProject, StringComparison.Ordinal);
+        Assert.Contains("Serilog.AspNetCore", serilogAdapterProject, StringComparison.Ordinal);
+        Assert.Contains("UseSerilogRequestLogging", sharedExtension, StringComparison.Ordinal);
+        Assert.Contains("EnrichDiagnosticContext", sharedExtension, StringComparison.Ordinal);
+
+        foreach (string hostProgram in hostPrograms)
+        {
+            string source = File.ReadAllText(hostProgram);
+
+            Assert.Contains("UseConfiguredSerilog()", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("UseSerilog(", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("ReadFrom.Configuration", source, StringComparison.Ordinal);
+            Assert.Contains("UseGmaSerilogRequestLogging()", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("UseSerilogRequestLogging", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("EnrichDiagnosticContext", source, StringComparison.Ordinal);
+        }
+
+        foreach (string hostProject in hostProjects)
+        {
+            string project = File.ReadAllText(hostProject);
+
+            Assert.DoesNotContain("Serilog.AspNetCore", project, StringComparison.Ordinal);
+            Assert.DoesNotContain("Serilog.Settings.Configuration", project, StringComparison.Ordinal);
+            Assert.DoesNotContain("Serilog.Sinks.Console", project, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Production_reflection_surface_is_documented_and_confined()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string srcRoot = Path.Combine(repositoryRoot, "src");
+        string notes = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "architecture", "audit-hardening-notes.md"));
+        string[] requiredDocTokens =
+        [
+            "RequestDispatcher",
+            "DomainEventDispatcher",
+            "IntegrationEventHandlerInvoker",
+            "ApplyConfigurationsFromAssembly",
+            "host assembly marker classes",
+            "observability module-name inference",
+            "Do not use reflection or attributes to auto-register modules"
+        ];
+        HashSet<string> allowedRelativePaths = new(StringComparer.OrdinalIgnoreCase)
+        {
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Cqrs", "RequestDispatcher.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Events", "DomainEventDispatcher.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Messaging", "IntegrationEventHandlerInvoker.cs")),
+            NormalizePath(Path.Combine("src", "Host.Api", "ApiAssemblyReference.cs")),
+            NormalizePath(Path.Combine("src", "Host.AdminApi", "AdminApiAssemblyReference.cs")),
+            NormalizePath(Path.Combine("src", "Host.AdminCli", "AdminCliAssemblyReference.cs")),
+            NormalizePath(Path.Combine("src", "Modules", "Administration", "Administration.Persistence", "AdminDbContext.cs")),
+            NormalizePath(Path.Combine("src", "Modules", "Auth", "Auth.Persistence", "AuthDbContext.cs")),
+            NormalizePath(Path.Combine("src", "Modules", "Catalog", "Catalog.Persistence", "CatalogDbContext.cs")),
+            NormalizePath(Path.Combine("src", "Modules", "Ordering", "Ordering.Persistence", "OrderingDbContext.cs"))
+        };
+        string[] reflectionTokens =
+        [
+            "using System.Reflection",
+            "System.Linq.Expressions",
+            "MakeGenericMethod",
+            "MakeGenericType",
+            "Activator.CreateInstance",
+            ".GetTypes(",
+            "GetCustomAttribute",
+            "GetCustomAttributes",
+            "ApplyConfigurationsFromAssembly"
+        ];
+
+        string[] documentationOffenders = requiredDocTokens
+            .Where(token => !notes.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"audit-hardening-notes.md missing {token}")
+            .ToArray();
+        string[] sourceOffenders = Directory
+            .EnumerateFiles(srcRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => new
+            {
+                Path = path,
+                RelativePath = NormalizePath(Path.GetRelativePath(repositoryRoot, path)),
+                Source = File.ReadAllText(path)
+            })
+            .Where(item => reflectionTokens.Any(token => item.Source.Contains(token, StringComparison.Ordinal)))
+            .Where(item => !allowedRelativePaths.Contains(item.RelativePath))
+            .Select(item => item.RelativePath)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(documentationOffenders.Concat(sourceOffenders));
+    }
+
+    [Fact]
+    public void Repository_build_policy_enforces_warnings_and_nuget_audit()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        XDocument props = XDocument.Load(Path.Combine(repositoryRoot, "Directory.Build.props"));
+        string property(string name) =>
+            props.Descendants(name).SingleOrDefault()?.Value.Trim() ?? string.Empty;
+        string warningsAsErrors = property("WarningsAsErrors");
+
+        Assert.Equal("true", property("TreatWarningsAsErrors"));
+        Assert.Equal("true", property("NuGetAudit"));
+        Assert.Equal("all", property("NuGetAuditMode"));
+        Assert.Equal("low", property("NuGetAuditLevel"));
+
+        foreach (string warningCode in new[] { "NU1901", "NU1902", "NU1903", "NU1904" })
+        {
+            Assert.Contains(warningCode, warningsAsErrors, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Repository_sdk_policy_targets_dotnet_10_consistently()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        using JsonDocument globalJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(repositoryRoot, "global.json")));
+        XDocument props = XDocument.Load(Path.Combine(repositoryRoot, "Directory.Build.props"));
+        string setupDocs = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "getting-started", "setup.md"));
+        string readme = File.ReadAllText(Path.Combine(repositoryRoot, "README.md"));
+        string commonScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "common.ps1"));
+        JsonElement sdk = globalJson.RootElement.GetProperty("sdk");
+        string sdkVersion = sdk.GetProperty("version").GetString() ?? string.Empty;
+
+        Assert.StartsWith("10.", sdkVersion, StringComparison.Ordinal);
+        Assert.Equal("latestFeature", sdk.GetProperty("rollForward").GetString());
+        Assert.Equal("net10.0", props.Descendants("TargetFramework").Single().Value.Trim());
+        Assert.Contains($"SDK `{sdkVersion}`", setupDocs, StringComparison.Ordinal);
+        Assert.Contains("GenericModularApi is a .NET 10 modular monolith skeleton", readme, StringComparison.Ordinal);
+        Assert.Contains("$version -match '^10\\.'", commonScript, StringComparison.Ordinal);
+        Assert.Contains("Could not resolve a .NET 10 SDK", commonScript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Package_versions_are_centralized_unique_and_stable()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] inlineVersionOffenders = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+
+                return project
+                    .Descendants("PackageReference")
+                    .Where(reference =>
+                        reference.Attribute("Version") is not null ||
+                        reference.Elements("Version").Any())
+                    .Select(reference =>
+                        $"{Path.GetRelativePath(repositoryRoot, projectPath)}:{reference.Attribute("Include")?.Value ?? "PackageReference"}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        XDocument packages = XDocument.Load(Path.Combine(repositoryRoot, "Directory.Packages.props"));
+        string[] duplicatePackageVersions = packages
+            .Descendants("PackageVersion")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+            .GroupBy(packageId => packageId!, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] prereleasePackageVersions = packages
+            .Descendants("PackageVersion")
+            .Where(element => element.Attribute("Version")?.Value.Contains('-', StringComparison.Ordinal) == true)
+            .Select(element => $"{element.Attribute("Include")?.Value}:{element.Attribute("Version")?.Value}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        HashSet<string> referencedPackages = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                return project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Select(packageId => packageId!);
+            })
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string[] unusedCentralPackageVersions = packages
+            .Descendants("PackageVersion")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+            .Where(packageId => !referencedPackages.Contains(packageId!))
+            .Select(packageId => packageId!)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(inlineVersionOffenders
+            .Concat(duplicatePackageVersions.Select(packageId => $"Duplicate central package version: {packageId}"))
+            .Concat(prereleasePackageVersions.Select(packageId => $"Prerelease central package version: {packageId}"))
+            .Concat(unusedCentralPackageVersions.Select(packageId => $"Unused central package version: {packageId}"))
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Dotnet_ef_tool_manifest_matches_entity_framework_design_package()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        using JsonDocument tools = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            ".config",
+            "dotnet-tools.json")));
+        XDocument packages = XDocument.Load(Path.Combine(repositoryRoot, "Directory.Packages.props"));
+        string efDesignVersion = packages
+            .Descendants("PackageVersion")
+            .Single(element => string.Equals(
+                element.Attribute("Include")?.Value,
+                "Microsoft.EntityFrameworkCore.Design",
+                StringComparison.Ordinal))
+            .Attribute("Version")!
+            .Value;
+        JsonElement root = tools.RootElement;
+        JsonElement dotnetEf = root
+            .GetProperty("tools")
+            .GetProperty("dotnet-ef");
+        string restoreScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "restore.ps1"));
+        string addMigrationScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "add-migration.ps1"));
+        string checkMigrationsScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "check-migrations.ps1"));
+        string persistenceDocs = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "docs",
+            "architecture",
+            "persistence-and-tenancy.md"));
+
+        Assert.True(root.GetProperty("isRoot").GetBoolean());
+        Assert.Equal(efDesignVersion, dotnetEf.GetProperty("version").GetString());
+        Assert.Contains(dotnetEf.GetProperty("commands").EnumerateArray(), command =>
+            string.Equals(command.GetString(), "dotnet-ef", StringComparison.Ordinal));
+        Assert.Contains("'tool', 'restore'", restoreScript, StringComparison.Ordinal);
+        Assert.Contains("'tool', 'restore'", addMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("'tool', 'restore'", checkMigrationsScript, StringComparison.Ordinal);
+        Assert.Contains("'tool',", checkMigrationsScript, StringComparison.Ordinal);
+        Assert.Contains("'run',", checkMigrationsScript, StringComparison.Ordinal);
+        Assert.Contains("'dotnet-ef',", checkMigrationsScript, StringComparison.Ordinal);
+        Assert.Contains("pinned local `dotnet-ef` tool", persistenceDocs, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Test_projects_are_discoverable_non_packable_and_keep_runner_private()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string[] offenders = Directory
+            .EnumerateFiles(testsRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string? property(string propertyName) =>
+                    project.Descendants(propertyName).SingleOrDefault()?.Value.Trim();
+                bool hasPackage(string packageId) =>
+                    project
+                        .Descendants("PackageReference")
+                        .Any(reference => string.Equals(reference.Attribute("Include")?.Value, packageId, StringComparison.Ordinal));
+                XElement? runnerReference = project
+                    .Descendants("PackageReference")
+                    .SingleOrDefault(reference => string.Equals(
+                        reference.Attribute("Include")?.Value,
+                        "xunit.runner.visualstudio",
+                        StringComparison.Ordinal));
+                List<string> failures = [];
+
+                if (!string.Equals(property("IsTestProject"), "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    failures.Add("missing IsTestProject=true");
+                }
+
+                if (!string.Equals(property("IsPackable"), "false", StringComparison.OrdinalIgnoreCase))
+                {
+                    failures.Add("missing IsPackable=false");
+                }
+
+                if (!hasPackage("Microsoft.NET.Test.Sdk"))
+                {
+                    failures.Add("missing Microsoft.NET.Test.Sdk");
+                }
+
+                if (!hasPackage("xunit"))
+                {
+                    failures.Add("missing xunit");
+                }
+
+                if (runnerReference is null)
+                {
+                    failures.Add("missing xunit.runner.visualstudio");
+                }
+                else if (!string.Equals(
+                             runnerReference.Element("PrivateAssets")?.Value.Trim(),
+                             "all",
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    failures.Add("xunit.runner.visualstudio missing PrivateAssets=all");
+                }
+
+                return failures.Select(failure => $"{relativePath}:{failure}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Production_sources_do_not_disable_collection_initializer_style()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src"))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Where(path => File.ReadAllText(path).Contains("#pragma warning disable IDE0028", StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Solution_folders_are_unique_per_parent_folder()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string solution = File.ReadAllText(Path.Combine(repositoryRoot, "GenericModularApi.sln"));
+        Dictionary<string, string> parents = NestedProjectPattern()
+            .Matches(solution)
+            .ToDictionary(
+                match => match.Groups["child"].Value,
+                match => match.Groups["parent"].Value,
+                StringComparer.OrdinalIgnoreCase);
+
+        string[] duplicateFolders = SolutionFolderPattern()
+            .Matches(solution)
+            .Select(match =>
+            {
+                string guid = match.Groups["guid"].Value;
+                parents.TryGetValue(guid, out string? parent);
+
+                return new SolutionFolder(match.Groups["name"].Value, parent ?? string.Empty);
+            })
+            .GroupBy(folder => $"{folder.ParentGuid}:{folder.Name}", StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(duplicateFolders);
+    }
+
+    [Fact]
+    public void Test_projects_are_nested_under_matching_solution_folders()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string solution = File.ReadAllText(Path.Combine(repositoryRoot, "GenericModularApi.sln"));
+        Dictionary<string, string> parents = NestedProjectPattern()
+            .Matches(solution)
+            .ToDictionary(
+                match => match.Groups["child"].Value,
+                match => match.Groups["parent"].Value,
+                StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> folderNames = SolutionFolderPattern()
+            .Matches(solution)
+            .ToDictionary(
+                match => match.Groups["guid"].Value,
+                match => match.Groups["name"].Value,
+                StringComparer.OrdinalIgnoreCase);
+        string testsFolderGuid = folderNames
+            .Where(item => string.Equals(item.Value, "tests", StringComparison.Ordinal) &&
+                           !parents.ContainsKey(item.Key))
+            .Select(item => item.Key)
+            .Single();
+        string[] offenders = SolutionProjectPattern()
+            .Matches(solution)
+            .Select(match => new SolutionProject(
+                match.Groups["name"].Value,
+                match.Groups["path"].Value,
+                match.Groups["guid"].Value))
+            .Where(project => project.Path.StartsWith(@"tests\", StringComparison.OrdinalIgnoreCase) &&
+                              project.Path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            .Select(project =>
+            {
+                string expectedFolderName = ProjectNameFromSolutionPath(project.Path)
+                    .Replace(".Tests", string.Empty, StringComparison.Ordinal);
+
+                if (!parents.TryGetValue(project.Guid, out string? parentGuid) ||
+                    !folderNames.TryGetValue(parentGuid, out string? parentName))
+                {
+                    return $"{project.Path} is not nested under a test solution folder.";
+                }
+
+                parents.TryGetValue(parentGuid, out string? grandParentGuid);
+                return string.Equals(parentName, expectedFolderName, StringComparison.Ordinal) &&
+                       string.Equals(grandParentGuid, testsFolderGuid, StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : $"{project.Path} is nested under tests/{parentName}, expected tests/{expectedFolderName}.";
+            })
+            .Where(offender => offender is not null)
+            .Select(offender => offender!)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Architecture_catalog_lists_all_non_migration_module_projects()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] moduleProjects = Directory
+            .EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Where(projectName => !IsProviderMigrationProject(projectName))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        string[] catalogProjects = ArchitectureCatalog.ModuleProjects
+            .Select(project => project.ProjectName)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(moduleProjects, catalogProjects);
+    }
+
+    [Fact]
+    public void Namespaces_start_with_owning_project_name()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] misalignedNamespaces = EnumerateSourceFiles(repositoryRoot)
+            .Where(path => !string.Equals(Path.GetFileName(path), "Program.cs", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(path => GetMisalignedNamespaces(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(misalignedNamespaces);
+    }
+
+    [Fact]
+    public void Test_classes_with_test_methods_use_tests_suffix()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string[] offenders = EnumerateSourceFiles(testsRoot)
+            .Where(ContainsTestAttribute)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                return PublicOrInternalClassPattern()
+                    .Matches(source)
+                    .Where(match => ClassContainsTestAttribute(source, match.Index))
+                    .Select(match => new
+                    {
+                        Path = path,
+                        ClassName = match.Groups["name"].Value,
+                    });
+            })
+            .Where(item => !item.ClassName.EndsWith("Tests", StringComparison.Ordinal))
+            .Select(item => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{item.ClassName}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Test_sources_declare_expected_category_traits()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string[] offenders = EnumerateSourceFiles(testsRoot)
+            .Where(ContainsTestAttribute)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                string expectedCategory = GetExpectedTestCategory(path);
+                List<string> failures = [];
+
+                if (!HasCategoryTrait(source, expectedCategory))
+                {
+                    failures.Add($"missing Category={expectedCategory}");
+                }
+
+                if (DockerFactAttributeLinePattern().IsMatch(source) &&
+                    !HasCategoryTrait(source, "Docker"))
+                {
+                    failures.Add("missing Category=Docker");
+                }
+
+                return failures.Select(failure => $"{relativePath}:{failure}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Unit_tests_that_redirect_console_use_console_test_collection()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string collectionDefinition = File.ReadAllText(Path.Combine(
+            testsRoot,
+            "Shared.Tests",
+            "ConsoleTestIsolation.cs"));
+        string[] consoleRedirectTokens =
+        [
+            "Console.SetOut(",
+            "Console.SetError(",
+            "Console.SetIn("
+        ];
+        string[] offenders = EnumerateSourceFiles(testsRoot)
+            .Where(path => !IsUnder(path, Path.Combine(testsRoot, "Integration.Tests")))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return consoleRedirectTokens.Any(token => source.Contains(token, StringComparison.Ordinal)) &&
+                       !source.Contains("[Collection(ConsoleTestIsolation.Name)]", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} redirects Console without ConsoleTestIsolation.")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Contains("[CollectionDefinition(Name)]", collectionDefinition, StringComparison.Ordinal);
+        Assert.Contains("public const string Name = \"Console\"", collectionDefinition, StringComparison.Ordinal);
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Application_handler_files_contain_one_handler_class()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(IsApplicationHandlerSource)
+            .Select(path => new
+            {
+                Path = path,
+                HandlerClassCount = PublicOrInternalClassPattern().Count(File.ReadAllText(path)),
+            })
+            .Where(item => item.HandlerClassCount > 1)
+            .Select(item => $"{Path.GetRelativePath(repositoryRoot, item.Path)} contains {item.HandlerClassCount} handler classes")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Contract_files_contain_one_public_type()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(IsContractSource)
+            .Select(path => new
+            {
+                Path = path,
+                PublicTypeCount = PublicContractTypePattern().Count(File.ReadAllText(path)),
+            })
+            .Where(item => item.PublicTypeCount > 1)
+            .Select(item => $"{Path.GetRelativePath(repositoryRoot, item.Path)} contains {item.PublicTypeCount} public contract types")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_application_dependency_injection_uses_repeat_safe_handler_registration()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] handlerRegistrationTokens =
+        [
+            "ICommandHandler<",
+            "IQueryHandler<",
+            "ICommandValidator<",
+            "IQueryValidator<",
+            "IDomainEventHandler<"
+        ];
+        string[] unsafeRegistrationPrefixes =
+        [
+            ".AddScoped<",
+            ".AddTransient<",
+            ".AddSingleton<",
+            ".TryAddScoped<",
+            ".TryAddTransient<",
+            ".TryAddSingleton<"
+        ];
+
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "DependencyInjection.cs", SearchOption.AllDirectories)
+            .Where(path => path.Contains(".Application", StringComparison.Ordinal))
+            .Select(path => new
+            {
+                Path = path,
+                Source = File.ReadAllText(path),
+            })
+            .SelectMany(item =>
+                handlerRegistrationTokens
+                    .Where(token => item.Source.Contains(token, StringComparison.Ordinal))
+                    .SelectMany(token => unsafeRegistrationPrefixes
+                        .Where(prefix => item.Source.Contains(prefix + token, StringComparison.Ordinal))
+                        .Select(prefix => $"{Path.GetRelativePath(repositoryRoot, item.Path)} uses {prefix}{token}; use services.TryAddEnumerable with ServiceDescriptor instead.")))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Public_boundary_enums_define_unknown_zero_except_documented_operational_state()
+    {
+        Type[] operationalZeroDefaultExceptions =
+        [
+            typeof(InboxMessageStatus)
+        ];
+        Assembly[] boundaryAssemblies = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind is ModuleProjectKind.Contracts or ModuleProjectKind.Domain)
+            .Select(project => project.Assembly)
+            .Concat(
+            [
+                typeof(AdminOperationExecutionStatus).Assembly,
+                typeof(Shared.Application.Caching.CacheScope).Assembly,
+                typeof(InboxMessageStatus).Assembly
+            ])
+            .Distinct()
+            .ToArray();
+
+        string[] offenders = boundaryAssemblies
+            .SelectMany(assembly => assembly
+                .GetTypes()
+                .Where(type => type is { IsEnum: true, IsPublic: true })
+                .Except(operationalZeroDefaultExceptions)
+                .Where(type => !string.Equals(Enum.GetName(type, 0), "Unknown", StringComparison.Ordinal))
+                .Select(type => type.FullName ?? type.Name))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+        Assert.Equal(0, (int)InboxMessageStatus.Pending);
+        Assert.DoesNotContain("Unknown", Enum.GetNames<InboxMessageStatus>());
+    }
+
+    [Fact]
+    public void Enum_guidelines_document_unknown_and_code_list_policy()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string developmentGuidelines = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "guidelines", "development-guidelines.md"));
+        string namingConventions = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "guidelines", "naming-conventions.md"));
+        string moduleTemplate = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "templates", "module.md"));
+        string[] requiredDevelopmentTokens =
+        [
+            "Do not map unknown enum values to a valid domain value by default.",
+            "smart enum",
+            "value-object/code-list",
+            "one small shared pattern",
+            "Provider/configuration enums should also reserve `Unknown = 0`"
+        ];
+        string[] requiredNamingTokens =
+        [
+            "Public contract enums, public domain-state enums, and provider/configuration enums",
+            "Unknown = 0",
+            "mapping code must not collapse unknown values into meaningful business states"
+        ];
+        string[] requiredTemplateTokens =
+        [
+            "persisted enum numeric values are stable",
+            "public contract/domain-state enums use `Unknown = 0`",
+            "consumed producer enum/status values are validated before they affect local decisions"
+        ];
+
+        string[] offenders = requiredDevelopmentTokens
+            .Where(token => !developmentGuidelines.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"docs/guidelines/development-guidelines.md missing {token}")
+            .Concat(requiredNamingTokens
+                .Where(token => !namingConventions.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"docs/guidelines/naming-conventions.md missing {token}"))
+            .Concat(requiredTemplateTokens
+                .Where(token => !moduleTemplate.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"docs/templates/module.md missing {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_sources_do_not_directly_cast_to_public_module_enums()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        Type[] publicModuleEnums = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind is ModuleProjectKind.Contracts or ModuleProjectKind.Domain)
+            .SelectMany(project => project.Assembly.GetTypes())
+            .Where(type => type is { IsEnum: true, IsPublic: true })
+            .OrderBy(type => type.FullName, StringComparer.Ordinal)
+            .ToArray();
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return publicModuleEnums
+                    .SelectMany(enumType =>
+                    {
+                        string[] castTokens =
+                        [
+                            $"({enumType.Name})",
+                            $"({enumType.FullName})"
+                        ];
+
+                        return castTokens
+                            .Where(token => source.Contains(token, StringComparison.Ordinal))
+                            .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} casts with {token}");
+                    });
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Static_error_contracts_are_well_formed()
+    {
+        Assembly[] assemblies = ArchitectureCatalog.ModuleBoundaryAssemblies
+            .Concat(
+            [
+                typeof(AdminErrors).Assembly,
+                typeof(Shared.Application.Tenancy.TenantErrors).Assembly,
+                typeof(Error).Assembly,
+            ])
+            .Distinct()
+            .OrderBy(assembly => assembly.GetName().Name, StringComparer.Ordinal)
+            .ToArray();
+        string[] offenders = assemblies
+            .SelectMany(assembly => assembly.GetTypes())
+            .SelectMany(type => type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                .Where(field => field.FieldType == typeof(Error))
+                .Select(field => GetStaticErrorOffender(type, field)))
+            .Where(offender => offender is not null)
+            .Select(offender => offender!)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Production_sources_do_not_model_nullable_result_successes()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src"))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return NullableResultTypePattern()
+                    .Matches(source)
+                    .Select(match => $"{Path.GetRelativePath(repositoryRoot, path)} uses {match.Value.Trim()}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Page_request_does_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Application",
+            "Queries",
+            "PageRequest.cs"));
+
+        Assert.DoesNotMatch(PositionalPageRequestPattern(), source);
+        Assert.Contains("public PageRequest(int page, int pageSize)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Repository_paging_uses_page_request_skip_count()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src"))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Where(path => File.ReadAllText(path).Contains("(page - 1) * pageSize", StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Api_error_status_code_does_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api",
+            "Results",
+            "ApiErrorStatusCode.cs"));
+
+        Assert.DoesNotMatch(PositionalApiErrorStatusCodePattern(), source);
+        Assert.Contains("public ApiErrorStatusCode(string errorCode, int statusCode)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Admin_operation_execution_result_does_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Administration",
+            "AdminOperationExecutionResult.cs"));
+
+        Assert.DoesNotMatch(PositionalAdminOperationExecutionResultPattern(), source);
+        Assert.Contains("public AdminOperationExecutionResult(", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Module_endpoint_metadata_does_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Api",
+            "Observability",
+            "ModuleEndpointMetadata.cs"));
+
+        Assert.DoesNotMatch(PositionalModuleEndpointMetadataPattern(), source);
+        Assert.Contains("public ModuleEndpointMetadata(string moduleName)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Auth_access_token_claims_do_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Domain",
+            "Services",
+            "ITokenService.cs"));
+
+        Assert.DoesNotMatch(PositionalAccessTokenClaimsPattern(), source);
+        Assert.Contains("public AccessTokenClaims(", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Jwt_token_generation_uses_access_token_claims_validation()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "Services",
+            "JwtTokenService.cs"));
+
+        Assert.Contains("AccessTokenClaims accessTokenClaims = new(memberId, tenantId, sessionId);", source, StringComparison.Ordinal);
+        Assert.Contains("accessTokenClaims.TenantId", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Messaging_records_do_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string messagingRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Application",
+            "Messaging");
+        Dictionary<string, string> sources = new(StringComparer.Ordinal)
+        {
+            ["IntegrationEventEnvelope"] = File.ReadAllText(Path.Combine(messagingRoot, "IntegrationEventEnvelope.cs")),
+            ["OutboxMessageRecord"] = File.ReadAllText(Path.Combine(messagingRoot, "OutboxMessageRecord.cs")),
+            ["InboxMessageRecord"] = File.ReadAllText(Path.Combine(messagingRoot, "InboxMessageRecord.cs"))
+        };
+        string[] offenders = sources
+            .Where(item => PositionalMessagingRecordPattern(item.Key).IsMatch(item.Value))
+            .Select(item => item.Key)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Public_integration_event_contracts_do_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Contracts", StringComparison.Ordinal))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Select(path => new
+            {
+                Path = path,
+                Source = File.ReadAllText(path),
+            })
+            .Where(item => item.Source.Contains(": IIntegrationEvent", StringComparison.Ordinal))
+            .SelectMany(item => PositionalPublicIntegrationEventPattern()
+                .Matches(item.Source)
+                .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{match.Groups["name"].Value}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_domain_events_do_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Domain", StringComparison.Ordinal))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Select(path => new
+            {
+                Path = path,
+                Source = File.ReadAllText(path),
+            })
+            .Where(item => item.Source.Contains(": IDomainEvent", StringComparison.Ordinal))
+            .SelectMany(item => PositionalPublicDomainEventPattern()
+                .Matches(item.Source)
+                .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{match.Groups["name"].Value}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Ordering_projection_port_models_do_not_expose_positional_constructor_bypass()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string portsRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Ordering",
+            "Ordering.Application",
+            "Ports");
+        Dictionary<string, string> sources = new(StringComparer.Ordinal)
+        {
+            ["CatalogItemProjectionWriteModel"] = File.ReadAllText(Path.Combine(portsRoot, "CatalogItemProjectionWriteModel.cs")),
+            ["CatalogItemProjectionSnapshot"] = File.ReadAllText(Path.Combine(portsRoot, "CatalogItemProjectionSnapshot.cs"))
+        };
+        string[] offenders = sources
+            .Where(item => PositionalOrderingProjectionPortModelPattern(item.Key).IsMatch(item.Value))
+            .Select(item => item.Key)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Domain_guid_id_value_objects_are_not_positional_records()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => HasPathSegment(path, "ValueObjects"))
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Domain", StringComparison.Ordinal))
+            .Where(path => PositionalGuidIdValueObjectPattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Tenant_id_normalization_lives_in_shared_domain()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] tenantIdHelpers = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "src"), "TenantIds.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] domainTrimOffenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src", "Modules"))
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Domain", StringComparison.Ordinal))
+            .Where(path => File.ReadAllText(path).Contains("tenantId.Trim()", StringComparison.Ordinal))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Equal([Path.Combine("src", "Shared", "Shared.Domain", "TenantIds.cs")], tenantIdHelpers);
+        Assert.Empty(domainTrimOffenders);
+    }
+
+    [Fact]
+    public void Auth_refresh_token_hashing_uses_keyed_versioned_hashes()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "Services",
+            "RefreshTokenHashingService.cs"));
+
+        Assert.Contains("HMACSHA256.HashData", source, StringComparison.Ordinal);
+        Assert.Contains("hmac-sha256", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken))",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Auth_security_options_are_validated_on_start()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string infrastructureSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "DependencyInjection.cs"));
+        string applicationSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Application",
+            "DependencyInjection.cs"));
+
+        string[] infrastructureRequiredTokens =
+        [
+            "AuthInfrastructureOptionsValidation.Validate(configuration);",
+            "IValidateOptions<JwtSettings>, JwtSettingsValidator",
+            "IValidateOptions<RefreshTokenHashingOptions>, RefreshTokenHashingOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] applicationRequiredTokens =
+        [
+            "AuthApplicationOptionsValidation.GetValidatedOptions(configuration);",
+            "IValidateOptions<AuthApplicationOptions>, AuthApplicationOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] offenders = infrastructureRequiredTokens
+            .Where(token => !infrastructureSource.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Auth.Infrastructure dependency injection missing {token}")
+            .Concat(applicationRequiredTokens
+                .Where(token => !applicationSource.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"Auth.Application dependency injection missing {token}"))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Auth_security_options_do_not_ship_secret_defaults()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string jwtSettings = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "JwtSettings.cs"));
+        string refreshTokenHashingOptions = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Infrastructure",
+            "RefreshTokenHashingOptions.cs"));
+
+        Assert.Contains("public string SigningKey { get; set; } = string.Empty;", jwtSettings, StringComparison.Ordinal);
+        Assert.Contains("public string Pepper { get; set; } = string.Empty;", refreshTokenHashingOptions, StringComparison.Ordinal);
+        Assert.DoesNotContain("local-development-", jwtSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("local-development-", refreshTokenHashingOptions, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Runtime_host_secret_configuration_is_development_only()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostDirectories =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminCli")
+        ];
+        (string Name, string[] JsonPath)[] runtimeSecretKeys =
+        [
+            ("ConnectionStrings:SqlServer", ["ConnectionStrings", "SqlServer"]),
+            ("ConnectionStrings:PostgreSql", ["ConnectionStrings", "PostgreSql"]),
+            ("ConnectionStrings:nats", ["ConnectionStrings", "nats"]),
+            ("Auth:Jwt:SigningKey", ["Auth", "Jwt", "SigningKey"]),
+            ("Auth:RefreshTokens:Pepper", ["Auth", "RefreshTokens", "Pepper"])
+        ];
+        string[] baseConfigOffenders = hostDirectories
+            .SelectMany(hostDirectory =>
+            {
+                string hostName = Path.GetFileName(hostDirectory);
+                string appsettings = Path.Combine(hostDirectory, "appsettings.json");
+
+                return runtimeSecretKeys
+                    .Select(key =>
+                    {
+                        string? value = GetJsonStringValue(appsettings, key.JsonPath);
+                        if (value is null)
+                        {
+                            return $"{hostName} appsettings.json missing {key.Name}";
+                        }
+
+                        return string.IsNullOrWhiteSpace(value)
+                            ? null
+                            : $"{hostName} appsettings.json must leave {key.Name} blank";
+                    })
+                    .Where(offender => offender is not null)
+                    .Select(offender => offender!);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] developmentConfigOffenders = hostDirectories
+            .SelectMany(hostDirectory =>
+            {
+                string hostName = Path.GetFileName(hostDirectory);
+                string appsettings = Path.Combine(hostDirectory, "appsettings.Development.json");
+
+                return runtimeSecretKeys
+                    .Select(key =>
+                    {
+                        string? value = GetJsonStringValue(appsettings, key.JsonPath);
+                        if (string.IsNullOrWhiteSpace(value))
+                        {
+                            return $"{hostName} appsettings.Development.json missing local {key.Name}";
+                        }
+
+                        if (key.Name.StartsWith("Auth:", StringComparison.Ordinal) &&
+                            !value.StartsWith("local-development-", StringComparison.Ordinal))
+                        {
+                            return $"{hostName} appsettings.Development.json must mark {key.Name} as local-development";
+                        }
+
+                        return null;
+                    })
+                    .Where(offender => offender is not null)
+                    .Select(offender => offender!);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] testConfigOffenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "tests"))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return source.Contains("AddInMemoryCollection", StringComparison.Ordinal) &&
+                       source.Contains("\"Auth:Jwt:SigningKey\"", StringComparison.Ordinal) &&
+                       !source.Contains("\"Auth:RefreshTokens:Pepper\"", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} configures Auth JWT without Auth:RefreshTokens:Pepper")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string setupDocs = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "getting-started", "setup.md"));
+        string localDevelopmentDocs = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "docs",
+            "getting-started",
+            "local-development.md"));
+        string deploymentDocs = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "docs",
+            "guidelines",
+            "deployment-guidelines.md"));
+        string authDocs = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "modules", "auth.md"));
+        string[] docsOffenders =
+        [
+            .. RequiredDocumentationTokens(
+                "setup.md",
+                setupDocs,
+                "appsettings.Development.json",
+                "ConnectionStrings:*",
+                "Auth:Jwt:SigningKey",
+                "Auth:RefreshTokens:Pepper"),
+            .. RequiredDocumentationTokens(
+                "local-development.md",
+                localDevelopmentDocs,
+                "DOTNET_ENVIRONMENT",
+                "Development"),
+            .. RequiredDocumentationTokens(
+                "deployment-guidelines.md",
+                deploymentDocs,
+                "Auth option classes intentionally have no secret defaults",
+                "development configuration"),
+            .. RequiredDocumentationTokens(
+                "auth.md",
+                authDocs,
+                "no secret default",
+                "Auth__RefreshTokens__Pepper")
+        ];
+
+        Assert.Empty(baseConfigOffenders
+            .Concat(developmentConfigOffenders)
+            .Concat(testConfigOffenders)
+            .Concat(docsOffenders));
+    }
+
+    [Fact]
+    public void Runtime_host_configuration_exposes_nats_consumer_options()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string srcRoot = Path.Combine(repositoryRoot, "src");
+        string[] requiredConsumerKeys =
+        [
+            "Enabled",
+            "DurablePrefix",
+            "FetchBatchSize",
+            "PollInterval",
+            "AckWait",
+            "MaxDeliver",
+            "HandlerTimeout",
+            "NakDelay"
+        ];
+        string[] hostAppsettingsOffenders = Directory
+            .EnumerateFiles(srcRoot, "appsettings.json", SearchOption.AllDirectories)
+            .Where(path => Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty)
+                .StartsWith("Host.", StringComparison.Ordinal))
+            .Where(path => HasRequiredPath(path, ["NatsJetStream"]))
+            .SelectMany(path => requiredConsumerKeys
+                .Where(key => !HasRequiredPath(path, ["NatsConsumers", key]))
+                .Select(key => $"{Path.GetRelativePath(repositoryRoot, path)} missing NatsConsumers:{key}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string deploymentDocs = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "docs",
+            "guidelines",
+            "deployment-guidelines.md"));
+        string[] docsOffenders = requiredConsumerKeys
+            .Where(key => !deploymentDocs.Contains($"NatsConsumers:{key}", StringComparison.Ordinal))
+            .Select(key => $"deployment-guidelines.md missing NatsConsumers:{key}")
+            .ToArray();
+
+        Assert.Empty(hostAppsettingsOffenders.Concat(docsOffenders));
+    }
+
+    [Fact]
+    public void Http_host_development_configuration_enables_local_prometheus_metrics()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] httpHostDevelopmentSettings =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api", "appsettings.Development.json"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi", "appsettings.Development.json")
+        ];
+
+        string[] offenders = httpHostDevelopmentSettings
+            .SelectMany(path =>
+            {
+                List<string> fileOffenders = [];
+                if (!HasRequiredBoolean(path, ["Observability", "Prometheus", "Enabled"], expected: true))
+                {
+                    fileOffenders.Add($"{Path.GetRelativePath(repositoryRoot, path)} must enable Observability:Prometheus:Enabled for development.");
+                }
+
+                if (!HasRequiredStringValue(path, ["Observability", "Prometheus", "EndpointPath"], "/metrics"))
+                {
+                    fileOffenders.Add($"{Path.GetRelativePath(repositoryRoot, path)} must expose Observability:Prometheus:EndpointPath as /metrics.");
+                }
+
+                return fileOffenders;
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Redis_capable_hosts_compose_adapter_before_shared_infrastructure()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] hostDirectories =
+        [
+            Path.Combine(repositoryRoot, "src", "Host.Api"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminApi"),
+            Path.Combine(repositoryRoot, "src", "Host.AdminCli")
+        ];
+        string[] offenders = hostDirectories
+            .SelectMany(hostDirectory =>
+            {
+                string project = File.ReadAllText(Directory.EnumerateFiles(hostDirectory, "*.csproj").Single());
+                string program = File.ReadAllText(Path.Combine(hostDirectory, "Program.cs"));
+                string appsettings = File.ReadAllText(Path.Combine(hostDirectory, "appsettings.json"));
+                string hostName = Path.GetFileName(hostDirectory);
+                List<string> hostOffenders = [];
+
+                if (!project.Contains("Shared.Caching.Redis", StringComparison.Ordinal))
+                {
+                    hostOffenders.Add($"{hostName} does not reference Shared.Caching.Redis");
+                }
+
+                int redisIndex = program.IndexOf("builder.AddRedisCaching();", StringComparison.Ordinal);
+                int sharedInfrastructureIndex = program.IndexOf("builder.AddSharedInfrastructure();", StringComparison.Ordinal);
+                if (redisIndex < 0)
+                {
+                    hostOffenders.Add($"{hostName} does not call AddRedisCaching");
+                }
+                else if (sharedInfrastructureIndex < 0 || redisIndex > sharedInfrastructureIndex)
+                {
+                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddSharedInfrastructure");
+                }
+
+                if (!appsettings.Contains("\"Redis\"", StringComparison.Ordinal) ||
+                    !appsettings.Contains("\"ConnectionName\"", StringComparison.Ordinal))
+                {
+                    hostOffenders.Add($"{hostName} appsettings does not expose Caching:Redis:ConnectionName");
+                }
+
+                return hostOffenders;
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Public_api_composes_shared_infrastructure_before_tenancy_module()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string program = File.ReadAllText(Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"));
+        int sharedInfrastructureIndex = program.IndexOf("builder.AddSharedInfrastructure();", StringComparison.Ordinal);
+        int tenancyModuleIndex = program.IndexOf("builder.AddModule<TenancyModule>();", StringComparison.Ordinal);
+
+        Assert.True(sharedInfrastructureIndex >= 0, "Host.Api must compose shared infrastructure.");
+        Assert.True(tenancyModuleIndex >= 0, "Host.Api must compose TenancyModule explicitly.");
+        Assert.True(
+            sharedInfrastructureIndex < tenancyModuleIndex,
+            "Host.Api must compose shared infrastructure before TenancyModule so tenant options and default/null context are validated before enabling tenant-scoped endpoints.");
+    }
+
+    [Fact]
+    public void Aspire_admin_api_is_explicitly_opt_in()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string appHostRoot = Path.Combine(repositoryRoot, "src", "AppHost");
+        string program = File.ReadAllText(Path.Combine(appHostRoot, "Program.cs"));
+        string project = File.ReadAllText(Path.Combine(appHostRoot, "AppHost.csproj"));
+        using JsonDocument appsettings = JsonDocument.Parse(File.ReadAllText(Path.Combine(appHostRoot, "appsettings.json")));
+
+        Assert.False(appsettings.RootElement
+            .GetProperty("AppHost")
+            .GetProperty("AdminApi")
+            .GetProperty("Enabled")
+            .GetBoolean());
+        Assert.Contains("AppHost:AdminApi:Enabled", program, StringComparison.Ordinal);
+        Assert.Contains("Projects.Host_AdminApi", program, StringComparison.Ordinal);
+        Assert.Contains("host-admin-api", program, StringComparison.Ordinal);
+        Assert.Contains("adminApi is { } configuredAdminApi", program, StringComparison.Ordinal);
+        Assert.Contains("configuredAdminApi.WithReference(redis)", program, StringComparison.Ordinal);
+        Assert.Contains("..\\Host.AdminApi\\Host.AdminApi.csproj", project, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Auth_member_persistence_uses_domain_length_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        Dictionary<string, string[]> expectedTokensByFile = new()
+        {
+            [Path.Combine("Configurations", "MemberConfiguration.cs")] =
+            [
+                "TenantIds.MaxLength",
+                "Member.PasswordHashMaxLength",
+                "Member.DisabledReasonMaxLength",
+                "HasIndex(member => new { member.TenantId, member.RegisteredAtUtc })"
+            ],
+            [Path.Combine("Configurations", "MemberSessionConfiguration.cs")] =
+            [
+                "TenantIds.MaxLength",
+                "MemberSession.RefreshTokenHashMaxLength"
+            ],
+            [Path.Combine("Configurations", "MemberUsernameConfiguration.cs")] =
+            [
+                "TenantIds.MaxLength",
+                "MemberUsername.ValueMaxLength",
+                "MemberUsername.NormalizedValueMaxLength"
+            ]
+        };
+        string authPersistenceRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Persistence");
+        string[] offenders = expectedTokensByFile
+            .SelectMany(item =>
+            {
+                string path = Path.Combine(authPersistenceRoot, item.Key);
+                string source = File.ReadAllText(path);
+
+                return item.Value
+                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Auth_password_validators_use_shared_password_policy()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string authApplicationRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Auth",
+            "Auth.Application");
+        string policySource = File.ReadAllText(Path.Combine(authApplicationRoot, "Security", "AuthPasswordPolicy.cs"));
+        string[] passwordPolicyValidatorFiles =
+        [
+            Path.Combine(authApplicationRoot, "Validation", "AdminCreateMemberCommandValidator.cs"),
+            Path.Combine(authApplicationRoot, "Validation", "RegisterMemberCommandValidator.cs"),
+            Path.Combine(authApplicationRoot, "Validation", "ResetMemberPasswordCommandValidator.cs")
+        ];
+        string[] validatorOffenders = passwordPolicyValidatorFiles
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return !source.Contains("AuthPasswordPolicy.", StringComparison.Ordinal) ||
+                       source.Contains("Length < 8", StringComparison.Ordinal) ||
+                       source.Contains("at least 8", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} should use AuthPasswordPolicy")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Contains("public const int MinimumLength = 8", policySource, StringComparison.Ordinal);
+        Assert.Contains("public const string MinimumLengthMessage", policySource, StringComparison.Ordinal);
+        Assert.Empty(validatorOffenders);
+    }
+
+    [Fact]
+    public void Administration_options_are_validated_on_start()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Administration",
+            "Administration.Application",
+            "DependencyInjection.cs"));
+        string[] requiredTokens =
+        [
+            "AdministrationOptionsValidation.GetValidatedOptions(configuration);",
+            "IValidateOptions<AdministrationOptions>, AdministrationOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Administration.Application dependency injection missing {token}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Design_time_factories_use_shared_persistence_helpers()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("DesignTimeDbContextFactory.cs", StringComparison.Ordinal))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return source.Contains("private static string GetConnectionString", StringComparison.Ordinal) ||
+                       source.Contains("private static DatabaseProvider GetProvider", StringComparison.Ordinal) ||
+                       source.Contains("class DesignTimeTenantContext", StringComparison.Ordinal);
+            })
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Design_time_factories_live_in_provider_migration_projects()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("DesignTimeDbContextFactory.cs", StringComparison.Ordinal))
+            .Where(path =>
+            {
+                string? projectName = FindOwningProjectName(path);
+                string source = File.ReadAllText(path);
+
+                return projectName is null ||
+                       !IsProviderMigrationProject(projectName) ||
+                       (!source.Contains("DesignTimeDbContextOptionsFactory.CreateSqlServerOptions", StringComparison.Ordinal) &&
+                        !source.Contains("DesignTimeDbContextOptionsFactory.CreatePostgreSqlOptions", StringComparison.Ordinal));
+            })
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Persisted_modules_keep_sql_server_and_postgresql_migration_project_parity()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = Directory
+            .EnumerateDirectories(modulesRoot)
+            .Select(modulePath =>
+            {
+                string moduleName = Path.GetFileName(modulePath);
+                string persistenceProject = Path.Combine(modulePath, $"{moduleName}.Persistence", $"{moduleName}.Persistence.csproj");
+                string sqlServerMigrationProject = Path.Combine(modulePath, $"{moduleName}.Persistence.SqlServerMigrations", $"{moduleName}.Persistence.SqlServerMigrations.csproj");
+                string postgreSqlMigrationProject = Path.Combine(modulePath, $"{moduleName}.Persistence.PostgreSqlMigrations", $"{moduleName}.Persistence.PostgreSqlMigrations.csproj");
+
+                bool hasPersistence = File.Exists(persistenceProject);
+                bool hasSqlServerMigrations = File.Exists(sqlServerMigrationProject);
+                bool hasPostgreSqlMigrations = File.Exists(postgreSqlMigrationProject);
+
+                return hasPersistence == hasSqlServerMigrations &&
+                       hasPersistence == hasPostgreSqlMigrations
+                    ? null
+                    : $"{Path.GetRelativePath(repositoryRoot, modulePath)}: persistence={hasPersistence}, sqlServerMigrations={hasSqlServerMigrations}, postgreSqlMigrations={hasPostgreSqlMigrations}";
+            })
+            .Where(offender => offender is not null)
+            .Select(offender => offender!)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Verify_script_checks_provider_migration_drift()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string verifyScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "verify.ps1"));
+        string migrationCheckScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "check-migrations.ps1"));
+        string[] requiredVerifyTokens =
+        [
+            "check-migrations.ps1",
+            "-NoBuild",
+            "SkipMigrationCheck"
+        ];
+        string[] requiredCheckTokens =
+        [
+            "dotnet-ef",
+            "has-pending-model-changes",
+            ".Persistence.SqlServerMigrations",
+            ".Persistence.PostgreSqlMigrations",
+            "--startup-project",
+            "--no-build"
+        ];
+        string[] offenders = requiredVerifyTokens
+            .Where(token => !verifyScript.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/verify.ps1 missing {token}")
+            .Concat(requiredCheckTokens
+                .Where(token => !migrationCheckScript.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/check-migrations.ps1 missing {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Test_scripts_keep_fast_and_docker_categories_separate()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string fastTestScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "test-fast.ps1"));
+        string dockerTestScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "test-docker.ps1"));
+        string verifyScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "verify.ps1"));
+        string[] requiredFastTokens =
+        [
+            ". (Join-Path $PSScriptRoot 'common.ps1')",
+            "GenericModularApi.sln",
+            "--filter",
+            "Category!=Docker",
+            "console;verbosity=minimal"
+        ];
+        string[] requiredDockerTokens =
+        [
+            ". (Join-Path $PSScriptRoot 'common.ps1')",
+            "tests\\Integration.Tests\\Integration.Tests.csproj",
+            "--filter",
+            "Category=Docker",
+            "$previousRequireDockerTests = $env:GMA_REQUIRE_DOCKER_TESTS",
+            "$env:GMA_REQUIRE_DOCKER_TESTS = 'true'",
+            "finally",
+            "$env:GMA_REQUIRE_DOCKER_TESTS = $previousRequireDockerTests",
+            "console;verbosity=minimal"
+        ];
+
+        string[] offenders = requiredFastTokens
+            .Where(token => !fastTestScript.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/test-fast.ps1 missing {token}")
+            .Concat(requiredDockerTokens
+                .Where(token => !dockerTestScript.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/test-docker.ps1 missing {token}"))
+            .Concat(verifyScript.Contains("test-fast.ps1", StringComparison.Ordinal) &&
+                    verifyScript.Contains("-NoBuild", StringComparison.Ordinal)
+                ? []
+                : ["eng/verify.ps1 should run eng/test-fast.ps1 with -NoBuild."])
+            .Concat(verifyScript.Contains("test-docker.ps1", StringComparison.Ordinal)
+                ? ["eng/verify.ps1 should not run Docker-backed tests by default."]
+                : [])
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Docker_fact_availability_probe_is_bounded_and_cleans_up_timed_out_processes()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string dockerFact = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "tests",
+            "Integration.Tests",
+            "DockerFactAttribute.cs"));
+        string[] requiredTokens =
+        [
+            "GMA_REQUIRE_DOCKER_TESTS",
+            "docker",
+            "info",
+            "TimeSpan.FromSeconds(10)",
+            "CreateNoWindow = true",
+            "KillTimedOutProcess(process)",
+            "process.Kill(entireProcessTree: true)",
+            "return false;"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !dockerFact.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"tests/Integration.Tests/DockerFactAttribute.cs missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Add_migration_script_preserves_single_dbcontext_discovery_as_array()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string addMigrationScript = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "add-migration.ps1"));
+
+        Assert.Contains("$contextNames = @($contextNames | Sort-Object -Unique)", addMigrationScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("$contextNames = $contextNames | Sort-Object -Unique", addMigrationScript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Command_line_package_references_are_cli_only()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumeratePackageReferences(repositoryRoot)
+            .Where(reference => string.Equals(reference.PackageId, "System.CommandLine", StringComparison.Ordinal))
+            .Where(reference => !IsCliProject(reference.ProjectPath))
+            .Select(reference => $"{reference.ProjectPath}:{reference.PackageId}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Admin_cli_front_doors_route_output_through_shared_cli_output()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] forbiddenTokens =
+        [
+            "Console.WriteLine",
+            "Console.Error.WriteLine",
+            "Console.Error.Write("
+        ];
+        string[] cliFrontDoorFiles =
+        [
+            .. Directory
+            .EnumerateFiles(modulesRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => Path
+                .GetRelativePath(repositoryRoot, path)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment.EndsWith(".Admin", StringComparison.Ordinal))),
+            Path.Combine(repositoryRoot, "src", "Host.AdminCli", "Program.cs")
+        ];
+        string[] offenders = cliFrontDoorFiles
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} uses {token}; use AdminCliOutput instead.");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_api_projects_use_shared_cqrs_validation_contracts()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] forbiddenPackages =
+        [
+            "FluentValidation",
+            "FluentValidation.AspNetCore",
+            "FluentValidation.DependencyInjectionExtensions"
+        ];
+        string[] offenders = EnumeratePackageReferences(repositoryRoot)
+            .Where(reference => IsModuleProject(reference.ProjectPath))
+            .Where(reference =>
+                Path.GetFileNameWithoutExtension(reference.ProjectPath).EndsWith(".Api", StringComparison.Ordinal) ||
+                Path.GetFileNameWithoutExtension(reference.ProjectPath).EndsWith(".AdminApi", StringComparison.Ordinal))
+            .Where(reference => forbiddenPackages.Contains(reference.PackageId, StringComparer.Ordinal))
+            .Select(reference => $"{reference.ProjectPath}:{reference.PackageId}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_admin_front_doors_use_named_admin_operation_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path =>
+            {
+                string? projectName = FindOwningProjectName(path);
+                return projectName is not null &&
+                       (projectName.EndsWith(".Admin", StringComparison.Ordinal) ||
+                        projectName.EndsWith(".AdminApi", StringComparison.Ordinal));
+            })
+            .Where(path => AdminOperationStringLiteralPattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_admin_operation_name_constants_are_valid()
+    {
+        AdminPermission dummyPermission = AdminPermission.Create("system.operation");
+        string[] offenders = ArchitectureCatalog.ModuleBoundaryAssemblies
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => type.IsAbstract && type.IsSealed && type.Name.EndsWith("AdminOperationNames", StringComparison.Ordinal))
+            .SelectMany(type => type
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+                .Select(field => new
+                {
+                    Type = type,
+                    Field = field,
+                    Value = field.GetRawConstantValue() as string,
+                }))
+            .Where(item =>
+                item.Value is null ||
+                !AdminOperation.TryCreate(item.Value, dummyPermission, out AdminOperation? operation) ||
+                !string.Equals(operation.Name, item.Value, StringComparison.Ordinal))
+            .Select(item => $"{item.Type.FullName}.{item.Field.Name}={item.Value ?? "<null>"}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_admin_surface_constants_match_operation_and_permission_code_prefixes()
+    {
+        string[] offenders = ArchitectureCatalog.ModuleProjects
+            .SelectMany(project => project.Assembly
+                .GetTypes()
+                .Where(type => type.IsAbstract && type.IsSealed)
+                .Where(type => type.Name.EndsWith("AdminOperationNames", StringComparison.Ordinal) ||
+                               type.Name.EndsWith("PermissionCodes", StringComparison.Ordinal))
+                .Select(type => new
+                {
+                    Project = project,
+                    Type = type,
+                    SurfaceName = ResolveAdminSurfaceName(project.ModulePrefix),
+                }))
+            .SelectMany(item => item.Type
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+                .Select(field => new
+                {
+                    item.Project,
+                    item.Type,
+                    Field = field,
+                    item.SurfaceName,
+                    Value = field.GetRawConstantValue() as string,
+                }))
+            .Where(item => item.Value is null ||
+                           !item.Value.StartsWith(item.SurfaceName + ".", StringComparison.Ordinal))
+            .Select(item =>
+                $"{item.Project.ProjectName}:{item.Type.Name}.{item.Field.Name}={item.Value ?? "<null>"} expected prefix {item.SurfaceName}.")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_admin_permissions_use_named_permission_code_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Where(path => AdminPermissionStringLiteralPattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Administration_persistence_uses_shared_rbac_normalizers()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string administrationPersistenceRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Administration",
+            "Administration.Persistence");
+        string[] forbiddenTokens =
+        [
+            "actorId.Trim()",
+            "principalId.Trim()",
+            "permissionCode.Trim().ToLowerInvariant()"
+        ];
+        string[] offenders = EnumerateSourceFiles(administrationPersistenceRoot)
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} contains {token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Admin_audit_writers_use_named_result_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] checkedFiles =
+        [
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "Shared",
+                "Shared.Administration",
+                "AdminOperationRunner.cs"),
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "Modules",
+                "Administration",
+                "Administration.Admin",
+                "AdministrationAdminModule.cs")
+        ];
+        string[] forbiddenTokens =
+        [
+            "\"succeeded\"",
+            "\"denied\"",
+            "\"failed\""
+        ];
+        string[] offenders = checkedFiles
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} contains {token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Administration_persistence_uses_named_length_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        IReadOnlyDictionary<string, string[]> expectedTokensByFile = new Dictionary<string, string[]>
+        {
+            [Path.Combine("Configurations", "AdminAuditEntryConfiguration.cs")] =
+            [
+                "AdminActor.MaxLength",
+                "TenantIds.MaxLength",
+                "AdminOperation.MaxLength",
+                "AdminPermission.MaxLength",
+                "AdminAuditResults.MaxLength",
+                "AdminAuditRecord.ErrorCodeMaxLength"
+            ],
+            [Path.Combine("Configurations", "AdminPrincipalConfiguration.cs")] =
+            [
+                "AdminActor.MaxLength"
+            ],
+            [Path.Combine("Configurations", "AdminPrincipalRoleConfiguration.cs")] =
+            [
+                "AdminActor.MaxLength",
+                "TenantIds.MaxLength",
+                "HasIndex(role => new { role.PrincipalId, role.TenantId })"
+            ],
+            [Path.Combine("Configurations", "AdminRoleConfiguration.cs")] =
+            [
+                "AdminRoleName.MaxLength"
+            ],
+            [Path.Combine("Configurations", "AdminRolePermissionConfiguration.cs")] =
+            [
+                "AdminPermission.MaxLength"
+            ]
+        };
+        string administrationPersistenceRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Administration",
+            "Administration.Persistence");
+        string[] offenders = expectedTokensByFile
+            .SelectMany(item =>
+            {
+                string path = Path.Combine(administrationPersistenceRoot, item.Key);
+                string source = File.ReadAllText(path);
+
+                return item.Value
+                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_inbox_outbox_persistence_uses_shared_message_length_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        Dictionary<string, string[]> expectedTokensByFileName = new()
+        {
+            ["InboxMessageConfiguration.cs"] =
+            [
+                "InboxMessage.HandlerMaxLength",
+                "InboxMessage.SubjectMaxLength",
+                "InboxMessage.EventTypeMaxLength",
+                "TenantIds.MaxLength",
+                "InboxMessage.LockedByMaxLength",
+                "InboxMessage.LastErrorMaxLength"
+            ],
+            ["OutboxMessageConfiguration.cs"] =
+            [
+                "OutboxMessage.SubjectMaxLength",
+                "OutboxMessage.EventTypeMaxLength",
+                "TenantIds.MaxLength",
+                "OutboxMessage.LockedByMaxLength"
+            ]
+        };
+
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => expectedTokensByFileName.ContainsKey(Path.GetFileName(path)))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                return expectedTokensByFileName[Path.GetFileName(path)]
+                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] scaffoldOffenders = expectedTokensByFileName
+            .Values
+            .SelectMany(tokens => tokens)
+            .Distinct(StringComparer.Ordinal)
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders.Concat(scaffoldOffenders));
+    }
+
+    [Fact]
+    public void Example_domain_persistence_uses_domain_length_and_precision_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        Dictionary<string, string[]> expectedTokensByPath = new()
+        {
+            [Path.Combine("Catalog", "Catalog.Persistence", "Configurations", "CatalogItemConfiguration.cs")] =
+            [
+                "TenantIds.MaxLength",
+                "CatalogItem.SkuMaxLength",
+                "CatalogItem.NameMaxLength",
+                "CatalogItem.CurrencyLength",
+                "CatalogItem.PricePrecision",
+                "CatalogItem.PriceScale"
+            ],
+            [Path.Combine("Ordering", "Ordering.Persistence", "Configurations", "OrderConfiguration.cs")] =
+            [
+                "TenantIds.MaxLength",
+                "Order.CatalogSkuMaxLength",
+                "Order.CatalogItemNameMaxLength",
+                "Order.CurrencyLength",
+                "Order.AmountPrecision",
+                "Order.AmountScale"
+            ],
+            [Path.Combine("Ordering", "Ordering.Persistence", "Configurations", "CatalogItemProjectionConfiguration.cs")] =
+            [
+                "TenantIds.MaxLength",
+                "Order.CatalogSkuMaxLength",
+                "Order.CatalogItemNameMaxLength",
+                "Order.CurrencyLength",
+                "Order.AmountPrecision",
+                "Order.AmountScale"
+            ]
+        };
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = expectedTokensByPath
+            .SelectMany(item =>
+            {
+                string path = Path.Combine(modulesRoot, item.Key);
+                string source = File.ReadAllText(path);
+
+                return item.Value
+                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Administration_role_name_length_is_not_hidden_in_regex()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Modules",
+            "Administration",
+            "Administration.Application",
+            "AdminRoleName.cs"));
+
+        Assert.Contains("candidate.Length > MaxLength", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("{0,127}", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Module_front_doors_use_named_module_identity_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path =>
+            {
+                string? projectName = FindOwningProjectName(path);
+                return projectName is not null &&
+                       (projectName.EndsWith(".Api", StringComparison.Ordinal) ||
+                        projectName.EndsWith(".Admin", StringComparison.Ordinal) ||
+                        projectName.EndsWith(".AdminApi", StringComparison.Ordinal));
+            })
+            .Where(path => ModuleNameStringLiteralPattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Shared_core_projects_keep_dependency_free_or_abstractions_only_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedRoot = Path.Combine(repositoryRoot, "src", "Shared");
+        string[] dependencyFreeProjects =
+        [
+            Path.Combine(sharedRoot, "Shared.Domain", "Shared.Domain.csproj"),
+            Path.Combine(sharedRoot, "Shared.ErrorHandling", "Shared.ErrorHandling.csproj")
+        ];
+        string applicationProjectPath = Path.Combine(sharedRoot, "Shared.Application", "Shared.Application.csproj");
+        XDocument applicationProject = XDocument.Load(applicationProjectPath);
+        HashSet<string> allowedApplicationProjectReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            @"..\Shared.Domain\Shared.Domain.csproj",
+            @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+        };
+        HashSet<string> allowedApplicationPackageReferences = new(StringComparer.Ordinal)
+        {
+            "Microsoft.Extensions.DependencyInjection.Abstractions"
+        };
+        string[] dependencyFreeProjectOffenders = dependencyFreeProjects
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+
+                return project
+                    .Descendants()
+                    .Where(element => element.Name.LocalName is "ProjectReference" or "PackageReference" or "FrameworkReference")
+                    .Select(element => $"{relativePath}->{element.Name.LocalName}:{element.Attribute("Include")?.Value}");
+            })
+            .ToArray();
+        string[] applicationReferenceOffenders = applicationProject
+            .Descendants("ProjectReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => !string.IsNullOrWhiteSpace(reference))
+            .Where(reference => !allowedApplicationProjectReferences.Contains(reference!))
+            .Select(reference => $"{Path.GetRelativePath(repositoryRoot, applicationProjectPath)}->ProjectReference:{reference}")
+            .ToArray();
+        string[] applicationPackageOffenders = applicationProject
+            .Descendants("PackageReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+            .Where(packageId => !allowedApplicationPackageReferences.Contains(packageId!))
+            .Select(packageId => $"{Path.GetRelativePath(repositoryRoot, applicationProjectPath)}->PackageReference:{packageId}")
+            .ToArray();
+        string[] applicationFrameworkOffenders = applicationProject
+            .Descendants("FrameworkReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => !string.IsNullOrWhiteSpace(reference))
+            .Select(reference => $"{Path.GetRelativePath(repositoryRoot, applicationProjectPath)}->FrameworkReference:{reference}")
+            .ToArray();
+
+        Assert.Empty(dependencyFreeProjectOffenders
+            .Concat(applicationReferenceOffenders)
+            .Concat(applicationPackageOffenders)
+            .Concat(applicationFrameworkOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Shared_project_dependency_manifest_matches_intended_adapter_boundaries()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedRoot = Path.Combine(repositoryRoot, "src", "Shared");
+        SharedProjectShape[] expectedShapes =
+        [
+            new(
+                "Shared.Administration",
+                ["Microsoft.Extensions.Logging.Abstractions"],
+                [],
+                [
+                    @"..\Shared.Application\Shared.Application.csproj",
+                    @"..\Shared.Domain\Shared.Domain.csproj",
+                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                ]),
+            new(
+                "Shared.Administration.Api",
+                [],
+                ["Microsoft.AspNetCore.App"],
+                [
+                    @"..\Shared.Administration\Shared.Administration.csproj",
+                    @"..\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared.Application\Shared.Application.csproj",
+                    @"..\Shared.Domain\Shared.Domain.csproj",
+                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                ]),
+            new(
+                "Shared.Administration.Cli",
+                ["Microsoft.Extensions.Hosting", "System.CommandLine"],
+                [],
+                [
+                    @"..\Shared.Administration\Shared.Administration.csproj",
+                    @"..\Shared.Application\Shared.Application.csproj",
+                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                ]),
+            new(
+                "Shared.Api",
+                [],
+                ["Microsoft.AspNetCore.App"],
+                [
+                    @"..\Shared.Application\Shared.Application.csproj",
+                    @"..\Shared.Domain\Shared.Domain.csproj",
+                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                ]),
+            new(
+                "Shared.Api.OpenApi",
+                ["Swashbuckle.AspNetCore"],
+                ["Microsoft.AspNetCore.App"],
+                []),
+            new(
+                "Shared.Api.Serilog",
+                ["Serilog.AspNetCore"],
+                ["Microsoft.AspNetCore.App"],
+                [
+                    @"..\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared.Application\Shared.Application.csproj"
+                ]),
+            new(
+                "Shared.Application",
+                ["Microsoft.Extensions.DependencyInjection.Abstractions"],
+                [],
+                [
+                    @"..\Shared.Domain\Shared.Domain.csproj",
+                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                ]),
+            new(
+                "Shared.Caching.Redis",
+                [
+                    "Microsoft.Extensions.Caching.StackExchangeRedis",
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions"
+                ],
+                [],
+                [@"..\Shared.Infrastructure\Shared.Infrastructure.csproj"]),
+            new("Shared.Domain", [], [], []),
+            new("Shared.ErrorHandling", [], [], []),
+            new(
+                "Shared.Infrastructure",
+                [
+                    "Microsoft.EntityFrameworkCore.SqlServer",
+                    "Microsoft.Extensions.Caching.Hybrid",
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
+                    "NATS.Net",
+                    "Npgsql.EntityFrameworkCore.PostgreSQL"
+                ],
+                [],
+                [
+                    @"..\Shared.Application\Shared.Application.csproj",
+                    @"..\Shared.Domain\Shared.Domain.csproj",
+                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                ]),
+            new(
+                "Shared.Logging.Serilog",
+                ["Serilog.AspNetCore", "Serilog.Settings.Configuration", "Serilog.Sinks.Console"],
+                [],
+                []),
+            new(
+                "Shared.Messaging.Nats.Aspire",
+                ["Aspire.NATS.Net"],
+                [],
+                [@"..\Shared.Infrastructure\Shared.Infrastructure.csproj"])
+        ];
+        HashSet<string> expectedProjectNames = expectedShapes
+            .Select(shape => shape.ProjectName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string[] undocumentedSharedProjects = Directory
+            .EnumerateFiles(sharedRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(projectName => projectName is not null && !expectedProjectNames.Contains(projectName))
+            .Select(projectName => $"Shared project '{projectName}' missing dependency manifest entry.")
+            .ToArray();
+        string[] manifestOffenders = expectedShapes
+            .SelectMany(shape =>
+            {
+                string projectPath = Path.Combine(sharedRoot, shape.ProjectName, $"{shape.ProjectName}.csproj");
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+
+                return CompareDependencySet(relativePath, "PackageReference", shape.PackageReferences, GetProjectIncludes(project, "PackageReference"))
+                    .Concat(CompareDependencySet(relativePath, "FrameworkReference", shape.FrameworkReferences, GetProjectIncludes(project, "FrameworkReference")))
+                    .Concat(CompareDependencySet(relativePath, "ProjectReference", shape.ProjectReferences, GetProjectIncludes(project, "ProjectReference")));
+            })
+            .ToArray();
+
+        Assert.Empty(undocumentedSharedProjects
+            .Concat(manifestOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Runtime_host_project_dependency_manifest_matches_explicit_composition_boundaries()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string srcRoot = Path.Combine(repositoryRoot, "src");
+        HostProjectShape[] expectedShapes =
+        [
+            new(
+                Path.Combine("AppHost", "AppHost.csproj"),
+                [
+                    "Aspire.Hosting.AppHost",
+                    "Aspire.Hosting.Nats",
+                    "Aspire.Hosting.PostgreSQL",
+                    "Aspire.Hosting.Redis",
+                    "Aspire.Hosting.SqlServer",
+                    "MessagePack"
+                ],
+                [],
+                [
+                    @"..\Host.AdminApi\Host.AdminApi.csproj",
+                    @"..\Host.Api\Host.Api.csproj"
+                ]),
+            new(
+                Path.Combine("Host.AdminApi", "Host.AdminApi.csproj"),
+                [],
+                [],
+                [
+                    @"..\Modules\Administration\Administration.AdminApi\Administration.AdminApi.csproj",
+                    @"..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\Auth\Auth.AdminApi\Auth.AdminApi.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
+                    @"..\ServiceDefaults\ServiceDefaults.csproj",
+                    @"..\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj",
+                    @"..\Shared\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
+                    @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
+                    @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
+                    @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
+                    @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
+                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj"
+                ]),
+            new(
+                Path.Combine("Host.AdminCli", "Host.AdminCli.csproj"),
+                ["Microsoft.Extensions.Hosting", "System.CommandLine"],
+                [],
+                [
+                    @"..\Modules\Administration\Administration.Admin\Administration.Admin.csproj",
+                    @"..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\Auth\Auth.Admin\Auth.Admin.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
+                    @"..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj",
+                    @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
+                    @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj"
+                ]),
+            new(
+                Path.Combine("Host.Api", "Host.Api.csproj"),
+                [],
+                [],
+                [
+                    @"..\Modules\Auth\Auth.Api\Auth.Api.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\Tenancy\Tenancy.Api\Tenancy.Api.csproj",
+                    @"..\ServiceDefaults\ServiceDefaults.csproj",
+                    @"..\Shared\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
+                    @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
+                    @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
+                    @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
+                    @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
+                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj"
+                ]),
+            new(
+                Path.Combine("ServiceDefaults", "ServiceDefaults.csproj"),
+                [
+                    "Microsoft.Extensions.Http.Resilience",
+                    "Microsoft.Extensions.ServiceDiscovery",
+                    "OpenTelemetry.Exporter.OpenTelemetryProtocol",
+                    "OpenTelemetry.Extensions.Hosting",
+                    "OpenTelemetry.Instrumentation.AspNetCore",
+                    "OpenTelemetry.Instrumentation.Http",
+                    "prometheus-net.AspNetCore"
+                ],
+                ["Microsoft.AspNetCore.App"],
+                [])
+        ];
+        HashSet<string> expectedProjectPaths = expectedShapes
+            .Select(shape => NormalizePath(shape.ProjectPath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string[] undocumentedRuntimeProjects = Directory
+            .EnumerateFiles(srcRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(IsRuntimeCompositionProject)
+            .Select(path => NormalizePath(Path.GetRelativePath(srcRoot, path)))
+            .Where(projectPath => !expectedProjectPaths.Contains(projectPath))
+            .Select(projectPath => $"Runtime project '{projectPath}' missing dependency manifest entry.")
+            .ToArray();
+        string[] manifestOffenders = expectedShapes
+            .SelectMany(shape =>
+            {
+                string projectPath = Path.Combine(srcRoot, shape.ProjectPath);
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+
+                return CompareDependencySet(relativePath, "PackageReference", shape.PackageReferences, GetProjectIncludes(project, "PackageReference"))
+                    .Concat(CompareDependencySet(relativePath, "FrameworkReference", shape.FrameworkReferences, GetProjectIncludes(project, "FrameworkReference")))
+                    .Concat(CompareDependencySet(relativePath, "ProjectReference", shape.ProjectReferences, GetProjectIncludes(project, "ProjectReference")));
+            })
+            .ToArray();
+
+        Assert.Empty(undocumentedRuntimeProjects
+            .Concat(manifestOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+
+        static bool IsRuntimeCompositionProject(string projectPath)
+        {
+            string projectName = Path.GetFileNameWithoutExtension(projectPath);
+            return string.Equals(projectName, "AppHost", StringComparison.Ordinal) ||
+                   string.Equals(projectName, "Host.Api", StringComparison.Ordinal) ||
+                   string.Equals(projectName, "Host.AdminApi", StringComparison.Ordinal) ||
+                   string.Equals(projectName, "Host.AdminCli", StringComparison.Ordinal) ||
+                   string.Equals(projectName, "ServiceDefaults", StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Shared_administration_core_remains_backend_agnostic()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedAdministrationRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.Administration");
+        string projectPath = Path.Combine(sharedAdministrationRoot, "Shared.Administration.csproj");
+        XDocument project = XDocument.Load(projectPath);
+        string[] forbiddenPackages =
+        [
+            "Microsoft.Extensions.Hosting",
+            "System.CommandLine"
+        ];
+        string[] forbiddenFrameworkReferences =
+        [
+            "Microsoft.AspNetCore.App"
+        ];
+        string[] forbiddenSourceTokens =
+        [
+            "IEndpointRouteBuilder",
+            "IHostApplicationBuilder",
+            "Microsoft.AspNetCore",
+            "Microsoft.Extensions.Hosting",
+            "RootCommand",
+            "System.CommandLine"
+        ];
+
+        string[] packageOffenders = project
+            .Descendants("PackageReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(packageId => packageId is not null && forbiddenPackages.Contains(packageId, StringComparer.Ordinal))
+            .Select(packageId => $"Shared.Administration.csproj:{packageId}")
+            .ToArray();
+        string[] frameworkOffenders = project
+            .Descendants("FrameworkReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => reference is not null && forbiddenFrameworkReferences.Contains(reference, StringComparer.Ordinal))
+            .Select(reference => $"Shared.Administration.csproj:{reference}")
+            .ToArray();
+        string[] sourceOffenders = EnumerateSourceFiles(sharedAdministrationRoot)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                return forbiddenSourceTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .ToArray();
+
+        Assert.Empty(packageOffenders
+            .Concat(frameworkOffenders)
+            .Concat(sourceOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Ef_design_package_references_are_migration_project_only()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumeratePackageReferences(repositoryRoot)
+            .Where(reference => string.Equals(reference.PackageId, "Microsoft.EntityFrameworkCore.Design", StringComparison.Ordinal))
+            .Where(reference => !IsProviderMigrationProject(Path.GetFileNameWithoutExtension(reference.ProjectPath)))
+            .Select(reference => $"{reference.ProjectPath}:{reference.PackageId}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Provider_migration_projects_reference_only_owning_persistence_project()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateProjectReferences(repositoryRoot)
+            .Where(reference => IsProviderMigrationProject(Path.GetFileNameWithoutExtension(reference.ProjectPath)))
+            .Where(reference =>
+            {
+                string projectName = Path.GetFileNameWithoutExtension(reference.ProjectPath);
+                string owningPersistenceProject = projectName
+                    .Replace(".SqlServerMigrations", string.Empty, StringComparison.Ordinal)
+                    .Replace(".PostgreSqlMigrations", string.Empty, StringComparison.Ordinal);
+                string expectedReference = $"..\\{owningPersistenceProject}\\{owningPersistenceProject}.csproj";
+
+                return !string.Equals(reference.ReferencePath, expectedReference, StringComparison.OrdinalIgnoreCase);
+            })
+            .Select(reference => $"{reference.ProjectPath}->{reference.ReferencePath}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_project_package_references_do_not_bypass_shared_adapters()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumeratePackageReferences(repositoryRoot)
+            .Where(reference => IsModuleProject(reference.ProjectPath))
+            .Where(reference => IsBackendAdapterPackage(reference.PackageId))
+            .Select(reference => $"{reference.ProjectPath}:{reference.PackageId}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_domain_projects_keep_minimal_project_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        HashSet<string> allowedProjectReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            @"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj",
+            @"..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+        };
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Domain.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !allowedProjectReferences.Contains(reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] packageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] frameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(packageReferences)
+                    .Concat(frameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_application_projects_keep_adapter_free_project_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        HashSet<string> allowedPackageReferences = new(StringComparer.Ordinal)
+        {
+            "Microsoft.Extensions.DependencyInjection.Abstractions",
+            "Microsoft.Extensions.Options.ConfigurationExtensions"
+        };
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Application.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string moduleName = Path.GetFileNameWithoutExtension(projectPath)
+                    .Replace(".Application", string.Empty, StringComparison.Ordinal);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !IsAllowedApplicationProjectReference(moduleName, reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] unexpectedPackageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Where(packageId => !allowedPackageReferences.Contains(packageId!))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] frameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(unexpectedPackageReferences)
+                    .Concat(frameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Public_module_contract_projects_keep_backend_free_project_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Contracts.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path => !Path.GetFileNameWithoutExtension(path).EndsWith(".Admin.Contracts", StringComparison.Ordinal))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string moduleName = Path.GetFileNameWithoutExtension(projectPath)
+                    .Replace(".Contracts", string.Empty, StringComparison.Ordinal);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !IsAllowedPublicContractsProjectReference(moduleName, reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] packageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] frameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(packageReferences)
+                    .Concat(frameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_admin_contract_projects_keep_thin_wrapper_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Admin.Contracts.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string moduleName = Path.GetFileNameWithoutExtension(projectPath)
+                    .Replace(".Admin.Contracts", string.Empty, StringComparison.Ordinal);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !IsAllowedAdminContractsProjectReference(moduleName, reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] packageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] frameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(packageReferences)
+                    .Concat(frameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_persistence_projects_keep_provider_adapter_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        HashSet<string> allowedPackageReferences = new(StringComparer.Ordinal)
+        {
+            "Microsoft.EntityFrameworkCore.SqlServer",
+            "Microsoft.Extensions.Hosting",
+            "Npgsql.EntityFrameworkCore.PostgreSQL"
+        };
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Persistence.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string moduleName = Path.GetFileNameWithoutExtension(projectPath)
+                    .Replace(".Persistence", string.Empty, StringComparison.Ordinal);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !IsAllowedPersistenceProjectReference(moduleName, reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] unexpectedPackageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Where(packageId => !allowedPackageReferences.Contains(packageId!))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] frameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(unexpectedPackageReferences)
+                    .Concat(frameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_http_front_door_projects_keep_http_composition_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path =>
+            {
+                string projectName = Path.GetFileNameWithoutExtension(path);
+                return projectName.EndsWith(".Api", StringComparison.Ordinal) ||
+                       projectName.EndsWith(".AdminApi", StringComparison.Ordinal);
+            })
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string projectName = Path.GetFileNameWithoutExtension(projectPath);
+                bool isAdminApi = projectName.EndsWith(".AdminApi", StringComparison.Ordinal);
+                string moduleName = projectName
+                    .Replace(".AdminApi", string.Empty, StringComparison.Ordinal)
+                    .Replace(".Api", string.Empty, StringComparison.Ordinal);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !IsAllowedHttpFrontDoorProjectReference(moduleName, isAdminApi, reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] packageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] unexpectedFrameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !string.Equals(reference, "Microsoft.AspNetCore.App", StringComparison.Ordinal))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(packageReferences)
+                    .Concat(unexpectedFrameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_admin_cli_front_door_projects_keep_cli_composition_shape()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        HashSet<string> allowedPackageReferences = new(StringComparer.Ordinal)
+        {
+            "System.CommandLine"
+        };
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Admin.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+                string moduleName = Path.GetFileNameWithoutExtension(projectPath)
+                    .Replace(".Admin", string.Empty, StringComparison.Ordinal);
+                string[] unexpectedProjectReferences = project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Where(reference => !IsAllowedAdminCliProjectReference(moduleName, reference!))
+                    .Select(reference => $"{relativePath}->ProjectReference:{reference}")
+                    .ToArray();
+                string[] unexpectedPackageReferences = project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Where(packageId => !allowedPackageReferences.Contains(packageId!))
+                    .Select(packageId => $"{relativePath}->PackageReference:{packageId}")
+                    .ToArray();
+                string[] frameworkReferences = project
+                    .Descendants("FrameworkReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => $"{relativePath}->FrameworkReference:{reference}")
+                    .ToArray();
+
+                return unexpectedProjectReferences
+                    .Concat(unexpectedPackageReferences)
+                    .Concat(frameworkReferences);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Public_module_contract_projects_do_not_reference_admin_framework()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateProjectReferences(repositoryRoot)
+            .Where(reference => IsPublicModuleContractsProject(reference.ProjectPath))
+            .Where(reference => reference.ReferencePath.Contains("Shared.Administration", StringComparison.OrdinalIgnoreCase))
+            .Select(reference => $"{reference.ProjectPath}->{reference.ReferencePath}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_front_door_projects_do_not_reference_shared_infrastructure_directly()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateProjectReferences(repositoryRoot)
+            .Where(reference => IsModuleFrontDoorProject(reference.ProjectPath))
+            .Where(reference => reference.ReferencePath.Contains("Shared.Infrastructure", StringComparison.OrdinalIgnoreCase))
+            .Select(reference => $"{reference.ProjectPath}->{reference.ReferencePath}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_current_admin_cli_contracts()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] forbiddenTokens =
+        [
+            "IAdminModule",
+            "IAdminCommandRegistry",
+            "TenantScoped:",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\${Name}AdminPermissionCodes.cs\")"
+        ];
+        string[] requiredTokens =
+        [
+            "function ConvertTo-GmaKebabCase",
+            "$moduleName = ConvertTo-GmaKebabCase -Value $Name",
+            "public const string Name",
+            "ModuleDescriptor.Empty(Name, Schema)",
+            "tenantScoped: true",
+            "ModuleCacheName",
+            "ModuleCacheTag",
+            "${Name}ModuleMetadata.Name",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\${Name}AdminPermissionCodes.cs\")",
+            "IAdminCliModule",
+            "IAdminCliCommandRegistry",
+            "using Shared.Administration.Cli;",
+            "AdminPermissionCodes",
+            "AdminOperationNames",
+            "ModulePermissionDescriptor(${Name}AdminPermissionCodes.Manage",
+            "public const string Manage = ${Name}ModuleMetadata.Name + \".manage\";",
+            "AdminPermission.Create(${Name}AdminPermissionCodes.Manage)"
+        ];
+        string[] offenders = forbiddenTokens
+            .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 contains stale {token}")
+            .Concat(requiredTokens
+                .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 missing {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_module_metadata_for_generated_front_door_names()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            "RouteGroupBuilder group = endpoints.MapGroup(\"/api/\" + ${Name}ModuleMetadata.Name)",
+            "Command module = new(${Name}ModuleMetadata.Name, \"$Name administration operations.\");",
+            "_ = endpoints.MapGroup(\"/api/admin/\" + ${Name}ModuleMetadata.Name)"
+        ];
+        string[] forbiddenTokens =
+        [
+            "RouteGroupBuilder group = endpoints.MapGroup(\"/api/$moduleName\")",
+            "Command module = new(\"$moduleName\", \"$Name administration operations.\");",
+            "_ = endpoints.MapGroup(\"/api/admin/$moduleName\")"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 contains stale {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Scripts_and_docs_do_not_reference_machine_specific_dotnet_paths()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] checkedFiles = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "eng"), "*.ps1", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.EnumerateFiles(Path.Combine(repositoryRoot, "docs"), "*.md", SearchOption.AllDirectories))
+            .Append(Path.Combine(repositoryRoot, "README.md"))
+            .ToArray();
+        string[] forbiddenTokens =
+        [
+            @"C:\Users\",
+            ".dotnet-10"
+        ];
+        string[] offenders = checkedFiles
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.OrdinalIgnoreCase))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} contains machine-specific token '{token}'.");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Dotnet_script_wrapper_resolves_sdk_from_repository_root_and_supports_project_working_directories()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "common.ps1"));
+        string[] requiredTokens =
+        [
+            "Push-Location -LiteralPath $script:RepositoryRoot",
+            "[string] $WorkingDirectory = $script:RepositoryRoot",
+            "Push-Location -LiteralPath $WorkingDirectory",
+            "Pop-Location",
+            "function Resolve-GmaDotNet",
+            "function Invoke-GmaDotNet"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/common.ps1 missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Long_running_host_scripts_run_from_project_directories()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] runScripts =
+        [
+            Path.Combine(repositoryRoot, "eng", "run-api.ps1"),
+            Path.Combine(repositoryRoot, "eng", "run-admin-api.ps1"),
+            Path.Combine(repositoryRoot, "eng", "run-aspire.ps1")
+        ];
+
+        string[] offenders = runScripts
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                List<string> scriptOffenders = [];
+                if (!source.Contains("$projectDirectory = Split-Path -Parent $projectPath", StringComparison.Ordinal))
+                {
+                    scriptOffenders.Add($"{Path.GetRelativePath(repositoryRoot, path)} does not derive a project working directory.");
+                }
+
+                if (!source.Contains("-WorkingDirectory $projectDirectory", StringComparison.Ordinal))
+                {
+                    scriptOffenders.Add($"{Path.GetRelativePath(repositoryRoot, path)} does not run from the project directory.");
+                }
+
+                return scriptOffenders;
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Engineering_scripts_use_shared_common_policy()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string engRoot = Path.Combine(repositoryRoot, "eng");
+        string[] offenders = Directory
+            .EnumerateFiles(engRoot, "*.ps1", SearchOption.TopDirectoryOnly)
+            .Where(path => !string.Equals(Path.GetFileName(path), "common.ps1", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !File.ReadAllText(path).Contains(". (Join-Path $PSScriptRoot 'common.ps1')", StringComparison.Ordinal))
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} does not source eng/common.ps1.")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_dependency_injection_extensions_guard_null_arguments()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] sourceOffenders = Directory
+            .EnumerateFiles(modulesRoot, "DependencyInjection.cs", SearchOption.AllDirectories)
+            .Where(path => !File.ReadAllText(path).Contains("ArgumentNullException.ThrowIfNull(", StringComparison.Ordinal))
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} does not guard null extension arguments.")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] scaffoldOffenders =
+        [
+            scaffolder.Contains("ArgumentNullException.ThrowIfNull(services);", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold application DI null guards.",
+            scaffolder.Contains("ArgumentNullException.ThrowIfNull(builder);", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold persistence DI null guards."
+        ];
+
+        Assert.Empty(sourceOffenders
+            .Concat(scaffoldOffenders.Where(offender => !string.IsNullOrWhiteSpace(offender)))
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_current_inbox_store_contract()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            "using Shared.Application.Identity;",
+            "IIdGenerator idGenerator",
+            ": EfInboxStore<${Name}DbContext>(dbContext, clock, idGenerator,"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_current_outbox_store_contract()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            "using Microsoft.Extensions.Options;",
+            ": EfOutboxStore<${Name}DbContext>(dbContext, options, ${Name}Migrations.Schema);"
+        ];
+        string[] forbiddenTokens =
+        [
+            "ClaimPendingAsync(",
+            "MarkProcessedAsync(",
+            "MarkFailedAsync(",
+            "BeginTransactionAsync(IsolationLevel.Serializable",
+            "OutboxStore(${Name}DbContext dbContext, IOptions<OutboxOptions> options) : IOutboxStore"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 contains stale {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_generates_admin_cli_without_raw_console_output()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            "Shared.Administration.Cli",
+            "using Shared.Administration.Cli;",
+            "IAdminCliModule"
+        ];
+        string[] forbiddenTokens =
+        [
+            "Console.WriteLine",
+            "Console.Error.WriteLine",
+            "Console.Error.Write("
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 contains raw admin CLI output token {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_does_not_keep_stale_project_reference_helper()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+
+        Assert.DoesNotContain("function Add-ProjectReference", scaffolder, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_current_outbox_writer_contract()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            "using Shared.Application.Time;",
+            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);"
+        ];
+        string[] forbiddenTokens =
+        [
+            "EnqueueAsync<TEvent>",
+            "IntegrationEventEnvelopeFactory.Create(",
+            "dbContext.OutboxMessages.Add(new OutboxMessage("
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 contains stale {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_module_metadata_for_persistence_identity()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            @"<ProjectReference Include=""..\$Name.Contracts\$Name.Contracts.csproj"" />",
+            "using $Name.Contracts;",
+            "public const string Schema = ${Name}ModuleMetadata.Schema;",
+            ": EfDomainEventUnitOfWork<${Name}DbContext>(${Name}Migrations.Schema, dbContext, domainEventDispatcher)",
+            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);",
+            ": EfOutboxStore<${Name}DbContext>(dbContext, options, ${Name}Migrations.Schema);",
+            ": EfInboxStore<${Name}DbContext>(dbContext, clock, idGenerator, ${Name}Migrations.Schema)"
+        ];
+        string[] forbiddenTokens =
+        [
+            "public const string Schema = \"$moduleName\";",
+            "ModuleName => \"$moduleName\"",
+            "(\"$moduleName\", dbContext",
+            "clock, \"$moduleName\")",
+            "options, \"$moduleName\")",
+            "idGenerator, \"$moduleName\")"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 contains stale {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_guards_host_registration_and_prints_follow_up_checklist()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string apiHost = File.ReadAllText(Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"));
+        string[] requiredTokens =
+        [
+            "$hostRegistrationAnchor = '// gma:new-module:public-api-modules'",
+            "composition marker",
+            "Could not register '$Name' in Host.Api",
+            "Could not verify '$moduleRegistration'",
+            @"tests\Architecture.Tests\ArchitectureCatalog.cs",
+            "ModuleProjects entries",
+            "module descriptor",
+            "Unknown = 0",
+            "Compose the module explicitly"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+        Assert.Contains("// gma:new-module:public-api-modules", apiHost, StringComparison.Ordinal);
+        Assert.DoesNotContain("$hostRegistrationAnchor = 'builder.AddModule<AuthModule>();'", scaffolder, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Admin_cli_host_uses_bounded_exception_handling()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string program = File.ReadAllText(Path.Combine(repositoryRoot, "src", "Host.AdminCli", "Program.cs"));
+
+        Assert.Contains("EnableDefaultExceptionHandler = false", program, StringComparison.Ordinal);
+        Assert.Contains("Admin command failed unexpectedly.", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnableDefaultExceptionHandler = true", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Admin_cli_host_validates_startup_options_without_starting_hosted_services()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string program = File.ReadAllText(Path.Combine(repositoryRoot, "src", "Host.AdminCli", "Program.cs"));
+        int tryIndex = program.IndexOf("try", StringComparison.Ordinal);
+        int compositionIndex = program.IndexOf("HostApplicationBuilder builder", StringComparison.Ordinal);
+        int buildIndex = program.IndexOf("using IHost host = builder.Build();", StringComparison.Ordinal);
+        int optionsCatchIndex = program.IndexOf("catch (OptionsValidationException", StringComparison.Ordinal);
+
+        Assert.Contains("host.Services.ValidateAdminCliStartup();", program, StringComparison.Ordinal);
+        Assert.Contains("ContentRootPath = AppContext.BaseDirectory", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("host.StartAsync", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("host.RunAsync", program, StringComparison.Ordinal);
+        Assert.True(tryIndex >= 0, "Host.AdminCli should use a bounded try/catch around composition and execution.");
+        Assert.InRange(compositionIndex, tryIndex + 1, optionsCatchIndex - 1);
+        Assert.InRange(buildIndex, tryIndex + 1, optionsCatchIndex - 1);
+    }
+
+    [Fact]
+    public void Application_projects_do_not_depend_on_host_builder()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] packageOffenders = EnumeratePackageReferences(repositoryRoot)
+            .Where(reference => IsApplicationProject(reference.ProjectPath))
+            .Where(reference => string.Equals(reference.PackageId, "Microsoft.Extensions.Hosting", StringComparison.Ordinal))
+            .Select(reference => $"{reference.ProjectPath}:{reference.PackageId}")
+            .ToArray();
+        string[] sourceOffenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src", "Modules"))
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Application", StringComparison.Ordinal))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string[] forbiddenTokens =
+                [
+                    "IHostApplicationBuilder",
+                    "Microsoft.Extensions.Hosting"
+                ];
+
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .ToArray();
+
+        Assert.Empty(packageOffenders.Concat(sourceOffenders).Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Feature_module_sources_use_shared_time_and_id_abstractions()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] forbiddenTokens =
+        [
+            "Guid.NewGuid(",
+            "DateTimeOffset.UtcNow",
+            "DateTime.UtcNow"
+        ];
+
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Shared_infrastructure_centralizes_direct_time_and_id_creation()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedInfrastructureRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.Infrastructure");
+        string[] forbiddenTokens =
+        [
+            "Guid.NewGuid(",
+            "DateTimeOffset.UtcNow",
+            "DateTime.UtcNow"
+        ];
+
+        string[] offenders = EnumerateSourceFiles(sharedInfrastructureRoot)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string relativePath = NormalizePath(Path.GetRelativePath(repositoryRoot, path));
+
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Where(token => !IsAllowedDirectTimeOrIdSource(relativePath, token))
+                    .Select(token => $"{relativePath}:{token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Shared_infrastructure_runtime_options_are_validated_on_start()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Infrastructure",
+            "DependencyInjection.cs"));
+        string[] requiredTokens =
+        [
+            "new CachingOptionsValidator()",
+            "new TenantOptionsValidator()",
+            "new OutboxOptionsValidator()",
+            "new NatsJetStreamOptionsValidator()",
+            "new NatsConsumerOptionsValidator()",
+            "OptionsValidationException(sectionName, typeof(TOptions), result.Failures)",
+            "IValidateOptions<TenantOptions>, TenantOptionsValidator",
+            "IValidateOptions<CachingOptions>, CachingOptionsValidator",
+            "IValidateOptions<OutboxOptions>, OutboxOptionsValidator",
+            "IValidateOptions<NatsJetStreamOptions>, NatsJetStreamOptionsValidator",
+            "IValidateOptions<NatsConsumerOptions>, NatsConsumerOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Shared.Infrastructure dependency injection missing {token}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Shared_messaging_runtime_registration_composes_shared_infrastructure()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Infrastructure",
+            "DependencyInjection.cs"));
+
+        AssertMethodContains(source, "AddNatsJetStreamMessaging", "builder.AddSharedInfrastructure();");
+        AssertMethodContains(source, "AddOutboxPublishing", "builder.AddSharedInfrastructure();");
+        AssertMethodContains(source, "AddNatsJetStreamConsumers", "builder.AddSharedInfrastructure();");
+    }
+
+    [Fact]
+    public void Shared_metric_instrument_names_are_declared_only_in_observability_contracts()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string allowedRelativePath = NormalizePath(Path.Combine(
+            "src",
+            "Shared",
+            "Shared.Application",
+            "Observability",
+            "ObservabilityInstrumentNames.cs"));
+        string[] sharedInstrumentNames =
+        [
+            ObservabilityInstrumentNames.CommandsExecuted,
+            ObservabilityInstrumentNames.CommandsDuration,
+            ObservabilityInstrumentNames.QueriesExecuted,
+            ObservabilityInstrumentNames.QueriesDuration,
+            ObservabilityInstrumentNames.OutboxClaimed,
+            ObservabilityInstrumentNames.OutboxPublished,
+            ObservabilityInstrumentNames.OutboxFailed,
+            ObservabilityInstrumentNames.OutboxPublishDuration,
+            ObservabilityInstrumentNames.InboxMessages,
+            ObservabilityInstrumentNames.InboxProcessDuration,
+            ObservabilityInstrumentNames.CacheRequests,
+            ObservabilityInstrumentNames.CacheDuration,
+            ObservabilityInstrumentNames.CacheBackendFailures,
+            ObservabilityInstrumentNames.CacheInvalidationFailures
+        ];
+        string[] offenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src"))
+            .Concat(EnumerateSourceFiles(Path.Combine(repositoryRoot, "tests")))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string relativePath = NormalizePath(Path.GetRelativePath(repositoryRoot, path));
+
+                if (string.Equals(relativePath, allowedRelativePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return [];
+                }
+
+                string source = File.ReadAllText(path);
+
+                return sharedInstrumentNames
+                    .Where(metricName => source.Contains($"\"{metricName}\"", StringComparison.Ordinal))
+                    .Select(metricName => $"{relativePath}:{metricName}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Cqrs_validation_behaviors_use_shared_validation_error_contract()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string cqrsRoot = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Infrastructure",
+            "Cqrs");
+        string[] behaviorFiles =
+        [
+            Path.Combine(cqrsRoot, "ValidationCommandBehavior.cs"),
+            Path.Combine(cqrsRoot, "ValidationQueryBehavior.cs")
+        ];
+        string[] offenders = behaviorFiles
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return !source.Contains("RequestValidationErrors.Failed(failures)", StringComparison.Ordinal) ||
+                       source.Contains("\"Validation.Failed\"", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} should use RequestValidationErrors")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Persistence_options_are_validated_only_by_persistence_modules()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedInfrastructureSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Infrastructure",
+            "DependencyInjection.cs"));
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] persistenceRegistrationOffenders = Directory
+            .EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => Path.GetFileNameWithoutExtension(path).EndsWith(".Persistence", StringComparison.Ordinal))
+            .Select(path => Path.Combine(Path.GetDirectoryName(path)!, "DependencyInjection.cs"))
+            .Where(File.Exists)
+            .Where(path => !File.ReadAllText(path).Contains("AddPersistenceOptions(builder.Configuration)", StringComparison.Ordinal))
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} does not call AddPersistenceOptions")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.DoesNotContain("AddOptions<PersistenceOptions>", sharedInfrastructureSource, StringComparison.Ordinal);
+        Assert.Contains("builder.Services.AddPersistenceOptions(builder.Configuration);", scaffolder, StringComparison.Ordinal);
+        Assert.Empty(persistenceRegistrationOffenders);
+    }
+
+    [Fact]
+    public void Module_persistence_dependency_injection_uses_repeat_safe_registration()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] enumerablePersistenceTokens =
+        [
+            "IUnitOfWork",
+            "IOutboxWriter",
+            "IOutboxStore",
+            "IInboxStore"
+        ];
+        string[] unsafeRegistrationPrefixes =
+        [
+            ".AddScoped<",
+            ".AddTransient<",
+            ".AddSingleton<",
+            ".TryAddScoped<",
+            ".TryAddTransient<",
+            ".TryAddSingleton<"
+        ];
+
+        string[] sourceOffenders = Directory
+            .EnumerateFiles(modulesRoot, "DependencyInjection.cs", SearchOption.AllDirectories)
+            .Where(path => path.Contains(".Persistence", StringComparison.Ordinal))
+            .Select(path => new
+            {
+                Path = path,
+                Source = File.ReadAllText(path),
+            })
+            .SelectMany(item =>
+            {
+                List<string> offenders = [];
+                if (item.Source.Contains(".AddDbContext<", StringComparison.Ordinal))
+                {
+                    offenders.Add($"{Path.GetRelativePath(repositoryRoot, item.Path)} uses AddDbContext; use TryAddModuleDbContext.");
+                }
+
+                offenders.AddRange(enumerablePersistenceTokens
+                    .SelectMany(token => unsafeRegistrationPrefixes
+                        .Where(prefix => item.Source.Contains(prefix + token, StringComparison.Ordinal))
+                        .Select(prefix => $"{Path.GetRelativePath(repositoryRoot, item.Path)} uses {prefix}{token}; use services.TryAddEnumerable with ServiceDescriptor instead.")));
+
+                return offenders;
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] scaffoldOffenders =
+        [
+            scaffolder.Contains("TryAddModuleDbContext<${Name}DbContext>", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold TryAddModuleDbContext.",
+            scaffolder.Contains("TryAddEnumerable(ServiceDescriptor.Scoped<IUnitOfWork, ${Name}UnitOfWork>())", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold repeat-safe IUnitOfWork registration.",
+            scaffolder.Contains("TryAddEnumerable(ServiceDescriptor.Scoped<IOutboxWriter, ${Name}OutboxWriter>())", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold repeat-safe IOutboxWriter registration.",
+            scaffolder.Contains("TryAddEnumerable(ServiceDescriptor.Scoped<IOutboxStore, ${Name}OutboxStore>())", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold repeat-safe IOutboxStore registration.",
+            scaffolder.Contains("TryAddEnumerable(ServiceDescriptor.Scoped<IInboxStore, ${Name}InboxStore>())", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold repeat-safe IInboxStore registration."
+        ];
+
+        Assert.Empty(sourceOffenders
+            .Concat(scaffoldOffenders.Where(offender => !string.IsNullOrWhiteSpace(offender)))
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Transactional_commands_have_matching_persistence_unit_of_work_module_names()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        Dictionary<string, ModuleProject> persistenceProjects = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind == ModuleProjectKind.Persistence)
+            .ToDictionary(
+                project => ResolveModuleName(project.ModulePrefix),
+                project => project,
+                StringComparer.Ordinal);
+
+        string[] offenders = ArchitectureCatalog.ApplicationAssemblies
+            .SelectMany(assembly => assembly
+                .GetTypes()
+                .Where(type => !type.IsAbstract)
+                .Where(type => ImplementsOpenGeneric(type, typeof(ITransactionalCommand<>)))
+                .Select(type => new
+                {
+                    CommandType = type,
+                    ModuleName = ModuleNameFromAssembly(type.Assembly),
+                }))
+            .Select(item =>
+            {
+                if (!persistenceProjects.TryGetValue(item.ModuleName, out ModuleProject? persistenceProject))
+                {
+                    return $"{item.CommandType.FullName} resolves to module '{item.ModuleName}' but no persistence project is registered";
+                }
+
+                string persistenceProjectDirectory = Path.Combine(
+                    modulesRoot,
+                    persistenceProject.ModulePrefix,
+                    persistenceProject.ProjectName);
+                string moduleDirectory = Path.Combine(modulesRoot, persistenceProject.ModulePrefix);
+                string requiredToken = $"ModuleName => \"{item.ModuleName}\"";
+                bool hasMatchingUnitOfWork = PersistenceProjectDeclaresMatchingUnitOfWorkModuleName(
+                    moduleDirectory,
+                    persistenceProjectDirectory,
+                    item.ModuleName);
+
+                return hasMatchingUnitOfWork
+                    ? null
+                    : $"{item.CommandType.FullName} resolves to module '{item.ModuleName}' but {persistenceProject.ProjectName} does not declare {requiredToken} or an equivalent schema constant";
+            })
+            .Where(offender => offender is not null)
+            .Select(offender => offender!)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_domain_event_unit_of_work_implementations_use_shared_ef_base()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string scaffolderSource = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("UnitOfWork.cs", StringComparison.Ordinal))
+            .Where(path => File.ReadAllText(path).Contains("IDomainEventDispatcher", StringComparison.Ordinal))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return !source.Contains(": EfDomainEventUnitOfWork<", StringComparison.Ordinal) ||
+                       source.Contains(".ChangeTracker", StringComparison.Ordinal) ||
+                       source.Contains("ClearDomainEvents()", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} should inherit EfDomainEventUnitOfWork")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+        Assert.Contains("EfDomainEventUnitOfWork<", scaffolderSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(".ChangeTracker", scaffolderSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("ClearDomainEvents()", scaffolderSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Module_inbox_stores_use_module_identity_constants()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("InboxStore.cs", StringComparison.Ordinal))
+            .Where(path => File.ReadAllText(path).Contains(": EfInboxStore<", StringComparison.Ordinal))
+            .Where(path => RawStringArgumentPattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_inbox_stores_use_shared_ef_base()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("InboxStore.cs", StringComparison.Ordinal))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return !source.Contains(": EfInboxStore<", StringComparison.Ordinal) ||
+                       source.Contains("ProcessAsync(", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} should inherit EfInboxStore without hand-written process logic")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_outbox_stores_use_shared_ef_base()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("OutboxStore.cs", StringComparison.Ordinal))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return !source.Contains(": EfOutboxStore<", StringComparison.Ordinal) ||
+                       source.Contains("ClaimPendingAsync(", StringComparison.Ordinal) ||
+                       source.Contains("MarkProcessedAsync(", StringComparison.Ordinal) ||
+                       source.Contains("MarkFailedAsync(", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} should inherit EfOutboxStore without hand-written claim/mark methods")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_outbox_writers_use_shared_ef_base()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => Path.GetFileName(path).EndsWith("OutboxWriter.cs", StringComparison.Ordinal))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return !source.Contains(": EfOutboxWriter<", StringComparison.Ordinal) ||
+                       source.Contains("EnqueueAsync<TEvent>", StringComparison.Ordinal) ||
+                       source.Contains("IntegrationEventEnvelopeFactory.Create(", StringComparison.Ordinal) ||
+                       source.Contains("OutboxMessages.Add(new OutboxMessage(", StringComparison.Ordinal);
+            })
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} should inherit EfOutboxWriter without hand-written enqueue logic")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Redis_caching_options_are_validated_when_adapter_is_enabled()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Redis",
+            "DependencyInjection.cs"));
+        string[] requiredTokens =
+        [
+            "IValidateOptions<RedisCachingOptions>, RedisCachingOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Shared.Caching.Redis dependency injection missing {token}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Service_defaults_observability_options_are_validated_on_start()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "ServiceDefaults",
+            "Extensions.cs"));
+        string[] requiredTokens =
+        [
+            "IValidateOptions<ObservabilityOptions>, ObservabilityOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"ServiceDefaults dependency injection missing {token}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Shared_administration_api_options_are_validated_on_start()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Administration.Api",
+            "DependencyInjection.cs"));
+        string[] requiredTokens =
+        [
+            "IValidateOptions<AdminApiOptions>, AdminApiOptionsValidator",
+            ".ValidateOnStart()"
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Shared.Administration.Api dependency injection missing {token}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    private static bool ImplementsOpenGeneric(Type type, Type openGenericInterface) =>
+        type.GetInterfaces()
+            .Any(@interface =>
+                @interface.IsGenericType &&
+                @interface.GetGenericTypeDefinition() == openGenericInterface);
+
+    private static string ModuleNameFromAssembly(Assembly assembly)
+    {
+        string assemblyName = assembly.GetName().Name ?? string.Empty;
+        int separatorIndex = assemblyName.IndexOf('.', StringComparison.Ordinal);
+        string modulePrefix = separatorIndex > 0 ? assemblyName[..separatorIndex] : assemblyName;
+
+        return ResolveModuleName(modulePrefix);
+    }
+
+    private static string ResolveAdminSurfaceName(string modulePrefix)
+    {
+        Type[] moduleTypes = ArchitectureCatalog.ModuleProjects
+            .Where(project => string.Equals(project.ModulePrefix, modulePrefix, StringComparison.Ordinal))
+            .SelectMany(project => project.Assembly.GetTypes())
+            .ToArray();
+
+        string? adminSurfaceName = moduleTypes
+            .Select(type => type.GetField("AdminSurfaceName", BindingFlags.Public | BindingFlags.Static))
+            .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+            .Select(field => field!.GetRawConstantValue() as string)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        if (!string.IsNullOrWhiteSpace(adminSurfaceName))
+        {
+            return adminSurfaceName;
+        }
+
+        string? moduleName = moduleTypes
+            .Where(type => type.Name is { } name &&
+                           (name.EndsWith("ModuleMetadata", StringComparison.Ordinal) ||
+                            name.EndsWith("ModuleIdentity", StringComparison.Ordinal)))
+            .Select(type => type.GetField("Name", BindingFlags.Public | BindingFlags.Static))
+            .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+            .Select(field => field!.GetRawConstantValue() as string)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        return moduleName ?? ToModuleName(modulePrefix);
+    }
+
+    private static string ResolveModuleName(string modulePrefix)
+    {
+        Type[] moduleTypes = ArchitectureCatalog.ModuleProjects
+            .Where(project => string.Equals(project.ModulePrefix, modulePrefix, StringComparison.Ordinal))
+            .SelectMany(project => project.Assembly.GetTypes())
+            .ToArray();
+
+        string? moduleName = moduleTypes
+            .Where(type => type.Name is { } name &&
+                           (name.EndsWith("ModuleMetadata", StringComparison.Ordinal) ||
+                            name.EndsWith("ModuleIdentity", StringComparison.Ordinal)))
+            .Select(type => type.GetField("Name", BindingFlags.Public | BindingFlags.Static))
+            .Where(field => field is { IsLiteral: true, IsInitOnly: false } && field.FieldType == typeof(string))
+            .Select(field => field!.GetRawConstantValue() as string)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+        return moduleName ?? ToModuleName(modulePrefix);
+    }
+
+    private static string ToModuleName(string projectPrefix)
+    {
+        string withAcronymBoundaries = AcronymBoundaryPattern().Replace(projectPrefix, "$1-$2");
+        return WordBoundaryPattern().Replace(withAcronymBoundaries, "$1-$2").ToLowerInvariant();
+    }
+
+    private static string ProjectNameFromSolutionPath(string solutionPath)
+    {
+        string fileName = solutionPath
+            .Split('\\', '/')
+            .Last();
+
+        return fileName.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+            ? fileName[..^".csproj".Length]
+            : fileName;
+    }
+
+    private static bool PersistenceProjectDeclaresMatchingUnitOfWorkModuleName(
+        string moduleDirectory,
+        string persistenceProjectDirectory,
+        string moduleName)
+    {
+        string literalToken = $"ModuleName => \"{moduleName}\"";
+        Dictionary<string, string> moduleIdentityConstants = EnumerateSourceFiles(moduleDirectory)
+            .SelectMany(path => ModuleIdentityConstantPattern()
+                .Matches(File.ReadAllText(path))
+                .Select(match => new
+                {
+                    TypeName = match.Groups["type"].Value,
+                    match.Groups["value"].Value,
+                }))
+            .GroupBy(item => item.TypeName, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group.First().Value,
+                StringComparer.Ordinal);
+        HashSet<string> persistenceSchemaConstantTypes = EnumerateSourceFiles(persistenceProjectDirectory)
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path => SchemaConstantTypePattern()
+                .Matches(File.ReadAllText(path))
+                .Select(match => match.Groups["type"].Value))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return EnumerateSourceFiles(persistenceProjectDirectory)
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Any(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                bool UsesEfDomainEventUnitOfWorkWith(string moduleNameExpression) =>
+                    source.Contains("EfDomainEventUnitOfWork<", StringComparison.Ordinal) &&
+                    source.Contains($"({moduleNameExpression},", StringComparison.Ordinal);
+
+                bool UsesModuleIdentityConstant(KeyValuePair<string, string> item) =>
+                    string.Equals(item.Value, moduleName, StringComparison.Ordinal) &&
+                    (source.Contains($"ModuleName => {item.Key}.Name", StringComparison.Ordinal) ||
+                     source.Contains($"ModuleName => {item.Key}.Schema", StringComparison.Ordinal) ||
+                     UsesEfDomainEventUnitOfWorkWith($"{item.Key}.Name") ||
+                     UsesEfDomainEventUnitOfWorkWith($"{item.Key}.Schema"));
+
+                bool UsesPersistenceSchemaConstant(string typeName) =>
+                    source.Contains($"ModuleName => {typeName}.Schema", StringComparison.Ordinal) ||
+                    UsesEfDomainEventUnitOfWorkWith($"{typeName}.Schema");
+
+                return source.Contains(literalToken, StringComparison.Ordinal) ||
+                       moduleIdentityConstants.Any(UsesModuleIdentityConstant) ||
+                       persistenceSchemaConstantTypes.Any(UsesPersistenceSchemaConstant);
+            });
+    }
+
+    private static IEnumerable<string> GetMisalignedNamespaces(string repositoryRoot, string sourcePath)
+    {
+        string source = File.ReadAllText(sourcePath);
+        string? projectName = FindOwningProjectName(sourcePath);
+
+        if (projectName is null)
+        {
+            yield break;
+        }
+
+        foreach (Match match in NamespacePattern().Matches(source))
+        {
+            string namespaceName = match.Groups["name"].Value;
+
+            if (!namespaceName.StartsWith(projectName, StringComparison.Ordinal))
+            {
+                yield return $"{Path.GetRelativePath(repositoryRoot, sourcePath)}::{namespaceName} expected {projectName}*";
+            }
+        }
+    }
+
+    private static IEnumerable<ProjectPackageReference> EnumeratePackageReferences(string repositoryRoot)
+    {
+        string sourceRoot = Path.Combine(repositoryRoot, "src");
+
+        return Directory
+            .EnumerateFiles(sourceRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+
+                return project
+                    .Descendants("PackageReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                    .Select(packageId => new ProjectPackageReference(relativePath, packageId!));
+            });
+    }
+
+    private static IEnumerable<ProjectReference> EnumerateProjectReferences(string repositoryRoot)
+    {
+        string sourceRoot = Path.Combine(repositoryRoot, "src");
+
+        return Directory
+            .EnumerateFiles(sourceRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                XDocument project = XDocument.Load(projectPath);
+                string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
+
+                return project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(referencePath => !string.IsNullOrWhiteSpace(referencePath))
+                    .Select(referencePath => new ProjectReference(relativePath, referencePath!));
+            });
+    }
+
+    private static bool IsCliProject(string projectPath)
+    {
+        string normalizedPath = NormalizePath(projectPath);
+        string projectName = Path.GetFileNameWithoutExtension(normalizedPath);
+
+        return string.Equals(projectName, "Host.AdminCli", StringComparison.Ordinal) ||
+               string.Equals(projectName, "Shared.Administration.Cli", StringComparison.Ordinal) ||
+               (IsModuleProject(normalizedPath) &&
+                projectName.EndsWith(".Admin", StringComparison.Ordinal));
+    }
+
+    private static bool IsModuleProject(string projectPath) =>
+        NormalizePath(projectPath).StartsWith(
+            $"src{Path.DirectorySeparatorChar}Modules{Path.DirectorySeparatorChar}",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPublicModuleContractsProject(string projectPath)
+    {
+        string normalizedPath = NormalizePath(projectPath);
+        string projectName = Path.GetFileNameWithoutExtension(normalizedPath);
+
+        return IsModuleProject(normalizedPath) &&
+               projectName.EndsWith(".Contracts", StringComparison.Ordinal) &&
+               !projectName.EndsWith(".Admin.Contracts", StringComparison.Ordinal);
+    }
+
+    private static bool IsAllowedApplicationProjectReference(string moduleName, string referencePath)
+    {
+        string normalizedReference = NormalizePath(referencePath);
+        HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj")
+        };
+
+        return allowedSharedReferences.Contains(normalizedReference) ||
+               (string.Equals(moduleName, "Administration", StringComparison.Ordinal) &&
+                string.Equals(
+                    normalizedReference,
+                    NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"),
+                    StringComparison.OrdinalIgnoreCase)) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Contracts\{moduleName}.Contracts.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Domain\{moduleName}.Domain.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               IsOtherModuleContractsReference(moduleName, normalizedReference);
+    }
+
+    private static bool IsAllowedHttpFrontDoorProjectReference(string moduleName, bool isAdminApi, string referencePath)
+    {
+        string normalizedReference = NormalizePath(referencePath);
+        HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            NormalizePath(@"..\..\..\Shared\Shared.Api\Shared.Api.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj")
+        };
+
+        if (isAdminApi)
+        {
+            allowedSharedReferences.Add(NormalizePath(@"..\..\..\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj"));
+            allowedSharedReferences.Add(NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"));
+        }
+
+        return allowedSharedReferences.Contains(normalizedReference) ||
+               (isAdminApi &&
+                string.Equals(
+                    normalizedReference,
+                    NormalizePath($@"..\{moduleName}.Admin.Contracts\{moduleName}.Admin.Contracts.csproj"),
+                    StringComparison.OrdinalIgnoreCase)) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Contracts\{moduleName}.Contracts.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Application\{moduleName}.Application.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Persistence\{moduleName}.Persistence.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Infrastructure\{moduleName}.Infrastructure.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Infrastructure.JwtBearer\{moduleName}.Infrastructure.JwtBearer.csproj"),
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAllowedAdminCliProjectReference(string moduleName, string referencePath)
+    {
+        string normalizedReference = NormalizePath(referencePath);
+        HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            NormalizePath(@"..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj")
+        };
+
+        return allowedSharedReferences.Contains(normalizedReference) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Admin.Contracts\{moduleName}.Admin.Contracts.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Contracts\{moduleName}.Contracts.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Application\{moduleName}.Application.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Persistence\{moduleName}.Persistence.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Infrastructure\{moduleName}.Infrastructure.csproj"),
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAllowedPublicContractsProjectReference(string moduleName, string referencePath)
+    {
+        string normalizedReference = NormalizePath(referencePath);
+
+        return string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               IsOtherModuleContractsReference(moduleName, normalizedReference);
+    }
+
+    private static bool IsAllowedAdminContractsProjectReference(string moduleName, string referencePath)
+    {
+        string normalizedReference = NormalizePath(referencePath);
+
+        return string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Contracts\{moduleName}.Contracts.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"),
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAllowedPersistenceProjectReference(string moduleName, string referencePath)
+    {
+        string normalizedReference = NormalizePath(referencePath);
+        HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj")
+        };
+
+        return allowedSharedReferences.Contains(normalizedReference) ||
+               (string.Equals(moduleName, "Administration", StringComparison.Ordinal) &&
+                string.Equals(
+                    normalizedReference,
+                    NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"),
+                    StringComparison.OrdinalIgnoreCase)) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Contracts\{moduleName}.Contracts.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Application\{moduleName}.Application.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath($@"..\{moduleName}.Domain\{moduleName}.Domain.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               IsOtherModuleContractsReference(moduleName, normalizedReference);
+    }
+
+    private static bool IsOtherModuleContractsReference(string moduleName, string normalizedReference)
+    {
+        const string Prefix = "..";
+        string[] segments = normalizedReference.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+
+        return segments.Length == 5 &&
+               string.Equals(segments[0], Prefix, StringComparison.Ordinal) &&
+               string.Equals(segments[1], Prefix, StringComparison.Ordinal) &&
+               !string.Equals(segments[2], moduleName, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(segments[3], $"{segments[2]}.Contracts", StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(segments[4], $"{segments[2]}.Contracts.csproj", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsModuleFrontDoorProject(string projectPath)
+    {
+        string normalizedPath = NormalizePath(projectPath);
+        string projectName = Path.GetFileNameWithoutExtension(normalizedPath);
+
+        return IsModuleProject(normalizedPath) &&
+               (projectName.EndsWith(".Api", StringComparison.Ordinal) ||
+                projectName.EndsWith(".AdminApi", StringComparison.Ordinal) ||
+                projectName.EndsWith(".Admin", StringComparison.Ordinal));
+    }
+
+    private static bool IsApplicationProject(string projectPath)
+    {
+        string normalizedPath = NormalizePath(projectPath);
+        string projectName = Path.GetFileNameWithoutExtension(normalizedPath);
+
+        return IsModuleProject(normalizedPath) &&
+               projectName.EndsWith(".Application", StringComparison.Ordinal);
+    }
+
+    private static bool IsProviderMigrationProject(string projectName) =>
+        projectName.EndsWith(".Persistence.SqlServerMigrations", StringComparison.Ordinal) ||
+        projectName.EndsWith(".Persistence.PostgreSqlMigrations", StringComparison.Ordinal);
+
+    private static bool IsGeneratedMigrationSource(string sourcePath) =>
+        HasPathSegment(sourcePath, "Migrations") ||
+        string.Equals(Path.GetFileName(sourcePath), "ModelSnapshot.cs", StringComparison.Ordinal);
+
+    private static bool IsAllowedDirectTimeOrIdSource(string relativePath, string token) =>
+        (string.Equals(token, "Guid.NewGuid(", StringComparison.Ordinal) &&
+         relativePath.EndsWith(
+             $"{Path.DirectorySeparatorChar}Shared.Infrastructure{Path.DirectorySeparatorChar}Identity{Path.DirectorySeparatorChar}GuidIdGenerator.cs",
+             StringComparison.OrdinalIgnoreCase)) ||
+        (token.EndsWith("UtcNow", StringComparison.Ordinal) &&
+         relativePath.EndsWith(
+             $"{Path.DirectorySeparatorChar}Shared.Infrastructure{Path.DirectorySeparatorChar}Time{Path.DirectorySeparatorChar}SystemClock.cs",
+             StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsBackendAdapterPackage(string packageId)
+    {
+        string[] exactPackages =
+        [
+            "Aspire.NATS.Net",
+            "Microsoft.Extensions.Caching.Hybrid",
+            "Microsoft.Extensions.Caching.StackExchangeRedis",
+            "NATS.Net",
+            "prometheus-net.AspNetCore",
+            "StackExchange.Redis"
+        ];
+
+        string[] packagePrefixes =
+        [
+            "OpenTelemetry.",
+            "Serilog."
+        ];
+
+        return exactPackages.Contains(packageId, StringComparer.Ordinal) ||
+               packagePrefixes.Any(packageId.StartsWith);
+    }
+
+    private static string NormalizePath(string path) =>
+        path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+
+    private static string? FindOwningProjectName(string sourcePath)
+    {
+        DirectoryInfo? directory = new(Path.GetDirectoryName(sourcePath)!);
+
+        while (directory is not null)
+        {
+            string? projectPath = Directory
+                .EnumerateFiles(directory.FullName, "*.csproj", SearchOption.TopDirectoryOnly)
+                .SingleOrDefault();
+
+            if (projectPath is not null)
+            {
+                return Path.GetFileNameWithoutExtension(projectPath);
+            }
+
+            directory = directory.Parent;
+        }
+
+        return null;
+    }
+
+    private static bool ContainsTestAttribute(string sourcePath)
+    {
+        string source = File.ReadAllText(sourcePath);
+        return TestAttributeLinePattern().IsMatch(source);
+    }
+
+    private static string GetExpectedTestCategory(string sourcePath)
+    {
+        string projectName = FindOwningProjectName(sourcePath) ?? string.Empty;
+
+        return projectName switch
+        {
+            "Architecture.Tests" => "Architecture",
+            "Integration.Tests" => "Integration",
+            _ => "Unit"
+        };
+    }
+
+    private static bool HasCategoryTrait(string source, string category) =>
+        source.Contains($"\"Category\", \"{category}\"", StringComparison.Ordinal);
+
+    private static bool ClassContainsTestAttribute(string source, int classDeclarationIndex)
+    {
+        int openBraceIndex = source.IndexOf('{', classDeclarationIndex);
+
+        if (openBraceIndex < 0)
+        {
+            return false;
+        }
+
+        int depth = 0;
+        for (int index = openBraceIndex; index < source.Length; index++)
+        {
+            char current = source[index];
+
+            if (current == '{')
+            {
+                depth++;
+                continue;
+            }
+
+            if (current != '}')
+            {
+                continue;
+            }
+
+            depth--;
+
+            if (depth == 0)
+            {
+                string classBody = source[(openBraceIndex + 1)..index];
+                return TestAttributeLinePattern().IsMatch(classBody);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsApplicationHandlerSource(string sourcePath) =>
+        string.Equals(FindOwningProjectName(sourcePath)?.Split('.').LastOrDefault(), "Application", StringComparison.Ordinal) &&
+        HasPathSegment(sourcePath, "Handlers");
+
+    private static bool IsContractSource(string sourcePath) =>
+        string.Equals(FindOwningProjectName(sourcePath)?.Split('.').LastOrDefault(), "Contracts", StringComparison.Ordinal);
+
+    private static IEnumerable<string> EnumerateSourceFiles(string root) =>
+        Directory
+            .EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path));
+
+    private static bool IsUnder(string path, string parent)
+    {
+        string relativePath = Path.GetRelativePath(parent, path);
+        return !relativePath.StartsWith("..", StringComparison.Ordinal) &&
+               !Path.IsPathRooted(relativePath);
+    }
+
+    private static bool HasRequiredPath(string jsonPath, IReadOnlyList<string> path)
+    {
+        using JsonDocument document = JsonDocument.Parse(
+            File.ReadAllText(jsonPath),
+            new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+        JsonElement current = document.RootElement;
+
+        foreach (string segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(segment, out JsonElement next))
+            {
+                return false;
+            }
+
+            current = next;
+        }
+
+        return current.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null;
+    }
+
+    private static bool HasRequiredBoolean(string jsonPath, IReadOnlyList<string> path, bool expected)
+    {
+        return TryGetJsonElement(jsonPath, path, out JsonElement element) &&
+               element.ValueKind is JsonValueKind.True or JsonValueKind.False &&
+               element.GetBoolean() == expected;
+    }
+
+    private static bool HasRequiredStringValue(string jsonPath, IReadOnlyList<string> path, string expected)
+    {
+        return TryGetJsonElement(jsonPath, path, out JsonElement element) &&
+               element.ValueKind == JsonValueKind.String &&
+               string.Equals(element.GetString(), expected, StringComparison.Ordinal);
+    }
+
+    private static string? GetJsonStringValue(string jsonPath, IReadOnlyList<string> path) =>
+        TryGetJsonElement(jsonPath, path, out JsonElement element) &&
+        element.ValueKind == JsonValueKind.String
+            ? element.GetString()
+            : null;
+
+    private static IEnumerable<string> RequiredDocumentationTokens(
+        string documentName,
+        string source,
+        params string[] tokens) =>
+        tokens
+            .Where(token => !source.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"{documentName} missing '{token}'");
+
+    private static bool IsSensitiveRequestVariable(string variableName) =>
+        string.Equals(variableName, "accessToken", StringComparison.Ordinal) ||
+        string.Equals(variableName, "refreshToken", StringComparison.Ordinal);
+
+    private static string[] GetProjectIncludes(XDocument project, string elementName) =>
+        project
+            .Descendants(elementName)
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .ToArray();
+
+    private static IEnumerable<string> CompareDependencySet(
+        string relativePath,
+        string referenceKind,
+        string[] expected,
+        string[] actual)
+    {
+        HashSet<string> expectedSet = expected.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> actualSet = actual.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return expectedSet
+            .Except(actualSet, StringComparer.OrdinalIgnoreCase)
+            .Select(reference => $"{relativePath}->missing {referenceKind}:{reference}")
+            .Concat(actualSet
+                .Except(expectedSet, StringComparer.OrdinalIgnoreCase)
+                .Select(reference => $"{relativePath}->unexpected {referenceKind}:{reference}"));
+    }
+
+    private static bool TryGetJsonElement(string jsonPath, IReadOnlyList<string> path, out JsonElement element)
+    {
+        using JsonDocument document = JsonDocument.Parse(
+            File.ReadAllText(jsonPath),
+            new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+        JsonElement current = document.RootElement;
+
+        foreach (string segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(segment, out JsonElement next))
+            {
+                element = default;
+                return false;
+            }
+
+            current = next;
+        }
+
+        element = current.Clone();
+        return true;
+    }
+
+    private static string[] GetLaunchProfileUrls(string launchSettingsPath, string profileName)
+    {
+        using JsonDocument document = JsonDocument.Parse(
+            File.ReadAllText(launchSettingsPath),
+            new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+
+        string? applicationUrl = document.RootElement
+            .GetProperty("profiles")
+            .GetProperty(profileName)
+            .GetProperty("applicationUrl")
+            .GetString();
+
+        return applicationUrl?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ??
+               [];
+    }
+
+    private static bool HasIgnoredPathSegment(string path)
+    {
+        string[] segments = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return segments.Contains("bin", StringComparer.OrdinalIgnoreCase) ||
+               segments.Contains("obj", StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool HasPathSegment(string path, string segment)
+    {
+        string[] segments = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return segments.Contains(segment, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void AssertMethodContains(string source, string methodName, string requiredText)
+    {
+        int methodIndex = source.IndexOf(
+            "public static IHostApplicationBuilder " + methodName + "(",
+            StringComparison.Ordinal);
+        Assert.True(methodIndex >= 0, $"Could not find method '{methodName}'.");
+
+        int nextPublicMethodIndex = source.IndexOf(
+            "    public static ",
+            methodIndex + methodName.Length,
+            StringComparison.Ordinal);
+        string methodSource = nextPublicMethodIndex >= 0
+            ? source[methodIndex..nextPublicMethodIndex]
+            : source[methodIndex..];
+
+        Assert.Contains(requiredText, methodSource, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<string> FindBrokenMarkdownLocalLinks(string repositoryRoot, string markdownFile)
+    {
+        string source = File.ReadAllText(markdownFile);
+        string markdownDirectory = Path.GetDirectoryName(markdownFile)!;
+
+        foreach (Match match in MarkdownLinkPattern().Matches(source))
+        {
+            string target = match.Groups["target"].Value.Trim();
+            if (IsExternalOrAnchorMarkdownTarget(target))
+            {
+                continue;
+            }
+
+            string localTarget = target.Split('#')[0].Trim();
+            if (localTarget.StartsWith('<') &&
+                localTarget.EndsWith('>'))
+            {
+                localTarget = localTarget[1..^1];
+            }
+
+            if (string.IsNullOrWhiteSpace(localTarget))
+            {
+                continue;
+            }
+
+            string normalizedTarget = Uri.UnescapeDataString(localTarget)
+                .Replace('/', Path.DirectorySeparatorChar);
+            string resolvedPath = Path.GetFullPath(Path.Combine(markdownDirectory, normalizedTarget));
+            if (!IsUnder(resolvedPath, repositoryRoot) &&
+                !string.Equals(resolvedPath, repositoryRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return $"{Path.GetRelativePath(repositoryRoot, markdownFile)} links outside the repository: {target}";
+                continue;
+            }
+
+            if (!File.Exists(resolvedPath) && !Directory.Exists(resolvedPath))
+            {
+                yield return $"{Path.GetRelativePath(repositoryRoot, markdownFile)} has broken local link: {target}";
+            }
+        }
+    }
+
+    private static bool IsExternalOrAnchorMarkdownTarget(string target) =>
+        string.IsNullOrWhiteSpace(target) ||
+        target.StartsWith('#') ||
+        target.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+        target.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+        target.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase);
+
+    private static string FindRepositoryRoot()
+    {
+        DirectoryInfo? directory = new(Directory.GetCurrentDirectory());
+
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "GenericModularApi.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate repository root.");
+    }
+
+    private static string? GetStaticErrorOffender(Type type, FieldInfo field)
+    {
+        try
+        {
+            if (field.GetValue(null) is not Error error)
+            {
+                return $"{type.FullName}.{field.Name} is null";
+            }
+
+            return error == Error.None || Error.TryNormalizeCode(error.Code, out _)
+                ? null
+                : $"{type.FullName}.{field.Name} has invalid error code '{error.Code}'";
+        }
+        catch (Exception exception)
+        {
+            return $"{type.FullName}.{field.Name} failed to initialize: {exception.GetType().Name}: {exception.Message}";
+        }
+    }
+
+    private sealed record ProjectPackageReference(string ProjectPath, string PackageId);
+
+    private sealed record ProjectReference(string ProjectPath, string ReferencePath);
+
+    private sealed record SharedProjectShape(
+        string ProjectName,
+        string[] PackageReferences,
+        string[] FrameworkReferences,
+        string[] ProjectReferences);
+
+    private sealed record HostProjectShape(
+        string ProjectPath,
+        string[] PackageReferences,
+        string[] FrameworkReferences,
+        string[] ProjectReferences);
+
+    private sealed record SolutionFolder(string Name, string ParentGuid);
+
+    private sealed record SolutionProject(string Name, string Path, string Guid);
+
+    [GeneratedRegex(@"^\s*namespace\s+(?<name>[A-Za-z_][A-Za-z0-9_.]*)\s*[;{]", RegexOptions.Multiline)]
+    private static partial Regex NamespacePattern();
+
+    [GeneratedRegex(@"!?\[[^\]]+\]\((?<target>[^)]+)\)", RegexOptions.Multiline)]
+    private static partial Regex MarkdownLinkPattern();
+
+    [GeneratedRegex(@"^\s*Project\(""\{2150E333-8FDC-42A3-9474-1A3956D46DE8\}""\)\s*=\s*""(?<name>[^""]+)"",\s*""[^""]+"",\s*""\{(?<guid>[^}]+)\}""", RegexOptions.Multiline)]
+    private static partial Regex SolutionFolderPattern();
+
+    [GeneratedRegex(@"^\s*\{(?<child>[^}]+)\}\s*=\s*\{(?<parent>[^}]+)\}", RegexOptions.Multiline)]
+    private static partial Regex NestedProjectPattern();
+
+    [GeneratedRegex(@"^\s*Project\(""\{(?<type>[^}]+)\}""\)\s*=\s*""(?<name>[^""]+)"",\s*""(?<path>[^""]+\.csproj)"",\s*""\{(?<guid>[^}]+)\}""", RegexOptions.Multiline)]
+    private static partial Regex SolutionProjectPattern();
+
+    [GeneratedRegex(@"\b(?:public|internal)\s+(?:sealed\s+)?class\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)")]
+    private static partial Regex PublicOrInternalClassPattern();
+
+    [GeneratedRegex(@"^\s*\[(?:Fact|Theory|DockerFact)(?:\(|\])", RegexOptions.Multiline)]
+    private static partial Regex TestAttributeLinePattern();
+
+    [GeneratedRegex(@"^\s*\[DockerFact(?:\(|\])", RegexOptions.Multiline)]
+    private static partial Regex DockerFactAttributeLinePattern();
+
+    [GeneratedRegex(@"^\s*public\s+(?:(?:static|sealed|abstract|partial|readonly)\s+)*(?:record\s+(?:class\s+|struct\s+)?|class\s+|interface\s+|enum\s+)(?<name>[A-Za-z_][A-Za-z0-9_]*)", RegexOptions.Multiline)]
+    private static partial Regex PublicContractTypePattern();
+
+    [GeneratedRegex(@"^@(?<name>accessToken|refreshToken)[ \t]*=[ \t]*\S+", RegexOptions.Multiline)]
+    private static partial Regex ConcreteRequestVariablePattern();
+
+    [GeneratedRegex(@"public\s+static\s+class\s+(?<type>[A-Za-z_][A-Za-z0-9_]*)[\s\S]*?public\s+const\s+string\s+(?:Name|Schema)\s*=\s*""(?<value>[^""]+)""", RegexOptions.Multiline)]
+    private static partial Regex ModuleIdentityConstantPattern();
+
+    [GeneratedRegex(@"public\s+static\s+class\s+(?<type>[A-Za-z_][A-Za-z0-9_]*)[\s\S]*?public\s+const\s+string\s+Schema\s*=", RegexOptions.Multiline)]
+    private static partial Regex SchemaConstantTypePattern();
+
+    [GeneratedRegex(@",\s*""[^""]+""\s*\)", RegexOptions.Multiline)]
+    private static partial Regex RawStringArgumentPattern();
+
+    [GeneratedRegex(@"AdminOperation\s*\.\s*Create\s*\(\s*""", RegexOptions.Multiline)]
+    private static partial Regex AdminOperationStringLiteralPattern();
+
+    [GeneratedRegex(@"AdminPermission\s*\.\s*Create\s*\(\s*""", RegexOptions.Multiline)]
+    private static partial Regex AdminPermissionStringLiteralPattern();
+
+    [GeneratedRegex(@"public\s+string\s+Name\s*=>\s*""", RegexOptions.Multiline)]
+    private static partial Regex ModuleNameStringLiteralPattern();
+
+    [GeneratedRegex(@"\bResult\s*<[^>\r\n]*\?>", RegexOptions.Multiline)]
+    private static partial Regex NullableResultTypePattern();
+
+    [GeneratedRegex(@"\brecord\s+struct\s+PageRequest\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalPageRequestPattern();
+
+    [GeneratedRegex(@"\brecord\s+struct\s+ApiErrorStatusCode\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalApiErrorStatusCodePattern();
+
+    [GeneratedRegex(@"\brecord\s+AdminOperationExecutionResult\s*<[^>]+>\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalAdminOperationExecutionResultPattern();
+
+    [GeneratedRegex(@"\brecord\s+ModuleEndpointMetadata\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalModuleEndpointMetadataPattern();
+
+    [GeneratedRegex(@"\brecord\s+AccessTokenClaims\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalAccessTokenClaimsPattern();
+
+    private static Regex PositionalMessagingRecordPattern(string typeName) =>
+        new(@$"\brecord\s+{Regex.Escape(typeName)}\s*\(", RegexOptions.Multiline);
+
+    private static Regex PositionalOrderingProjectionPortModelPattern(string typeName) =>
+        new(@$"\brecord\s+{Regex.Escape(typeName)}\s*\(", RegexOptions.Multiline);
+
+    [GeneratedRegex(@"public\s+sealed\s+record\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalPublicIntegrationEventPattern();
+
+    [GeneratedRegex(@"public\s+sealed\s+record\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Multiline)]
+    private static partial Regex PositionalPublicDomainEventPattern();
+
+    [GeneratedRegex(@"\brecord\s+struct\s+[A-Za-z_][A-Za-z0-9_]*Id\s*\(\s*Guid\s+Value\s*\)", RegexOptions.Multiline)]
+    private static partial Regex PositionalGuidIdValueObjectPattern();
+
+    [GeneratedRegex(@"([A-Z]+)([A-Z][a-z])")]
+    private static partial Regex AcronymBoundaryPattern();
+
+    [GeneratedRegex(@"([a-z0-9])([A-Z])")]
+    private static partial Regex WordBoundaryPattern();
+}

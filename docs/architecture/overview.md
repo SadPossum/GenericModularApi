@@ -39,6 +39,11 @@ src/
   Modules/
     Auth/
       Auth.Contracts/
+        Api/
+        Admin/
+        Events/
+        Metadata/
+        Types/
       Auth.Domain/
       Auth.Application/
       Auth.Infrastructure/
@@ -47,6 +52,8 @@ src/
       Auth.Persistence.PostgreSqlMigrations/
       Auth.Api/
       Auth.Admin.Contracts/
+        Operations/
+        Permissions/
       Auth.Admin/
       Auth.AdminApi/
     Administration/

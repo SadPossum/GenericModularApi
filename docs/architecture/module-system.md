@@ -67,6 +67,16 @@ Not every module needs every project. Keep small modules small.
 
 `<Module>.Contracts` contains DTOs and integration events that other modules or clients may use.
 
+Contract projects use a stable physical folder taxonomy:
+
+- `Api/` for normal public request/response/DTO contracts.
+- `Admin/` for admin-facing DTO contracts that must remain backend-free but are used by admin CLI/API flows.
+- `Events/` for integration event payloads and subject constants.
+- `Metadata/` for module descriptors, permission code strings, contract limits, and other tooling-visible metadata.
+- `Types/` for public enum-like or code-list contract types.
+
+The physical folders are for discoverability and architecture tests. File namespaces currently remain `<Module>.Contracts` unless a later deliberate breaking change moves to subnamespaces.
+
 Allowed examples:
 
 - request/response records
@@ -199,6 +209,11 @@ Admin projects are registered explicitly by `Host.AdminCli`, not by `Host.Api`.
 ## Admin Contracts
 
 `<Module>.Admin.Contracts` contains optional administration contract helpers shared by `.Admin` and `.AdminApi`.
+
+Admin contract projects use:
+
+- `Permissions/` for typed `AdminPermission` wrappers.
+- `Operations/` for admin operation name constants.
 
 Allowed examples:
 

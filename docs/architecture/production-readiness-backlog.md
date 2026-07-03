@@ -1,0 +1,26 @@
+# Production Readiness Backlog
+
+This tracker records the long-running hardening backlog for the skeleton. Each item should end as either implemented with tests/docs or deliberately excluded with documented reasoning.
+
+## Current Principles
+
+- Preserve the small-core modular monolith direction.
+- Keep modules optional and explicitly composed.
+- Prefer contracts, events, local projections, and replaceable adapters over cross-module internals.
+- Add magic only when it reduces meaningful maintenance cost and is guarded by tests/docs.
+- Keep production-readiness work evidence-backed: architecture guards, targeted tests, docs, and scripts should move together.
+
+## Backlog
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Contracts and folder structure | In progress | Public contracts now use `Api/`, `Admin/`, `Events/`, `Metadata/`, and `Types/`. Admin contract wrappers use `Permissions/` and `Operations/`. |
+| Shared event abstractions | Pending | Consider a reusable integration-event base/metadata abstraction without weakening record immutability or serialization clarity. |
+| Admin naming | Pending | Inspect whether `.Admin` should become `.AdminCli`; decide with project/namespace churn, docs, and migration path in mind. |
+| Test organization and value audit | Pending | Split oversized tests where useful, keep architecture guards meaningful, and identify missing coverage. |
+| Code magic/reflection | Pending | Evaluate constrained assembly registration for handlers/validators; document why built-in .NET alternatives are or are not enough. |
+| Validation library | Pending | Evaluate FluentValidation against the current small validation contracts; switch only if consistency and ergonomics improve. |
+| Tasks/daemons framework | Pending | Design optional production-ready task runtime with monitoring, control, node placement, and command/control communication. |
+| Notifications and streaming | Pending | Design optional user notification and real-time update module/adapters. |
+| File storage | Pending | Design optional file storage contracts and first real adapter, likely MinIO/S3-compatible if it fits. |
+| External auth | Pending | Add provider-based login/registration, account linking, and migration paths while keeping Auth reusable. |

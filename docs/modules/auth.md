@@ -51,17 +51,11 @@ Authorization: Bearer <access-token>
 
 `Auth.Contracts` contains:
 
-- `RegisterMemberRequest`
-- `LoginMemberRequest`
-- `RefreshTokenRequest`
-- `SignOutRequest`
-- `AuthTokensResponse`
-- `UsernameType`
-- `MemberRegisteredIntegrationEvent`
-- `MemberDisabledIntegrationEvent`
-- `MemberEnabledIntegrationEvent`
-- `MemberSessionsRevokedIntegrationEvent`
-- admin member projection records
+- `Api/` self-service request/response records such as `RegisterMemberRequest`, `LoginMemberRequest`, `RefreshTokenRequest`, `SignOutRequest`, and `AuthTokensResponse`;
+- `Admin/` admin member projection/response records used by CLI and admin HTTP flows;
+- `Events/` integration event payloads and subject constants;
+- `Metadata/` module metadata, permission code strings, and contract limits;
+- `Types/` public enum-like contract types such as `UsernameType`.
 
 These types are the public surface of the module.
 

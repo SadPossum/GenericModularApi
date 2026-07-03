@@ -145,7 +145,7 @@ Write-GmaFile $contractsProject @"
 </Project>
 "@
 
-Write-GmaFile (Join-Path $moduleRoot "$Name.Contracts\${Name}ModuleMetadata.cs") @"
+Write-GmaFile (Join-Path $moduleRoot "$Name.Contracts\Metadata\${Name}ModuleMetadata.cs") @"
 namespace $Name.Contracts;
 
 using Shared.Application.Modules;
@@ -161,7 +161,7 @@ $($metadataCacheLines -join "`r`n")
 "@
 
 if ($Admin -or $AdminApi) {
-    Write-GmaFile (Join-Path $moduleRoot "$Name.Contracts\${Name}AdminPermissionCodes.cs") @"
+    Write-GmaFile (Join-Path $moduleRoot "$Name.Contracts\Metadata\${Name}AdminPermissionCodes.cs") @"
 namespace $Name.Contracts;
 
 public static class ${Name}AdminPermissionCodes
@@ -600,7 +600,7 @@ if ($Admin -or $AdminApi) {
 </Project>
 "@
 
-    Write-GmaFile (Join-Path $moduleRoot "$Name.Admin.Contracts\${Name}AdminPermissions.cs") @"
+    Write-GmaFile (Join-Path $moduleRoot "$Name.Admin.Contracts\Permissions\${Name}AdminPermissions.cs") @"
 namespace $Name.Admin.Contracts;
 
 using $Name.Contracts;
@@ -612,7 +612,7 @@ public static class ${Name}AdminPermissions
 }
 "@
 
-    Write-GmaFile (Join-Path $moduleRoot "$Name.Admin.Contracts\${Name}AdminOperationNames.cs") @"
+    Write-GmaFile (Join-Path $moduleRoot "$Name.Admin.Contracts\Operations\${Name}AdminOperationNames.cs") @"
 namespace $Name.Admin.Contracts;
 
 public static class ${Name}AdminOperationNames

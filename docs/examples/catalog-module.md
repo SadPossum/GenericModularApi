@@ -21,6 +21,8 @@ Catalog.Admin
 Catalog.AdminApi
 ```
 
+`Catalog.Contracts` follows the standard contract folders: `Api/` for item DTO/list contracts, `Events/` for item integration events and subjects, `Metadata/` for module metadata, limits, and permission code strings, and `Types/` for `CatalogItemStatus`.
+
 ## Domain
 
 `CatalogItem` owns:

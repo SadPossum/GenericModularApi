@@ -302,6 +302,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Removed secret-shaped Auth option defaults and moved disposable local connection strings, JWT signing keys, and refresh-token peppers into host `appsettings.Development.json` files. Base host appsettings now carry blank runtime-secret keys so copied projects fail fast until production secrets are supplied.
 - Routed `Host.AdminCli` startup and composition failure output through `AdminCliOutput`, extending the raw-console guard from module admin front doors to the CLI composition root.
 - Guarded checked-in `.http` request samples so access/refresh tokens stay blank-variable driven and generated admin password response flows do not slip into default examples.
+- Started the production-readiness backlog tracker and reorganized module contract files into explicit category folders (`Api`, `Admin`, `Events`, `Metadata`, `Types`, plus admin-contract `Permissions`/`Operations`) while keeping contract namespaces stable for now.
 
 ## Findings To Keep Watching
 

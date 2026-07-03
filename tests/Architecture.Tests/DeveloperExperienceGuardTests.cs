@@ -3336,6 +3336,38 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void Module_contract_files_use_intentional_folders()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.Contracts.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                string projectDirectory = Path.GetDirectoryName(projectPath)!;
+                bool isAdminContracts = Path
+                    .GetFileNameWithoutExtension(projectPath)
+                    .EndsWith(".Admin.Contracts", StringComparison.Ordinal);
+
+                return Directory
+                    .EnumerateFiles(projectDirectory, "*.cs", SearchOption.AllDirectories)
+                    .Where(path => !HasIgnoredPathSegment(path))
+                    .Select(path => ValidateContractFileFolder(
+                        repositoryRoot,
+                        projectDirectory,
+                        path,
+                        isAdminContracts))
+                    .Where(offender => offender is not null)
+                    .Select(offender => offender!);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Module_admin_contract_projects_keep_thin_wrapper_shape()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -3579,11 +3611,14 @@ public sealed partial class DeveloperExperienceGuardTests
             "$moduleName = ConvertTo-GmaKebabCase -Value $Name",
             "public const string Name",
             "ModuleDescriptor.Empty(Name, Schema)",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\Metadata\\${Name}ModuleMetadata.cs\")",
             "tenantScoped: true",
             "ModuleCacheName",
             "ModuleCacheTag",
             "${Name}ModuleMetadata.Name",
-            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\${Name}AdminPermissionCodes.cs\")",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\Metadata\\${Name}AdminPermissionCodes.cs\")",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\Permissions\\${Name}AdminPermissions.cs\")",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\Operations\\${Name}AdminOperationNames.cs\")",
             "IAdminCliModule",
             "IAdminCliCommandRegistry",
             "using Shared.Administration.Cli;",
@@ -5126,6 +5161,79 @@ public sealed partial class DeveloperExperienceGuardTests
     private static bool IsSensitiveRequestVariable(string variableName) =>
         string.Equals(variableName, "accessToken", StringComparison.Ordinal) ||
         string.Equals(variableName, "refreshToken", StringComparison.Ordinal);
+
+    private static string? ValidateContractFileFolder(
+        string repositoryRoot,
+        string projectDirectory,
+        string sourcePath,
+        bool isAdminContracts)
+    {
+        string relativeToProject = Path.GetRelativePath(projectDirectory, sourcePath);
+        string[] segments = relativeToProject.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string repositoryRelativePath = Path.GetRelativePath(repositoryRoot, sourcePath);
+
+        if (segments.Length < 2)
+        {
+            return $"{repositoryRelativePath} must live under a contract category folder";
+        }
+
+        string expectedFolder = isAdminContracts
+            ? GetExpectedAdminContractFolder(sourcePath)
+            : GetExpectedPublicContractFolder(sourcePath);
+
+        return string.Equals(segments[0], expectedFolder, StringComparison.Ordinal)
+            ? null
+            : $"{repositoryRelativePath} belongs in {expectedFolder}, not {segments[0]}";
+    }
+
+    private static string GetExpectedPublicContractFolder(string sourcePath)
+    {
+        string fileName = Path.GetFileName(sourcePath);
+        string source = File.ReadAllText(sourcePath);
+
+        if (fileName.EndsWith("IntegrationEvent.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("IntegrationSubjects.cs", StringComparison.Ordinal))
+        {
+            return "Events";
+        }
+
+        if (fileName.EndsWith("ModuleMetadata.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("PermissionCodes.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("ContractLimits.cs", StringComparison.Ordinal))
+        {
+            return "Metadata";
+        }
+
+        if (source.Contains("public enum ", StringComparison.Ordinal))
+        {
+            return "Types";
+        }
+
+        if (fileName.StartsWith("Admin", StringComparison.Ordinal))
+        {
+            return "Admin";
+        }
+
+        return "Api";
+    }
+
+    private static string GetExpectedAdminContractFolder(string sourcePath)
+    {
+        string fileName = Path.GetFileName(sourcePath);
+
+        if (fileName.EndsWith("Permissions.cs", StringComparison.Ordinal))
+        {
+            return "Permissions";
+        }
+
+        if (fileName.EndsWith("OperationNames.cs", StringComparison.Ordinal))
+        {
+            return "Operations";
+        }
+
+        throw new InvalidOperationException(
+            $"Admin contract file '{sourcePath}' does not match a known admin contract category.");
+    }
 
     private static string[] GetProjectIncludes(XDocument project, string elementName) =>
         project

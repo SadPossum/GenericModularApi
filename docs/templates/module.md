@@ -26,6 +26,14 @@ Remove projects that do not exist.
 
 List public request/response DTOs, enums, admin permission code strings, module metadata, and integration events.
 Keep one public contract type per file in `<Module>.Contracts`.
+Place public contract files in the standard folders:
+
+- `Api/` for public request/response/DTO records.
+- `Admin/` for admin-facing DTO records that remain backend-free.
+- `Events/` for integration event payloads and subject constants.
+- `Metadata/` for `<Module>ModuleMetadata`, `*PermissionCodes`, and `*ContractLimits`.
+- `Types/` for public enum-like or code-list types.
+
 Confirm the public contracts `.csproj` references only `Shared.Application` plus optional producer `.Contracts` projects, and has no package or framework references.
 Admin permission code strings live here so `<Module>ModuleMetadata` can declare permissions without referencing admin-only framework packages.
 When the module becomes compiled code, add its contract metadata descriptor to `tests/Architecture.Tests/ArchitectureCatalog.cs`; architecture tests compare that catalog with every `<Module>ModuleMetadata.Descriptor`.
@@ -34,6 +42,7 @@ If this module consumes another module's contracts, do not expose producer DTOs 
 ## Admin Contracts
 
 List typed `AdminPermission` constants in `<Module>.Admin.Contracts`, if the module has admin CLI or admin API surfaces. These typed wrappers should point at the code strings from `<Module>.Contracts`. Confirm that public `<Module>.Contracts` does not reference `Shared.Administration`.
+Place typed permission wrappers in `Permissions/` and operation-name constants in `Operations/`.
 Confirm the admin contracts `.csproj` references only `Shared.Administration` and the owning public `<Module>.Contracts` project, with no package or framework references.
 
 The module scaffolder seeds admin-capable modules with one `<module>.manage` permission in public metadata and typed admin contracts. Replace or split that seed permission once the module has real resources and operations; keep `*PermissionCodes` constants and `ModuleDescriptor.Permissions` in sync.

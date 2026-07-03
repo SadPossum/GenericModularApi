@@ -20,6 +20,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Observability](architecture/observability.md)
 - [Caching](architecture/caching.md)
 - [Administration](architecture/administration.md)
+- [Production Readiness Backlog](architecture/production-readiness-backlog.md)
 - [Architecture Hardening Notes](architecture/audit-hardening-notes.md)
 - [Architecture Audit Follow-Up Notes](architecture/audit-follow-up-notes.md)
 

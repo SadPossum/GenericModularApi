@@ -1,4 +1,4 @@
-namespace Administration.Admin;
+namespace Administration.AdminCli;
 
 using System.CommandLine;
 using Administration.Application;
@@ -16,7 +16,7 @@ using Shared.Application.Identity;
 using Shared.Application.Time;
 using Shared.ErrorHandling;
 
-public sealed class AdministrationAdminModule : IAdminCliModule
+public sealed class AdministrationAdminCliModule : IAdminCliModule
 {
     private const string AuditFailureMessage = "Admin audit failed.";
 

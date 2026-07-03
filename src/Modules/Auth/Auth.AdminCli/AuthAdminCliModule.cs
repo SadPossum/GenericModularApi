@@ -1,4 +1,4 @@
-namespace Auth.Admin;
+namespace Auth.AdminCli;
 
 using System.CommandLine;
 using Auth.Admin.Contracts;
@@ -18,7 +18,7 @@ using Shared.Application.Cqrs;
 using Shared.Application.Queries;
 using Shared.ErrorHandling;
 
-public sealed class AuthAdminModule : IAdminCliModule
+public sealed class AuthAdminCliModule : IAdminCliModule
 {
     public string Name => AuthModuleMetadata.Name;
 

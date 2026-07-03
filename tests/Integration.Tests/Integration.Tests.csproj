@@ -16,12 +16,12 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Administration\Administration.Admin\Administration.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Administration\Administration.AdminCli\Administration.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.AdminApi\Administration.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Persistence\Administration.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Auth\Auth.Admin\Auth.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Auth\Auth.AdminCli\Auth.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.AdminApi\Auth.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Application\Auth.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Contracts\Auth.Contracts.csproj" />

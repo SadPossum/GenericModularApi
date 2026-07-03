@@ -1,5 +1,5 @@
-using Administration.Admin;
-using Auth.Admin;
+using Administration.AdminCli;
+using Auth.AdminCli;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -21,8 +21,8 @@ try
     builder.Services.AddSharedAdministrationCli();
     builder.AddRedisCaching();
     builder.AddSharedInfrastructure();
-    builder.AddAdminModule<AdministrationAdminModule>();
-    builder.AddAdminModule<AuthAdminModule>();
+    builder.AddAdminModule<AdministrationAdminCliModule>();
+    builder.AddAdminModule<AuthAdminCliModule>();
 
     using IHost host = builder.Build();
 

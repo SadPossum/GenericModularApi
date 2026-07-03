@@ -22,7 +22,7 @@ Prefer explicit, boring code over framework cleverness.
 | DbContext and EF config | `<Module>.Persistence` |
 | Minimal API routes | `<Module>.Api` |
 | Typed admin permission constants | `<Module>.Admin.Contracts` |
-| CLI admin commands | `<Module>.Admin` |
+| CLI admin commands | `<Module>.AdminCli` |
 | HTTP admin routes | `<Module>.AdminApi` |
 | Generic admin contracts | `Shared.Administration` |
 | HTTP admin adapter | `Shared.Administration.Api` |
@@ -218,7 +218,7 @@ Rules:
 - keep generated password responses disabled for admin HTTP unless explicitly configured for a controlled environment;
 - require `--yes` for destructive non-interactive commands;
 - never log or audit passwords, tokens, token hashes, refresh tokens, or raw secrets;
-- keep `System.CommandLine` references isolated to `.Admin`, `Shared.Administration.Cli`, and `Host.AdminCli`;
+- keep `System.CommandLine` references isolated to `.AdminCli`, `Shared.Administration.Cli`, and `Host.AdminCli`;
 - keep admin HTTP route mapping isolated to `.AdminApi`, `Shared.Administration.Api`, and `Host.AdminApi`.
 
 ## Observability

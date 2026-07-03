@@ -1,13 +1,13 @@
 namespace Architecture.Tests;
 
 using System.Reflection;
-using Administration.Admin;
+using Administration.AdminCli;
 using Administration.AdminApi;
 using Administration.Application;
 using Administration.Contracts;
 using Administration.Persistence;
 using Auth.Admin.Contracts;
-using Auth.Admin;
+using Auth.AdminCli;
 using Auth.AdminApi;
 using Auth.Api;
 using Auth.Contracts;
@@ -15,7 +15,7 @@ using Auth.Domain.Aggregates;
 using Auth.Infrastructure;
 using Auth.Infrastructure.JwtBearer;
 using Auth.Persistence;
-using Catalog.Admin;
+using Catalog.AdminCli;
 using Catalog.Admin.Contracts;
 using Catalog.AdminApi;
 using Catalog.Api;
@@ -35,14 +35,14 @@ internal static class ArchitectureCatalog
 {
     public static IReadOnlyList<ModuleProject> ModuleProjects { get; } =
     [
-        new("Administration", "Administration.Admin", ModuleProjectKind.Admin, typeof(AdministrationAdminModule).Assembly),
+        new("Administration", "Administration.AdminCli", ModuleProjectKind.AdminCli, typeof(AdministrationAdminCliModule).Assembly),
         new("Administration", "Administration.AdminApi", ModuleProjectKind.AdminApi, typeof(AdministrationAdminApiModule).Assembly),
         new("Administration", "Administration.Application", ModuleProjectKind.Application, typeof(Administration.Application.DependencyInjection).Assembly),
         new("Administration", "Administration.Contracts", ModuleProjectKind.Contracts, typeof(AdministrationModuleMetadata).Assembly),
         new("Administration", "Administration.Persistence", ModuleProjectKind.Persistence, typeof(Administration.Persistence.DependencyInjection).Assembly),
 
         new("Auth", "Auth.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(AuthAdminPermissions).Assembly),
-        new("Auth", "Auth.Admin", ModuleProjectKind.Admin, typeof(AuthAdminModule).Assembly),
+        new("Auth", "Auth.AdminCli", ModuleProjectKind.AdminCli, typeof(AuthAdminCliModule).Assembly),
         new("Auth", "Auth.AdminApi", ModuleProjectKind.AdminApi, typeof(AuthAdminApiModule).Assembly),
         new("Auth", "Auth.Api", ModuleProjectKind.Api, typeof(AuthModule).Assembly),
         new("Auth", "Auth.Application", ModuleProjectKind.Application, typeof(Auth.Application.DependencyInjection).Assembly),
@@ -53,7 +53,7 @@ internal static class ArchitectureCatalog
         new("Auth", "Auth.Persistence", ModuleProjectKind.Persistence, typeof(Auth.Persistence.DependencyInjection).Assembly),
 
         new("Catalog", "Catalog.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(CatalogAdminPermissions).Assembly),
-        new("Catalog", "Catalog.Admin", ModuleProjectKind.Admin, typeof(CatalogAdminModule).Assembly),
+        new("Catalog", "Catalog.AdminCli", ModuleProjectKind.AdminCli, typeof(CatalogAdminCliModule).Assembly),
         new("Catalog", "Catalog.AdminApi", ModuleProjectKind.AdminApi, typeof(CatalogAdminApiModule).Assembly),
         new("Catalog", "Catalog.Api", ModuleProjectKind.Api, typeof(CatalogModule).Assembly),
         new("Catalog", "Catalog.Application", ModuleProjectKind.Application, typeof(Catalog.Application.DependencyInjection).Assembly),
@@ -103,9 +103,9 @@ internal static class ArchitectureCatalog
 
     public static IReadOnlyList<Assembly> CommandLineAllowedAssemblies { get; } =
     [
-        typeof(AdministrationAdminModule).Assembly,
-        typeof(AuthAdminModule).Assembly,
-        typeof(CatalogAdminModule).Assembly,
+        typeof(AdministrationAdminCliModule).Assembly,
+        typeof(AuthAdminCliModule).Assembly,
+        typeof(CatalogAdminCliModule).Assembly,
         typeof(Shared.Administration.Cli.AdminCliExecutor).Assembly,
         AdminCliAssemblyReference.Assembly,
     ];
@@ -129,7 +129,7 @@ internal sealed record ModuleProject(
 
 internal enum ModuleProjectKind
 {
-    Admin,
+    AdminCli,
     AdminContracts,
     AdminApi,
     Api,

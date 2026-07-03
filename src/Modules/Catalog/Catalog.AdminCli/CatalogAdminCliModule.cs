@@ -1,4 +1,4 @@
-namespace Catalog.Admin;
+namespace Catalog.AdminCli;
 
 using System.CommandLine;
 using Catalog.Admin.Contracts;
@@ -16,7 +16,7 @@ using Shared.Application.Cqrs;
 using Shared.Application.Queries;
 using Shared.ErrorHandling;
 
-public sealed class CatalogAdminModule : IAdminCliModule
+public sealed class CatalogAdminCliModule : IAdminCliModule
 {
     public string Name => CatalogModuleMetadata.Name;
 

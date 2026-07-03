@@ -14,13 +14,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Host.AdminCli\Host.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Host.AdminApi\Host.AdminApi.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Administration\Administration.Admin\Administration.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Administration\Administration.AdminCli\Administration.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.AdminApi\Administration.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Application\Administration.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Contracts\Administration.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Persistence\Administration.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Admin.Contracts\Auth.Admin.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Auth\Auth.Admin\Auth.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Auth\Auth.AdminCli\Auth.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.AdminApi\Auth.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Api\Auth.Api.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Application\Auth.Application.csproj" />
@@ -30,7 +30,7 @@
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Infrastructure.JwtBearer\Auth.Infrastructure.JwtBearer.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Persistence\Auth.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Admin.Contracts\Catalog.Admin.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Admin\Catalog.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.AdminCli\Catalog.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.AdminApi\Catalog.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Api\Catalog.Api.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Application\Catalog.Application.csproj" />

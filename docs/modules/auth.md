@@ -15,7 +15,7 @@ Auth.Persistence.SqlServerMigrations
 Auth.Persistence.PostgreSqlMigrations
 Auth.Api
 Auth.Admin.Contracts
-Auth.Admin
+Auth.AdminCli
 Auth.AdminApi
 ```
 
@@ -198,7 +198,7 @@ MemberSessionsRevokedIntegrationEvent
 
 ## Admin Commands
 
-`Auth.Admin` is optional and is composed by `Host.AdminCli`.
+`Auth.AdminCli` is optional and is composed by `Host.AdminCli`.
 It shares typed permission constants with `Auth.AdminApi` through `Auth.Admin.Contracts`.
 
 Commands:

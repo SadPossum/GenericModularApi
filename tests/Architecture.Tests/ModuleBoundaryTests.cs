@@ -182,7 +182,7 @@ public sealed class ModuleBoundaryTests
         string[] forbiddenTokens =
         [
             "CatalogModule",
-            "CatalogAdminModule",
+            "CatalogAdminCliModule",
             "CatalogAdminApiModule",
             "Ordering",
             "AddNatsJetStreamConsumers"

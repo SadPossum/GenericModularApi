@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Z][A-Za-z0-9]*$')]
     [string] $Name,
@@ -6,7 +6,7 @@
     [switch] $Persistence,
     [switch] $SqlServerMigrations,
     [switch] $PostgreSqlMigrations,
-    [switch] $Admin,
+    [switch] $AdminCli,
     [switch] $AdminApi,
     [switch] $Inbox,
     [switch] $Outbox,
@@ -76,7 +76,7 @@ $applicationProject = Join-Path $moduleRoot "$Name.Application\$Name.Application
 $apiProject = Join-Path $moduleRoot "$Name.Api\$Name.Api.csproj"
 $persistenceProject = Join-Path $moduleRoot "$Name.Persistence\$Name.Persistence.csproj"
 $adminContractsProject = Join-Path $moduleRoot "$Name.Admin.Contracts\$Name.Admin.Contracts.csproj"
-$adminProject = Join-Path $moduleRoot "$Name.Admin\$Name.Admin.csproj"
+$adminCliProject = Join-Path $moduleRoot "$Name.AdminCli\$Name.AdminCli.csproj"
 $adminApiProject = Join-Path $moduleRoot "$Name.AdminApi\$Name.AdminApi.csproj"
 $metadataSchemaLine = if ($Persistence) {
     "    public const string Schema = `"$moduleName`";"
@@ -622,32 +622,32 @@ public static class ${Name}AdminOperationNames
 }
 
 if ($Admin) {
-    $adminReferences = @(
+    $adminCliReferences = @(
         "    <ProjectReference Include=`"..\$Name.Admin.Contracts\$Name.Admin.Contracts.csproj`" />",
         "    <ProjectReference Include=`"..\$Name.Application\$Name.Application.csproj`" />",
         "    <ProjectReference Include=`"..\$Name.Contracts\$Name.Contracts.csproj`" />",
         '    <ProjectReference Include="..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />',
         '    <ProjectReference Include="..\..\..\Shared\Shared.Administration\Shared.Administration.csproj" />'
     )
-    $adminServices = @("        builder.Services.Add${Name}Application();")
+    $adminCliServices = @("        builder.Services.Add${Name}Application();")
 
     if ($Persistence) {
-        $adminReferences += "    <ProjectReference Include=`"..\$Name.Persistence\$Name.Persistence.csproj`" />"
-        $adminServices += "        builder.Add${Name}Persistence();"
+        $adminCliReferences += "    <ProjectReference Include=`"..\$Name.Persistence\$Name.Persistence.csproj`" />"
+        $adminCliServices += "        builder.Add${Name}Persistence();"
     }
 
-    Write-GmaFile $adminProject @"
+    Write-GmaFile $adminCliProject @"
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />
   </ItemGroup>
   <ItemGroup>
-$($adminReferences -join "`r`n")
+$($adminCliReferences -join "`r`n")
   </ItemGroup>
 </Project>
 "@
 
-    $adminUsings = @(
+    $adminCliUsings = @(
         "using $Name.Application;",
         "using $Name.Contracts;",
         'using Microsoft.Extensions.DependencyInjection;',
@@ -657,19 +657,19 @@ $($adminReferences -join "`r`n")
         'using System.CommandLine;'
     )
     if ($Persistence) {
-        $adminUsings += "using $Name.Persistence;"
+        $adminCliUsings += "using $Name.Persistence;"
     }
 
-    Write-GmaFile (Join-Path $moduleRoot "$Name.Admin\${Name}AdminModule.cs") @"
-namespace $Name.Admin;
+    Write-GmaFile (Join-Path $moduleRoot "$Name.AdminCli\${Name}AdminCliModule.cs") @"
+namespace $Name.AdminCli;
 
-$($adminUsings | Sort-Object | Get-Unique | Out-String)public sealed class ${Name}AdminModule : IAdminCliModule
+$($adminCliUsings | Sort-Object | Get-Unique | Out-String)public sealed class ${Name}AdminCliModule : IAdminCliModule
 {
     public string Name => ${Name}ModuleMetadata.Name;
 
     public void AddServices(IHostApplicationBuilder builder)
     {
-$($adminServices -join "`r`n")
+$($adminCliServices -join "`r`n")
     }
 
     public void MapCommands(IAdminCliCommandRegistry commands)

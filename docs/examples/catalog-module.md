@@ -17,7 +17,7 @@ Catalog.Persistence.SqlServerMigrations
 Catalog.Persistence.PostgreSqlMigrations
 Catalog.Api
 Catalog.Admin.Contracts
-Catalog.Admin
+Catalog.AdminCli
 Catalog.AdminApi
 ```
 
@@ -85,7 +85,7 @@ Add project references from the host to the front doors you want, then register:
 
 ```csharp
 builder.AddModule<CatalogModule>();
-builder.AddAdminModule<CatalogAdminModule>();
+builder.AddAdminModule<CatalogAdminCliModule>();
 builder.AddAdminApiModule<CatalogAdminApiModule>();
 ```
 

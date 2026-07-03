@@ -54,14 +54,14 @@ src/
       Auth.Admin.Contracts/
         Operations/
         Permissions/
-      Auth.Admin/
+      Auth.AdminCli/
       Auth.AdminApi/
     Administration/
       Administration.Application/
       Administration.Persistence/
       Administration.Persistence.SqlServerMigrations/
       Administration.Persistence.PostgreSqlMigrations/
-      Administration.Admin/
+      Administration.AdminCli/
       Administration.AdminApi/
     Tenancy/
       Tenancy.Api/
@@ -101,8 +101,8 @@ app.MapModules();
 ```csharp
 builder.AddSharedAdministrationCli();
 builder.AddSharedInfrastructure();
-builder.AddAdminModule<AdministrationAdminModule>();
-builder.AddAdminModule<AuthAdminModule>();
+builder.AddAdminModule<AdministrationAdminCliModule>();
+builder.AddAdminModule<AuthAdminCliModule>();
 ```
 
 It does not map public API endpoints.
@@ -190,7 +190,7 @@ module command handler -> ICacheInvalidationQueue -> post-commit flush
 Administration follows the same explicit front-door rule:
 
 ```text
-Host.AdminCli -> *.Admin    -> *.Application -> *.Domain
+Host.AdminCli -> *.AdminCli -> *.Application -> *.Domain
 Host.AdminApi -> *.AdminApi -> *.Application -> *.Domain
                  |
                  -> *.Admin.Contracts

@@ -526,8 +526,8 @@ public sealed partial class DeveloperExperienceGuardTests
             "src",
             "Modules",
             "Auth",
-            "Auth.Admin",
-            "AuthAdminModule.cs"));
+            "Auth.AdminCli",
+            "AuthAdminCliModule.cs"));
         string authInfrastructureProject = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
@@ -554,8 +554,8 @@ public sealed partial class DeveloperExperienceGuardTests
             "src",
             "Modules",
             "Auth",
-            "Auth.Admin",
-            "Auth.Admin.csproj"));
+            "Auth.AdminCli",
+            "Auth.AdminCli.csproj"));
         string authApiProject = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
@@ -2391,7 +2391,7 @@ public sealed partial class DeveloperExperienceGuardTests
             .Where(path => Path
                 .GetRelativePath(repositoryRoot, path)
                 .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Any(segment => segment.EndsWith(".Admin", StringComparison.Ordinal))),
+                .Any(segment => segment.EndsWith(".AdminCli", StringComparison.Ordinal))),
             Path.Combine(repositoryRoot, "src", "Host.AdminCli", "Program.cs")
         ];
         string[] offenders = cliFrontDoorFiles
@@ -2441,7 +2441,7 @@ public sealed partial class DeveloperExperienceGuardTests
             {
                 string? projectName = FindOwningProjectName(path);
                 return projectName is not null &&
-                       (projectName.EndsWith(".Admin", StringComparison.Ordinal) ||
+                       (projectName.EndsWith(".AdminCli", StringComparison.Ordinal) ||
                         projectName.EndsWith(".AdminApi", StringComparison.Ordinal));
             })
             .Where(path => AdminOperationStringLiteralPattern().IsMatch(File.ReadAllText(path)))
@@ -2579,8 +2579,8 @@ public sealed partial class DeveloperExperienceGuardTests
                 "src",
                 "Modules",
                 "Administration",
-                "Administration.Admin",
-                "AdministrationAdminModule.cs")
+                "Administration.AdminCli",
+                "AdministrationAdminCliModule.cs")
         ];
         string[] forbiddenTokens =
         [
@@ -3040,10 +3040,10 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.Extensions.Hosting", "System.CommandLine"],
                 [],
                 [
-                    @"..\Modules\Administration\Administration.Admin\Administration.Admin.csproj",
+                    @"..\Modules\Administration\Administration.AdminCli\Administration.AdminCli.csproj",
                     @"..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj",
-                    @"..\Modules\Auth\Auth.Admin\Auth.Admin.csproj",
+                    @"..\Modules\Auth\Auth.AdminCli\Auth.AdminCli.csproj",
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj",
@@ -3560,14 +3560,14 @@ public sealed partial class DeveloperExperienceGuardTests
             "System.CommandLine"
         };
         string[] offenders = Directory
-            .EnumerateFiles(modulesRoot, "*.Admin.csproj", SearchOption.AllDirectories)
+            .EnumerateFiles(modulesRoot, "*.AdminCli.csproj", SearchOption.AllDirectories)
             .Where(path => !HasIgnoredPathSegment(path))
             .SelectMany(projectPath =>
             {
                 XDocument project = XDocument.Load(projectPath);
                 string relativePath = Path.GetRelativePath(repositoryRoot, projectPath);
                 string moduleName = Path.GetFileNameWithoutExtension(projectPath)
-                    .Replace(".Admin", string.Empty, StringComparison.Ordinal);
+                    .Replace(".AdminCli", string.Empty, StringComparison.Ordinal);
                 string[] unexpectedProjectReferences = project
                     .Descendants("ProjectReference")
                     .Select(element => element.Attribute("Include")?.Value)
@@ -3653,6 +3653,9 @@ public sealed partial class DeveloperExperienceGuardTests
             "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\Metadata\\${Name}AdminPermissionCodes.cs\")",
             "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\Permissions\\${Name}AdminPermissions.cs\")",
             "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\Operations\\${Name}AdminOperationNames.cs\")",
+            "$adminCliProject = Join-Path $moduleRoot \"$Name.AdminCli\\$Name.AdminCli.csproj\"",
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.AdminCli\\${Name}AdminCliModule.cs\")",
+            "public sealed class ${Name}AdminCliModule : IAdminCliModule",
             "IAdminCliModule",
             "IAdminCliCommandRegistry",
             "using Shared.Administration.Cli;",
@@ -4788,7 +4791,7 @@ public sealed partial class DeveloperExperienceGuardTests
         return string.Equals(projectName, "Host.AdminCli", StringComparison.Ordinal) ||
                string.Equals(projectName, "Shared.Administration.Cli", StringComparison.Ordinal) ||
                (IsModuleProject(normalizedPath) &&
-                projectName.EndsWith(".Admin", StringComparison.Ordinal));
+                projectName.EndsWith(".AdminCli", StringComparison.Ordinal));
     }
 
     private static bool IsModuleProject(string projectPath) =>
@@ -4986,7 +4989,7 @@ public sealed partial class DeveloperExperienceGuardTests
         return IsModuleProject(normalizedPath) &&
                (projectName.EndsWith(".Api", StringComparison.Ordinal) ||
                 projectName.EndsWith(".AdminApi", StringComparison.Ordinal) ||
-                projectName.EndsWith(".Admin", StringComparison.Ordinal));
+                projectName.EndsWith(".AdminCli", StringComparison.Ordinal));
     }
 
     private static bool IsApplicationProject(string projectPath)

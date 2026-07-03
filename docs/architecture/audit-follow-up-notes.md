@@ -277,10 +277,10 @@ These notes capture architectural and developer-experience findings from the bro
 - Removed the stale `NetArchTest.Rules` dependency after module boundary checks moved to direct assembly-reference guards, keeping architecture tests on the repo's own explicit catalog rather than an unused external package.
 - Added a domain project-shape guard so module `.Domain` projects keep only shared domain/error project references and no package/framework references, catching unused dependency drift before it appears in compiled assembly references.
 - Added an application project-shape guard so module `.Application` projects stay adapter/front-door free at the `.csproj` level, allowing only shared abstractions, own contracts/domain, optional producer contracts, and small Microsoft extension abstraction packages.
-- Tightened application project-shape rules so `Shared.Administration` is reserved for the owning `Administration.Application` module; feature modules keep admin framework dependencies in `.Admin` and `.AdminApi` front doors.
+- Tightened application project-shape rules so `Shared.Administration` is reserved for the owning `Administration.Application` module; feature modules keep admin framework dependencies in `.AdminCli` and `.AdminApi` front doors.
 - Added public/admin contract project-shape guards so public `.Contracts` projects stay backend/admin-framework free, while `.Admin.Contracts` projects remain thin typed wrappers over `Shared.Administration` and the owning public contracts.
 - Added a persistence project-shape guard so module `.Persistence` projects stay EF provider adapters instead of accumulating front-door, admin, framework, or unrelated package dependencies.
-- Added HTTP and admin CLI front-door project-shape guards so module `.Api`, `.AdminApi`, and `.Admin` projects can compose their owning module adapters without becoming catch-all dependency sinks.
+- Added HTTP and admin CLI front-door project-shape guards so module `.Api`, `.AdminApi`, and `.AdminCli` projects can compose their owning module adapters without becoming catch-all dependency sinks.
 - Hardened module boundary source/project scans to ignore `bin` and `obj`, keeping architecture checks stable after local builds generate source files.
 - Added a shared-core project-shape guard so `Shared.Domain` and `Shared.ErrorHandling` stay dependency-free while `Shared.Application` remains abstractions-only.
 - Added a shared-project dependency manifest guard so concrete backend packages stay in explicit shared adapter projects and new shared projects require a deliberate dependency-shape update.
@@ -289,7 +289,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Added a test-source category guard so unit, architecture, integration, and Docker-backed tests stay selectable by category as the suite grows.
 - Added a script-contract guard so `eng/test-fast.ps1` keeps excluding Docker tests, `eng/test-docker.ps1` keeps enabling enforced Docker execution for `Category=Docker`, and `eng/verify.ps1` remains a fast default validation path unless Docker is invoked explicitly.
 - Added an enum-guidance docs guard so the `Unknown = 0`, smart-enum/code-list, provider enum, and module-template rules stay visible while enum modeling evolves.
-- Centralized admin CLI message/error/prompt output through `AdminCliOutput` and guarded module `.Admin` front doors against raw `Console` writes, keeping output formatting replaceable without changing module command maps.
+- Centralized admin CLI message/error/prompt output through `AdminCliOutput` and guarded module `.AdminCli` front doors against raw `Console` writes, keeping output formatting replaceable without changing module command maps.
 - Isolated shared unit tests that redirect process-wide console streams with `ConsoleTestIsolation` and added a guard so future non-integration console-redirection tests cannot race under xUnit parallel execution.
 - Guarded the module scaffolder so generated admin CLI shells keep depending on `Shared.Administration.Cli` and do not introduce raw console output into generated module front doors.
 - Hardened `DockerFact` availability probing so a hung `docker info` check is bounded, hidden-window, and explicitly kills the timed-out child process before falling back to local skip behavior.
@@ -338,6 +338,6 @@ These notes capture architectural and developer-experience findings from the bro
 
 - Catalog had grouped event contracts and outbox projectors after the example-module pass. The split makes events, projectors, and tests easier to navigate by type name.
 - Ordering grouped all Catalog projection handlers in one file. The split better matches the stable handler-name/durable-consumer mental model.
-- Auth had duplicated generated password code in `.Admin` and `.AdminApi`. Moving it into application keeps security-sensitive policy in one place while front doors stay thin.
+- Auth had duplicated generated password code in `.AdminCli` and `.AdminApi`. Moving it into application keeps security-sensitive policy in one place while front doors stay thin.
 - Module metadata is deliberately contract data only. Do not turn it into assembly scanning or implicit host composition without a separate ADR and architecture tests.
 - `ArchitectureCatalog` is also deliberately test/tooling data only. Do not use it for runtime host composition.

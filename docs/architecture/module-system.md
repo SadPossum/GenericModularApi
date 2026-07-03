@@ -58,7 +58,7 @@ Recommended projects:
 - `<Module>.Persistence.PostgreSqlMigrations`
 - `<Module>.Api`
 - `<Module>.Admin.Contracts`
-- `<Module>.Admin`
+- `<Module>.AdminCli`
 - `<Module>.AdminApi`
 
 Not every module needs every project. Keep small modules small.
@@ -187,7 +187,7 @@ Endpoints should be thin. Put behavior in commands, handlers, aggregates, and se
 
 ## Admin
 
-`<Module>.Admin` contains optional administration front doors.
+`<Module>.AdminCli` contains optional command-line administration front doors.
 
 Allowed examples:
 
@@ -204,11 +204,11 @@ Avoid:
 - direct repository access
 - references to other module internals
 
-Admin projects are registered explicitly by `Host.AdminCli`, not by `Host.Api`.
+Admin CLI projects are registered explicitly by `Host.AdminCli`, not by `Host.Api`.
 
 ## Admin Contracts
 
-`<Module>.Admin.Contracts` contains optional administration contract helpers shared by `.Admin` and `.AdminApi`.
+`<Module>.Admin.Contracts` contains optional administration contract helpers shared by `.AdminCli` and `.AdminApi`.
 
 Admin contract projects use:
 

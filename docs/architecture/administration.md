@@ -34,7 +34,7 @@ Administration.Application
 Administration.Persistence
 Administration.Persistence.SqlServerMigrations
 Administration.Persistence.PostgreSqlMigrations
-Administration.Admin
+Administration.AdminCli
 Administration.AdminApi
 ```
 
@@ -42,7 +42,7 @@ Feature admin front doors:
 
 ```text
 Auth.Admin.Contracts
-Auth.Admin
+Auth.AdminCli
 Auth.AdminApi
 ```
 
@@ -76,7 +76,7 @@ It owns:
 - audit recording after authorization decisions and command results;
 - exit-code mapping.
 
-Feature modules should not parse command-line arguments directly outside their `.Admin` project.
+Feature modules should not parse command-line arguments directly outside their `.AdminCli` project.
 Admin permission code strings live in public `.Contracts` so module metadata can declare them without referencing admin-only packages. Typed `AdminPermission` wrappers shared by CLI and HTTP live in `.Admin.Contracts`.
 `Host.AdminCli` loads its copied tool/app output configuration by using `AppContext.BaseDirectory` as the content root. It validates configured startup options before parsing commands, but it does not start hosted services. Long-running publishers, consumers, and HTTP endpoints therefore remain outside the CLI process.
 
@@ -110,8 +110,8 @@ It explicitly composes admin modules:
 ```csharp
 builder.AddSharedAdministrationCli();
 builder.AddSharedInfrastructure();
-builder.AddAdminModule<AdministrationAdminModule>();
-builder.AddAdminModule<AuthAdminModule>();
+builder.AddAdminModule<AdministrationAdminCliModule>();
+builder.AddAdminModule<AuthAdminCliModule>();
 ```
 
 It does not map HTTP endpoints and does not start long-running publishers. Admin operations are short-lived command executions.
@@ -229,7 +229,7 @@ HTTP request
 ## Rules
 
 - `Host.Api` should not register admin modules.
-- Only `.Admin`, `Shared.Administration.Cli`, and `Host.AdminCli` may reference `System.CommandLine`.
+- Only `.AdminCli`, `Shared.Administration.Cli`, and `Host.AdminCli` may reference `System.CommandLine`.
 - Only `.AdminApi`, `Shared.Administration.Api`, and `Host.AdminApi` should map admin HTTP routes.
 - Admin modules may call their own module application layer and shared admin contracts.
 - Admin modules must not contain business rules or EF code.

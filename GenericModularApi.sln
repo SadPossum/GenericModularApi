@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -128,6 +128,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{929E11CE-B
 		docs\architecture\observability.md = docs\architecture\observability.md
 		docs\architecture\overview.md = docs\architecture\overview.md
 		docs\architecture\persistence-and-tenancy.md = docs\architecture\persistence-and-tenancy.md
+		docs\architecture\production-readiness-backlog.md = docs\architecture\production-readiness-backlog.md
 		docs\examples\catalog-module.md = docs\examples\catalog-module.md
 		docs\examples\cross-module-integration.md = docs\examples\cross-module-integration.md
 		docs\examples\ordering-module.md = docs\examples\ordering-module.md
@@ -162,9 +163,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Administration.Persistence.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Administration.Persistence.PostgreSqlMigrations", "src\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj", "{6633E3D7-3095-4DD9-AA86-CD8820ED2854}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Administration.Admin", "src\Modules\Administration\Administration.Admin\Administration.Admin.csproj", "{3FA3F56D-E9EC-4964-83B9-5569A6FEDDF7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Administration.AdminCli", "src\Modules\Administration\Administration.AdminCli\Administration.AdminCli.csproj", "{3FA3F56D-E9EC-4964-83B9-5569A6FEDDF7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth.Admin", "src\Modules\Auth\Auth.Admin\Auth.Admin.csproj", "{6DC62762-F9DF-4469-94CD-B8FA423AD524}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth.AdminCli", "src\Modules\Auth\Auth.AdminCli\Auth.AdminCli.csproj", "{6DC62762-F9DF-4469-94CD-B8FA423AD524}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Host.AdminCli", "src\Host.AdminCli\Host.AdminCli.csproj", "{0D3E3625-4321-4BA1-91F0-663A07F2ECD2}"
 EndProject
@@ -192,7 +193,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.Persistence.Postgre
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.Api", "src\Modules\Catalog\Catalog.Api\Catalog.Api.csproj", "{7415A954-6B38-46AC-BB74-A1FA40321E72}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.Admin", "src\Modules\Catalog\Catalog.Admin\Catalog.Admin.csproj", "{41770190-474A-4E50-B83B-5F1ACDAD4081}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.AdminCli", "src\Modules\Catalog\Catalog.AdminCli\Catalog.AdminCli.csproj", "{41770190-474A-4E50-B83B-5F1ACDAD4081}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.AdminApi", "src\Modules\Catalog\Catalog.AdminApi\Catalog.AdminApi.csproj", "{A39FC6C8-A1BC-454A-9B2D-ADEACAA705BA}"
 EndProject

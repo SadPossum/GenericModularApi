@@ -10,10 +10,10 @@
     <PackageReference Include="System.CommandLine" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Modules\Administration\Administration.Admin\Administration.Admin.csproj" />
+    <ProjectReference Include="..\Modules\Administration\Administration.AdminCli\Administration.AdminCli.csproj" />
     <ProjectReference Include="..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj" />
     <ProjectReference Include="..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj" />
-    <ProjectReference Include="..\Modules\Auth\Auth.Admin\Auth.Admin.csproj" />
+    <ProjectReference Include="..\Modules\Auth\Auth.AdminCli\Auth.AdminCli.csproj" />
     <ProjectReference Include="..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj" />
     <ProjectReference Include="..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj" />
     <ProjectReference Include="..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />

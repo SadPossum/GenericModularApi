@@ -47,7 +47,7 @@ Module project names:
 <Module>.Persistence.PostgreSqlMigrations
 <Module>.Api
 <Module>.Admin.Contracts
-<Module>.Admin
+<Module>.AdminCli
 <Module>.AdminApi
 ```
 

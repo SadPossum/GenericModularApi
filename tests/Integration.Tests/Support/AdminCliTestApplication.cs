@@ -1,8 +1,8 @@
 namespace Integration.Tests.Support;
 
-using Administration.Admin;
+using Administration.AdminCli;
 using Administration.Persistence;
-using Auth.Admin;
+using Auth.AdminCli;
 using Auth.Application.Commands;
 using Auth.Contracts;
 using Auth.Domain.Errors;
@@ -47,8 +47,8 @@ internal sealed class AdminCliTestApplication : IAsyncDisposable
 
         builder.Services.AddSharedAdministrationCli();
         builder.AddSharedInfrastructure();
-        builder.AddAdminModule<AdministrationAdminModule>();
-        builder.AddAdminModule<AuthAdminModule>();
+        builder.AddAdminModule<AdministrationAdminCliModule>();
+        builder.AddAdminModule<AuthAdminCliModule>();
 
         this.host = builder.Build();
         this.host.Services.ValidateAdminCliStartup();

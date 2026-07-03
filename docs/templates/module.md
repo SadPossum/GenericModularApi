@@ -16,7 +16,7 @@ Describe what this module owns and what it intentionally does not own.
 <Module>.Persistence.PostgreSqlMigrations
 <Module>.Api
 <Module>.Admin.Contracts
-<Module>.Admin
+<Module>.AdminCli
 <Module>.AdminApi
 ```
 
@@ -92,9 +92,9 @@ Confirm the domain `.csproj` has no package or framework references unless a fut
 List commands, queries, handlers, validators, domain event handlers, and integration event handlers.
 State which commands implement `ITransactionalCommand<TResponse>` and which commands intentionally remain plain `ICommand<TResponse>`.
 Keep one handler class per file under `<Module>.Application/Handlers`, including command handlers, query handlers, domain-event projectors, and integration-event handlers.
-Confirm the application project does not reference module adapters or front doors such as `.Persistence`, `.Infrastructure`, `.Api`, `.Admin`, or `.AdminApi`.
+Confirm the application project does not reference module adapters or front doors such as `.Persistence`, `.Infrastructure`, `.Api`, `.AdminCli`, or `.AdminApi`.
 Confirm the application `.csproj` references only shared abstractions, its own contracts/domain projects, optional producer `.Contracts` projects, and small Microsoft extension abstraction packages.
-Do not reference `Shared.Administration` from feature module application projects; keep admin framework usage in `.Admin`/`.AdminApi` front doors. `Administration.Application` is the owner-side exception.
+Do not reference `Shared.Administration` from feature module application projects; keep admin framework usage in `.AdminCli`/`.AdminApi` front doors. `Administration.Application` is the owner-side exception.
 Confirm that handlers use `ISystemClock` and `IIdGenerator` instead of direct system time or ID generation.
 Confirm that application DI registration extends `IServiceCollection`, not `IHostApplicationBuilder`.
 Confirm that application DI extension methods reject null receivers and use repeat-safe registration (`TryAddEnumerable` for handlers, validators, and event handlers).

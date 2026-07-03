@@ -2,7 +2,7 @@
 
 The Administration module is optional. It owns persisted admin RBAC and audit for hosts that choose to expose administration capabilities.
 
-It does not own feature-specific administration behavior. Feature modules expose their own `.Admin` front door and declare their own permission codes.
+It does not own feature-specific administration behavior. Feature modules expose their own `.AdminCli` and `.AdminApi` front doors and declare their own permission codes.
 
 ## Projects
 
@@ -11,7 +11,7 @@ Administration.Application
 Administration.Persistence
 Administration.Persistence.SqlServerMigrations
 Administration.Persistence.PostgreSqlMigrations
-Administration.Admin
+Administration.AdminCli
 Administration.AdminApi
 ```
 

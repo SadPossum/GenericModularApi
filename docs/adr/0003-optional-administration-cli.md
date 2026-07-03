@@ -18,8 +18,8 @@ Add administration as an optional CLI-first capability:
 - `Shared.Administration.Cli` contains `System.CommandLine` integration.
 - `Host.AdminCli` is a separate packable .NET tool named `gma-admin`.
 - `Administration` owns persisted RBAC and audit in the `admin` schema.
-- Feature modules expose CLI front doors through `<Module>.Admin`.
-- Auth exposes user administration through `Auth.Admin`.
+- Feature modules expose CLI front doors through `<Module>.AdminCli`.
+- Auth exposes user administration through `Auth.AdminCli`.
 
 `Host.Api` does not register admin modules in this milestone.
 
@@ -43,4 +43,4 @@ Tradeoffs:
 
 - Admin HTTP endpoints were added through ADR 0004 as a separate host/module decision.
 - Add richer audit querying when a real operator workflow needs it.
-- Add command docs for any new `<Module>.Admin` project in the same change that introduces it.
+- Add command docs for any new `<Module>.AdminCli` project in the same change that introduces it.

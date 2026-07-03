@@ -53,6 +53,8 @@ Validators should:
 - avoid database writes;
 - avoid business behavior that belongs in aggregates.
 
+The default skeleton does not use FluentValidation. ADR 0007 keeps validation behind these shared CQRS contracts so public API, Admin API, CLI, tests, and generated modules all use the same result shape. A future module may add a FluentValidation adapter only when it has a concrete need for the richer rule model, and that adapter should still feed the shared CQRS validation pipeline.
+
 ## Domain Events
 
 Aggregate roots collect domain events during behavior execution.

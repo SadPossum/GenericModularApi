@@ -19,7 +19,7 @@ This tracker records the long-running hardening backlog for the skeleton. Each i
 | Admin naming | Implemented | CLI-only module front doors use `.AdminCli`; shared typed permission/operation helpers stay in `.Admin.Contracts`, and HTTP admin front doors stay in `.AdminApi`. |
 | Test organization and value audit | Implemented | Test files now live under intent folders, docs describe the taxonomy, and architecture guards enforce test categories, names, Docker traits, and folder placement. Follow-up notes capture the remaining long-term split and coverage watchpoints. |
 | Code magic/reflection | Implemented | Added constrained module-application assembly registration for CQRS handlers, validators, and domain-event handlers; integration-event subscriptions remain explicit. ADR 0006 documents why this stays in-house instead of adopting broad scanning. |
-| Validation library | Pending | Evaluate FluentValidation against the current small validation contracts; switch only if consistency and ergonomics improve. |
+| Validation library | Excluded | ADR 0007 keeps the shared CQRS validator contracts as the default. FluentValidation remains a future module-specific adapter option only if a real module needs its richer rule model. |
 | Tasks/daemons framework | Pending | Design optional production-ready task runtime with monitoring, control, node placement, and command/control communication. |
 | Notifications and streaming | Pending | Design optional user notification and real-time update module/adapters. |
 | File storage | Pending | Design optional file storage contracts and first real adapter, likely MinIO/S3-compatible if it fits. |

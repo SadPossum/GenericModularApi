@@ -118,6 +118,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{929E11CE-B
 		docs\adr\0004-optional-administration-api.md = docs\adr\0004-optional-administration-api.md
 		docs\adr\0005-nats-consumers-and-cross-module-data-ownership.md = docs\adr\0005-nats-consumers-and-cross-module-data-ownership.md
 		docs\adr\0006-constrained-application-service-registration.md = docs\adr\0006-constrained-application-service-registration.md
+		docs\adr\0007-shared-cqrs-validation-contracts.md = docs\adr\0007-shared-cqrs-validation-contracts.md
 		docs\architecture\administration.md = docs\architecture\administration.md
 		docs\architecture\audit-follow-up-notes.md = docs\architecture\audit-follow-up-notes.md
 		docs\architecture\audit-hardening-notes.md = docs\architecture\audit-hardening-notes.md

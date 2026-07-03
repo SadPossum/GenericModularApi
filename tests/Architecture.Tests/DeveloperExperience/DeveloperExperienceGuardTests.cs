@@ -2501,7 +2501,7 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Module_api_projects_use_shared_cqrs_validation_contracts()
+    public void Production_projects_use_shared_cqrs_validation_contracts_by_default()
     {
         string repositoryRoot = FindRepositoryRoot();
         string[] forbiddenPackages =
@@ -2511,10 +2511,7 @@ public sealed partial class DeveloperExperienceGuardTests
             "FluentValidation.DependencyInjectionExtensions"
         ];
         string[] offenders = EnumeratePackageReferences(repositoryRoot)
-            .Where(reference => IsModuleProject(reference.ProjectPath))
-            .Where(reference =>
-                Path.GetFileNameWithoutExtension(reference.ProjectPath).EndsWith(".Api", StringComparison.Ordinal) ||
-                Path.GetFileNameWithoutExtension(reference.ProjectPath).EndsWith(".AdminApi", StringComparison.Ordinal))
+            .Where(reference => IsProductionProjectPath(reference.ProjectPath))
             .Where(reference => forbiddenPackages.Contains(reference.PackageId, StringComparer.Ordinal))
             .Select(reference => $"{reference.ProjectPath}:{reference.PackageId}")
             .Order(StringComparer.OrdinalIgnoreCase)
@@ -4889,6 +4886,11 @@ public sealed partial class DeveloperExperienceGuardTests
     private static bool IsModuleProject(string projectPath) =>
         NormalizePath(projectPath).StartsWith(
             $"src{Path.DirectorySeparatorChar}Modules{Path.DirectorySeparatorChar}",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsProductionProjectPath(string projectPath) =>
+        NormalizePath(projectPath).StartsWith(
+            $"src{Path.DirectorySeparatorChar}",
             StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPublicModuleContractsProject(string projectPath)

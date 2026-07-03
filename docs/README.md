@@ -59,6 +59,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [0004 Optional Administration API](adr/0004-optional-administration-api.md)
 - [0005 NATS Consumers and Cross-Module Data Ownership](adr/0005-nats-consumers-and-cross-module-data-ownership.md)
 - [0006 Constrained Application Service Registration](adr/0006-constrained-application-service-registration.md)
+- [0007 Shared CQRS Validation Contracts](adr/0007-shared-cqrs-validation-contracts.md)
 
 ## Documentation Rules
 

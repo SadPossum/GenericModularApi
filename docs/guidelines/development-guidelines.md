@@ -115,7 +115,7 @@ Do not copy local `Math.Max`/`Math.Clamp` paging rules into handlers. Shared def
 
 Use `ICommandValidator<TCommand>` and `IQueryValidator<TQuery>` for request-shape checks that should fail before handlers touch repositories, caches, or aggregates. Keep deeper business invariants in aggregates and domain services.
 
-Do not add FluentValidation or another parallel validation framework to module API front doors by default. The skeleton's validation path is the shared CQRS validator contract so API, Admin API, CLI, tests, and generated modules stay aligned.
+Do not add FluentValidation or another parallel validation framework to module API front doors by default. ADR 0007 keeps the skeleton's validation path on the shared CQRS validator contract so API, Admin API, CLI, tests, and generated modules stay aligned.
 
 Do not map unknown enum values to a valid domain value by default. Application handlers should return explicit application errors for unsupported enum values, and CLI adapters should parse textual options inside the authorized operation path so denied actors do not receive validation details.
 

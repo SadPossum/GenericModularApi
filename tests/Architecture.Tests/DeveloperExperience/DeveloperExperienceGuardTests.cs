@@ -1135,6 +1135,21 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void Test_sources_live_under_intent_folders()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string[] offenders = EnumerateSourceFiles(testsRoot)
+            .Where(path => FindOwningProjectName(path)?.EndsWith(".Tests", StringComparison.Ordinal) == true)
+            .Where(path => !HasProjectIntentFolder(path, testsRoot))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Unit_tests_that_redirect_console_use_console_test_collection()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -1142,6 +1157,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string collectionDefinition = File.ReadAllText(Path.Combine(
             testsRoot,
             "Shared.Tests",
+            "Support",
             "ConsoleTestIsolation.cs"));
         string[] consoleRedirectTokens =
         [
@@ -2328,6 +2344,7 @@ public sealed partial class DeveloperExperienceGuardTests
             repositoryRoot,
             "tests",
             "Integration.Tests",
+            "Support",
             "DockerFactAttribute.cs"));
         string[] requiredTokens =
         [
@@ -2342,7 +2359,7 @@ public sealed partial class DeveloperExperienceGuardTests
         ];
         string[] offenders = requiredTokens
             .Where(token => !dockerFact.Contains(token, StringComparison.Ordinal))
-            .Select(token => $"tests/Integration.Tests/DockerFactAttribute.cs missing {token}")
+            .Select(token => $"tests/Integration.Tests/Support/DockerFactAttribute.cs missing {token}")
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -3998,7 +4015,7 @@ public sealed partial class DeveloperExperienceGuardTests
             "composition marker",
             "Could not register '$Name' in Host.Api",
             "Could not verify '$moduleRegistration'",
-            @"tests\Architecture.Tests\ArchitectureCatalog.cs",
+            @"tests\Architecture.Tests\Support\ArchitectureCatalog.cs",
             "ModuleProjects entries",
             "module descriptor",
             "Unknown = 0",
@@ -5081,6 +5098,16 @@ public sealed partial class DeveloperExperienceGuardTests
             "Integration.Tests" => "Integration",
             _ => "Unit"
         };
+    }
+
+    private static bool HasProjectIntentFolder(string sourcePath, string testsRoot)
+    {
+        string relativePath = Path.GetRelativePath(testsRoot, sourcePath);
+        string[] segments = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        return segments.Length >= 3;
     }
 
     private static bool HasCategoryTrait(string source, string category) =>

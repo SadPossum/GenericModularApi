@@ -304,9 +304,13 @@ These notes capture architectural and developer-experience findings from the bro
 - Guarded checked-in `.http` request samples so access/refresh tokens stay blank-variable driven and generated admin password response flows do not slip into default examples.
 - Started the production-readiness backlog tracker and reorganized module contract files into explicit category folders (`Api`, `Admin`, `Events`, `Metadata`, `Types`, plus admin-contract `Permissions`/`Operations`) while keeping contract namespaces stable for now.
 - Added shared event base records for integration events, domain events, and tenant-scoped domain events; migrated Auth/Catalog events; and guarded module events against re-declaring common metadata by hand.
+- Reorganized test sources under intent folders across unit, architecture, and integration projects, then added a developer-experience guard so new tests do not drift back into project roots.
+- Updated testing guidelines with the current test project list, folder taxonomy, category traits, and the distinction between fast default validation and opt-in Docker coverage.
 
 ## Findings To Keep Watching
 
+- `DeveloperExperienceGuardTests` is intentionally still a broad policy suite after this pass. Split it by concern later if edit conflicts or navigation cost rise, but keep the helpers local enough that the guards remain easy to audit.
+- Treat registration-only unit tests as smoke tests, not proof of behavior. Prefer adding behavior tests where a module boundary, tenant rule, cache invalidation, outbox/inbox transition, or admin authorization decision would otherwise regress silently.
 - Architecture tests now use a single explicit catalog for compiled module projects. New non-migration module projects are tested to appear there in the same change that adds the module.
 - Continue the admin API security pass with deeper audit export, audit retention, and external identity-provider mapping requirements.
 - Keep Administration and Tenancy contract metadata aligned with `ArchitectureCatalog`, docs, and scaffolding output as those optional modules evolve.

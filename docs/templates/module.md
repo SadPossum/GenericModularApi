@@ -36,7 +36,7 @@ Place public contract files in the standard folders:
 
 Confirm the public contracts `.csproj` references only `Shared.Application` plus optional producer `.Contracts` projects, and has no package or framework references.
 Admin permission code strings live here so `<Module>ModuleMetadata` can declare permissions without referencing admin-only framework packages.
-When the module becomes compiled code, add its contract metadata descriptor to `tests/Architecture.Tests/ArchitectureCatalog.cs`; architecture tests compare that catalog with every `<Module>ModuleMetadata.Descriptor`.
+When the module becomes compiled code, add its contract metadata descriptor to `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`; architecture tests compare that catalog with every `<Module>ModuleMetadata.Descriptor`.
 If this module consumes another module's contracts, do not expose producer DTOs or enums from this module's public contracts. Duplicate the scalar/read-model fields owned by this module.
 
 ## Admin Contracts

@@ -3,10 +3,14 @@
 ## Test Projects
 
 ```text
-Shared.Tests
-Auth.Tests
+Administration.Tests
 Architecture.Tests
+Auth.Tests
+Catalog.Tests
 Integration.Tests
+Ordering.Tests
+ServiceDefaults.Tests
+Shared.Tests
 ```
 
 Every test project must declare:
@@ -40,6 +44,20 @@ Every test source file that contains `[Fact]`, `[Theory]`, or `[DockerFact]` mus
 - `Integration.Tests` files use `Integration`.
 - all other test projects use `Unit`.
 - files with `[DockerFact]` also declare `Docker`.
+
+## Folder Layout
+
+Test source files live under one intent folder below the test project root. Keep the folder name about why the test exists, not about incidental implementation detail.
+
+Use these defaults:
+
+- `Support/` for fixtures, test applications, helper attributes, shared test collections, and catalogs.
+- Feature module unit tests mirror the module layer: `Application/`, `Contracts/`, `Domain/`, `Persistence/`, `Security/`, or a focused capability such as `Projections/`.
+- `Shared.Tests` groups by shared capability: `Administration/`, `Api/`, `Caching/`, `Cqrs/`, `Domain/`, `Infrastructure/`, `Messaging/`, `Modules/`, `Observability/`, `Results/`, `Security/`.
+- `Architecture.Tests` uses `Boundaries/`, `DeveloperExperience/`, `Modules/`, and `Support/`.
+- `Integration.Tests` groups by runtime surface or adapter: `AdminApi/`, `AdminCli/`, `Auth/`, `Caching/`, `Messaging/`, `Observability/`, `Persistence/`, and `Support/`.
+
+Avoid dropping new test files directly in the test project root. Architecture tests enforce the intent-folder rule so the suite stays browsable as optional modules and adapters grow.
 
 ## Commands
 
@@ -88,9 +106,10 @@ Architecture tests should protect:
 - namespace alignment;
 - package-reference boundaries for CLI and infrastructure adapters;
 - test naming;
+- test folder organization;
 - no `EnsureCreated` in integration tests.
 
-When a module adds or removes compiled projects, update `tests/Architecture.Tests/ArchitectureCatalog.cs`. Keep this catalog explicit and test-only; it is not a runtime registration mechanism.
+When a module adds or removes compiled projects, update `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`. Keep this catalog explicit and test-only; it is not a runtime registration mechanism.
 
 ## Integration Tests
 

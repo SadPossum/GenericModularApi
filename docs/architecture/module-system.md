@@ -114,7 +114,7 @@ Rules:
 
 Descriptor value objects validate public metadata at construction time and expose constructor-only properties. Invalid module names, permission codes, event subjects, subscription handler names, cache scopes, duplicate entries, or mismatched published-event subjects should fail as soon as the module contract assembly is loaded.
 
-Compiled module projects are also listed in `tests/Architecture.Tests/ArchitectureCatalog.cs`. That catalog feeds architecture tests only and must not be used for runtime composition.
+Compiled module projects are also listed in `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`. That catalog feeds architecture tests only and must not be used for runtime composition.
 
 ## Domain
 

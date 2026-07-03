@@ -29,6 +29,16 @@ public static class IntegrationEventContractGuards
             ? normalized
             : throw new ArgumentException("Tenant id is not valid.", parameterName);
 
+    public static string NormalizeEventName(string eventName, string parameterName) =>
+        IntegrationEventNaming.NormalizeEventName(eventName, parameterName);
+
+    public static int RequireVersion(int value, string parameterName)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 1, parameterName);
+
+        return value;
+    }
+
     public static string NormalizeRequiredText(string value, int maxLength, string parameterName)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLength, 1);

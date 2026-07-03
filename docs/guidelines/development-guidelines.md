@@ -175,9 +175,11 @@ Rules:
 Rules:
 
 - domain raises domain events;
+- domain events inherit `DomainEvent` or `TenantDomainEvent` so common event id, occurrence time, and tenant id rules are not repeated per module;
 - application handlers map domain events to integration events;
 - application handlers resolve the owning writer through `IOutboxWriterRegistry`;
 - module outbox writer stores integration events;
+- public integration events inherit `IntegrationEvent` so event id, tenant id, occurrence time, event name, and version validation stay centralized;
 - hosted publisher sends to `IEventBus` only in hosts that explicitly opt into publishing;
 - consumers implement `IIntegrationEventHandler<TEvent>`;
 - each consuming module owns an inbox table and registers an `IInboxStore`;

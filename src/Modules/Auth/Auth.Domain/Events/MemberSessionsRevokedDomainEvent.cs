@@ -3,7 +3,7 @@ namespace Auth.Domain.Events;
 using Auth.Domain.ValueObjects;
 using Shared.Domain;
 
-public sealed record MemberSessionsRevokedDomainEvent : IDomainEvent
+public sealed record MemberSessionsRevokedDomainEvent : TenantDomainEvent
 {
     public MemberSessionsRevokedDomainEvent(
         Guid eventId,
@@ -11,18 +11,13 @@ public sealed record MemberSessionsRevokedDomainEvent : IDomainEvent
         MemberId memberId,
         string tenantId,
         int revokedSessionCount)
+        : base(eventId, occurredAtUtc, tenantId)
     {
-        this.EventId = DomainEventGuards.RequireId(eventId, nameof(eventId));
-        this.OccurredAtUtc = DomainEventGuards.RequireOccurredAtUtc(occurredAtUtc, nameof(occurredAtUtc));
         _ = DomainEventGuards.RequireId(memberId.Value, nameof(memberId));
         this.MemberId = memberId;
-        this.TenantId = DomainEventGuards.NormalizeTenantId(tenantId, nameof(tenantId));
         this.RevokedSessionCount = DomainEventGuards.RequirePositive(revokedSessionCount, nameof(revokedSessionCount));
     }
 
-    public Guid EventId { get; }
-    public DateTimeOffset OccurredAtUtc { get; }
     public MemberId MemberId { get; }
-    public string TenantId { get; }
     public int RevokedSessionCount { get; }
 }

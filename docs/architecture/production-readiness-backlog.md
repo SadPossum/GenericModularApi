@@ -15,7 +15,7 @@ This tracker records the long-running hardening backlog for the skeleton. Each i
 | Item | Status | Notes |
 | --- | --- | --- |
 | Contracts and folder structure | In progress | Public contracts now use `Api/`, `Admin/`, `Events/`, `Metadata/`, and `Types/`. Admin contract wrappers use `Permissions/` and `Operations/`. |
-| Shared event abstractions | Pending | Consider a reusable integration-event base/metadata abstraction without weakening record immutability or serialization clarity. |
+| Shared event abstractions | Implemented | Added `IntegrationEvent`, `DomainEvent`, and `TenantDomainEvent` base records, migrated Auth/Catalog events, and guarded module events from bypassing shared metadata validation. |
 | Admin naming | Pending | Inspect whether `.Admin` should become `.AdminCli`; decide with project/namespace churn, docs, and migration path in mind. |
 | Test organization and value audit | Pending | Split oversized tests where useful, keep architecture guards meaningful, and identify missing coverage. |
 | Code magic/reflection | Pending | Evaluate constrained assembly registration for handlers/validators; document why built-in .NET alternatives are or are not enough. |

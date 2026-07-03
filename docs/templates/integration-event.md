@@ -20,6 +20,8 @@ gma.<module>.<event>.v<version>
 
 ## Payload
 
+The event type should inherit `IntegrationEvent` and pass the stable event name and version to the base constructor. Do not duplicate event id, tenant id, occurrence time, event name, or version properties in the module event type.
+
 ```json
 {
   "eventId": "guid",

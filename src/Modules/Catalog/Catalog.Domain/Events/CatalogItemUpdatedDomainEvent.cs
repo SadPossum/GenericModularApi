@@ -3,7 +3,7 @@ namespace Catalog.Domain.Events;
 using Catalog.Domain.Aggregates;
 using Shared.Domain;
 
-public sealed record CatalogItemUpdatedDomainEvent : IDomainEvent
+public sealed record CatalogItemUpdatedDomainEvent : TenantDomainEvent
 {
     public CatalogItemUpdatedDomainEvent(
         Guid eventId,
@@ -15,11 +15,9 @@ public sealed record CatalogItemUpdatedDomainEvent : IDomainEvent
         decimal price,
         string currency,
         CatalogItemState status)
+        : base(eventId, occurredAtUtc, tenantId)
     {
-        this.EventId = DomainEventGuards.RequireId(eventId, nameof(eventId));
-        this.OccurredAtUtc = DomainEventGuards.RequireOccurredAtUtc(occurredAtUtc, nameof(occurredAtUtc));
         this.ItemId = DomainEventGuards.RequireId(itemId, nameof(itemId));
-        this.TenantId = DomainEventGuards.NormalizeTenantId(tenantId, nameof(tenantId));
         this.Sku = NormalizeSku(sku);
         this.Name = DomainEventGuards.NormalizeRequiredText(name, CatalogItem.NameMaxLength, nameof(name));
         this.Price = DomainEventGuards.RequirePositiveDecimal(
@@ -31,10 +29,7 @@ public sealed record CatalogItemUpdatedDomainEvent : IDomainEvent
         this.Status = DomainEventGuards.NormalizeDefinedOrUnknown(status);
     }
 
-    public Guid EventId { get; }
-    public DateTimeOffset OccurredAtUtc { get; }
     public Guid ItemId { get; }
-    public string TenantId { get; }
     public string Sku { get; }
     public string Name { get; }
     public decimal Price { get; }

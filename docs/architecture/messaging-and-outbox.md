@@ -5,11 +5,16 @@ Messaging is behind abstractions. Domain and application code should never depen
 ## Abstractions
 
 - `IIntegrationEvent`
+- `IntegrationEvent`
 - `IntegrationEventEnvelope`
 - `IOutboxWriter`
 - `IOutboxWriterRegistry`
 - `IOutboxStore`
 - `IEventBus`
+
+Public module integration events inherit `IntegrationEvent` from `Shared.Application.Messaging`.
+The base owns event id, tenant id, occurrence time, event name, and version validation. Module event types keep payload-specific fields and validation local to the owning `.Contracts` project.
+This keeps the skeleton compatible with common event metadata practices without forcing a full CloudEvents envelope into module payload classes.
 
 ## Runtime Adapter
 
@@ -118,6 +123,7 @@ Each consuming module owns an inbox table in its schema. The shared consumer run
 - Keep event names stable.
 - Version events explicitly.
 - Include tenant id when the event is tenant-scoped.
+- Inherit public module events from `IntegrationEvent`; do not re-declare event id, tenant id, occurrence time, event name, or version in every event.
 - Prefer additive event changes.
 - Do not expose internal domain entities as integration events.
 - Consumers should reference producer `.Contracts` only and duplicate local read data when they need it for decisions.

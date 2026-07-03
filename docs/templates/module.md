@@ -83,6 +83,7 @@ Confirm the admin API `.csproj` has no package references, only an optional `Mic
 ## Domain Model
 
 List aggregates, entities, value objects, domain events, and core invariants.
+Confirm domain events inherit `DomainEvent` or `TenantDomainEvent` from `Shared.Domain` so event id, occurrence time, and tenant id rules stay centralized.
 Confirm the domain project references only shared domain/error primitives and does not reference contracts, application, persistence, infrastructure, HTTP, admin, EF, or host abstractions.
 Confirm the domain `.csproj` has no package or framework references unless a future ADR explicitly expands the domain dependency model.
 
@@ -119,6 +120,8 @@ Confirm that persisted enum numeric values are stable and that public contract/d
 | Event | Subject | Version | Tenant-scoped |
 | --- | --- | --- | --- |
 | `<EventName>` | `gma.<module>.<event>.v1` | `1` | yes/no |
+
+Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Application.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type.
 
 ## Inbound Subscriptions
 

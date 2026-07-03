@@ -1556,10 +1556,27 @@ public sealed partial class DeveloperExperienceGuardTests
                 Path = path,
                 Source = File.ReadAllText(path),
             })
-            .Where(item => item.Source.Contains(": IIntegrationEvent", StringComparison.Ordinal))
+            .Where(item => Path.GetFileName(item.Path).EndsWith("IntegrationEvent.cs", StringComparison.Ordinal))
             .SelectMany(item => PositionalPublicIntegrationEventPattern()
                 .Matches(item.Source)
                 .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{match.Groups["name"].Value}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Public_integration_event_contracts_inherit_shared_base()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Contracts", StringComparison.Ordinal))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Where(path => Path.GetFileName(path).EndsWith("IntegrationEvent.cs", StringComparison.Ordinal))
+            .Where(path => !PublicIntegrationEventBasePattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -1579,10 +1596,27 @@ public sealed partial class DeveloperExperienceGuardTests
                 Path = path,
                 Source = File.ReadAllText(path),
             })
-            .Where(item => item.Source.Contains(": IDomainEvent", StringComparison.Ordinal))
+            .Where(item => Path.GetFileName(item.Path).EndsWith("DomainEvent.cs", StringComparison.Ordinal))
             .SelectMany(item => PositionalPublicDomainEventPattern()
                 .Matches(item.Source)
                 .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{match.Groups["name"].Value}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_domain_events_inherit_shared_domain_event_base()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Domain", StringComparison.Ordinal))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Where(path => Path.GetFileName(path).EndsWith("DomainEvent.cs", StringComparison.Ordinal))
+            .Where(path => !ModuleDomainEventBasePattern().IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -5518,8 +5552,14 @@ public sealed partial class DeveloperExperienceGuardTests
     [GeneratedRegex(@"public\s+sealed\s+record\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Multiline)]
     private static partial Regex PositionalPublicIntegrationEventPattern();
 
+    [GeneratedRegex(@"public\s+sealed\s+record\s+[A-Za-z_][A-Za-z0-9_]*IntegrationEvent\s*:\s*IntegrationEvent\b", RegexOptions.Multiline)]
+    private static partial Regex PublicIntegrationEventBasePattern();
+
     [GeneratedRegex(@"public\s+sealed\s+record\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Multiline)]
     private static partial Regex PositionalPublicDomainEventPattern();
+
+    [GeneratedRegex(@"public\s+sealed\s+record\s+[A-Za-z_][A-Za-z0-9_]*DomainEvent\s*:\s*(?:DomainEvent|TenantDomainEvent)\b", RegexOptions.Multiline)]
+    private static partial Regex ModuleDomainEventBasePattern();
 
     [GeneratedRegex(@"\brecord\s+struct\s+[A-Za-z_][A-Za-z0-9_]*Id\s*\(\s*Guid\s+Value\s*\)", RegexOptions.Multiline)]
     private static partial Regex PositionalGuidIdValueObjectPattern();

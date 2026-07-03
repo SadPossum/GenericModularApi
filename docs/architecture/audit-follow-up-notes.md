@@ -303,6 +303,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Routed `Host.AdminCli` startup and composition failure output through `AdminCliOutput`, extending the raw-console guard from module admin front doors to the CLI composition root.
 - Guarded checked-in `.http` request samples so access/refresh tokens stay blank-variable driven and generated admin password response flows do not slip into default examples.
 - Started the production-readiness backlog tracker and reorganized module contract files into explicit category folders (`Api`, `Admin`, `Events`, `Metadata`, `Types`, plus admin-contract `Permissions`/`Operations`) while keeping contract namespaces stable for now.
+- Added shared event base records for integration events, domain events, and tenant-scoped domain events; migrated Auth/Catalog events; and guarded module events against re-declaring common metadata by hand.
 
 ## Findings To Keep Watching
 
@@ -330,6 +331,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Admin audit data must remain operation metadata only: actor, tenant, permission, result, timestamps, and error code. Never include passwords, tokens, token hashes, refresh tokens, or raw secrets.
 - Admin audit IDs and timestamps should come from shared infrastructure primitives so audit behavior stays deterministic and replaceable.
 - NATS subjects and integration event names are public contracts. Changing them is a versioned compatibility decision, not a local refactor.
+- `IntegrationEvent` centralizes event id, tenant id, occurrence time, event name, and version validation. Keep payload-specific fields in the module event type, and introduce richer envelope compatibility only through a documented messaging ADR.
 - Cross-module decisions should continue to use local projections or duplicated read data. Do not add cross-module EF relationships or direct domain/application references.
 
 ## Small Local Notes

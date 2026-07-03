@@ -2,7 +2,7 @@ namespace Catalog.Contracts;
 
 using Shared.Application.Messaging;
 
-public sealed record CatalogItemCreatedIntegrationEvent : IIntegrationEvent
+public sealed record CatalogItemCreatedIntegrationEvent : IntegrationEvent
 {
     public CatalogItemCreatedIntegrationEvent(
         Guid eventId,
@@ -13,10 +13,8 @@ public sealed record CatalogItemCreatedIntegrationEvent : IIntegrationEvent
         string name,
         decimal price,
         string currency)
+        : base(eventId, tenantId, occurredAtUtc, "item-created", version: 1)
     {
-        this.EventId = IntegrationEventContractGuards.RequireId(eventId, nameof(eventId));
-        this.TenantId = IntegrationEventContractGuards.NormalizeTenantId(tenantId, nameof(tenantId));
-        this.OccurredAtUtc = IntegrationEventContractGuards.RequireOccurredAtUtc(occurredAtUtc, nameof(occurredAtUtc));
         this.ItemId = IntegrationEventContractGuards.RequireId(itemId, nameof(itemId));
         this.Sku = NormalizeSku(sku);
         this.Name = IntegrationEventContractGuards.NormalizeRequiredText(
@@ -31,16 +29,11 @@ public sealed record CatalogItemCreatedIntegrationEvent : IIntegrationEvent
         this.Currency = NormalizeCurrency(currency);
     }
 
-    public Guid EventId { get; }
-    public string TenantId { get; }
-    public DateTimeOffset OccurredAtUtc { get; }
     public Guid ItemId { get; }
     public string Sku { get; }
     public string Name { get; }
     public decimal Price { get; }
     public string Currency { get; }
-    public string EventName => "item-created";
-    public int Version => 1;
 
     private static string NormalizeSku(string sku) =>
         IntegrationEventContractGuards

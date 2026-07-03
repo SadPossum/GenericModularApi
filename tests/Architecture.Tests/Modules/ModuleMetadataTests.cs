@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.Messaging;
 using Shared.Application.Modules;
+using Shared.Application.Tasks;
 using Xunit;
 
 [Trait("Category", "Architecture")]
@@ -273,6 +274,51 @@ public sealed partial class ModuleMetadataTests
     }
 
     [Fact]
+    public void Module_task_metadata_matches_application_registrations()
+    {
+        ServiceCollection services = new();
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        string[] registrationOffenders = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind == ModuleProjectKind.Application)
+            .Select(project => RegisterModuleApplication(services, configuration, project))
+            .Where(offender => offender is not null)
+            .Select(offender => offender!)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(registrationOffenders);
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        TaskHandlerRegistration[] registeredTasks = provider
+            .GetService<ITaskHandlerRegistry>()
+            ?.Registrations
+            .OrderBy(registration => registration.ModuleName, StringComparer.Ordinal)
+            .ThenBy(registration => registration.TaskName, StringComparer.Ordinal)
+            .ToArray() ?? [];
+
+        ModuleTaskRecord[] declaredTasks = ArchitectureCatalog
+            .ModuleDescriptors
+            .SelectMany(descriptor => descriptor.Tasks.Select(task => new ModuleTaskRecord(descriptor.Name, task)))
+            .OrderBy(task => task.ModuleName, StringComparer.Ordinal)
+            .ThenBy(task => task.Task.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        string[] missingRegistrations = declaredTasks
+            .Where(declared => !registeredTasks.Any(registered => TaskMatchesRegistration(declared, registered)))
+            .Select(declared => $"metadata-only:{declared.ModuleName}:{declared.Task.Name}:v{declared.Task.PayloadVersion}:{declared.Task.WorkerGroup}")
+            .ToArray();
+        string[] missingMetadata = registeredTasks
+            .Where(registered => !declaredTasks.Any(declared => TaskMatchesRegistration(declared, registered)))
+            .Select(registered => $"registration-only:{registered.ModuleName}:{registered.TaskName}:v{registered.PayloadVersion}:{registered.WorkerGroup}")
+            .ToArray();
+
+        Assert.Empty(missingRegistrations
+            .Concat(missingMetadata)
+            .Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public void Module_published_event_metadata_matches_integration_event_contracts()
     {
         Dictionary<string, ModuleDescriptor> descriptors = ArchitectureCatalog.ModuleDescriptors
@@ -418,6 +464,15 @@ public sealed partial class ModuleMetadataTests
                declared.Subscription.TenantScoped == registered.TenantScoped;
     }
 
+    private static bool TaskMatchesRegistration(
+        ModuleTaskRecord declared,
+        TaskHandlerRegistration registered) =>
+        string.Equals(declared.ModuleName, registered.ModuleName, StringComparison.Ordinal) &&
+        string.Equals(declared.Task.Name, registered.TaskName, StringComparison.Ordinal) &&
+        string.Equals(declared.Task.WorkerGroup, registered.WorkerGroup, StringComparison.Ordinal) &&
+        declared.Task.PayloadVersion == registered.PayloadVersion &&
+        declared.Task.TenantScoped == registered.TenantScoped;
+
     private static IIntegrationEvent CreateIntegrationEvent(Type eventType)
     {
         object?[] arguments = eventType
@@ -544,6 +599,10 @@ public sealed partial class ModuleMetadataTests
     private sealed record ModuleSubscriptionRecord(
         string ConsumerModule,
         ModuleSubscriptionDescriptor Subscription);
+
+    private sealed record ModuleTaskRecord(
+        string ModuleName,
+        ModuleTaskDescriptor Task);
 
     private sealed record ModulePermissionCode(
         string ModuleName,

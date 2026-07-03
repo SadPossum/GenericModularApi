@@ -671,6 +671,8 @@ public sealed partial class DeveloperExperienceGuardTests
             "RequestDispatcher",
             "DomainEventDispatcher",
             "IntegrationEventHandlerInvoker",
+            "TaskHandlerInvoker",
+            "ApplicationServiceCollectionExtensions",
             "ApplyConfigurationsFromAssembly",
             "host assembly marker classes",
             "observability module-name inference",
@@ -678,16 +680,19 @@ public sealed partial class DeveloperExperienceGuardTests
         ];
         HashSet<string> allowedRelativePaths = new(StringComparer.OrdinalIgnoreCase)
         {
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Application", "Composition", "ApplicationServiceCollectionExtensions.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Cqrs", "RequestDispatcher.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Events", "DomainEventDispatcher.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Messaging", "IntegrationEventHandlerInvoker.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Tasks", "TaskHandlerInvoker.cs")),
             NormalizePath(Path.Combine("src", "Host.Api", "ApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminApi", "AdminApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminCli", "AdminCliAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Administration", "Administration.Persistence", "AdminDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Auth", "Auth.Persistence", "AuthDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Catalog", "Catalog.Persistence", "CatalogDbContext.cs")),
-            NormalizePath(Path.Combine("src", "Modules", "Ordering", "Ordering.Persistence", "OrderingDbContext.cs"))
+            NormalizePath(Path.Combine("src", "Modules", "Ordering", "Ordering.Persistence", "OrderingDbContext.cs")),
+            NormalizePath(Path.Combine("src", "Modules", "TaskRuntime", "TaskRuntime.Persistence", "TaskRuntimeDbContext.cs"))
         };
         string[] reflectionTokens =
         [
@@ -5118,10 +5123,17 @@ public sealed partial class DeveloperExperienceGuardTests
         string[] exactPackages =
         [
             "Aspire.NATS.Net",
+            "Hangfire",
+            "Hangfire.AspNetCore",
+            "Hangfire.Core",
+            "Hangfire.SqlServer",
             "Microsoft.Extensions.Caching.Hybrid",
             "Microsoft.Extensions.Caching.StackExchangeRedis",
             "NATS.Net",
             "prometheus-net.AspNetCore",
+            "Quartz",
+            "Quartz.Extensions.Hosting",
+            "Quartz.Serialization.Json",
             "StackExchange.Redis"
         ];
 

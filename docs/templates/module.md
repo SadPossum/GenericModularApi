@@ -91,6 +91,7 @@ Confirm the domain `.csproj` has no package or framework references unless a fut
 
 List commands, queries, handlers, validators, domain event handlers, and integration event handlers.
 State which commands implement `ITransactionalCommand<TResponse>` and which commands intentionally remain plain `ICommand<TResponse>`.
+List task payloads and daemons, if any. State the `ModuleTaskDescriptor` name, payload version, kind, tenant scope, worker group, cancellation behavior, and whether control messages are supported.
 Keep one handler class per file under `<Module>.Application/Handlers`, including command handlers, query handlers, domain-event projectors, and integration-event handlers.
 Confirm the application project does not reference module adapters or front doors such as `.Persistence`, `.Infrastructure`, `.Api`, `.AdminCli`, or `.AdminApi`.
 Confirm the application `.csproj` references only shared abstractions, its own contracts/domain projects, optional producer `.Contracts` projects, and small Microsoft extension abstraction packages.
@@ -99,6 +100,10 @@ Confirm that handlers use `ISystemClock` and `IIdGenerator` instead of direct sy
 Confirm that application DI registration extends `IServiceCollection`, not `IHostApplicationBuilder`.
 Confirm that application DI extension methods reject null receivers and call `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` for CQRS handlers, validators, and domain-event handlers.
 Confirm that integration-event handlers are registered explicitly with `AddIntegrationEventHandler<TEvent,THandler>(...)` so subject names and stable handler names remain public contracts.
+Confirm that task handlers are registered explicitly with `AddTaskHandler<TPayload,THandler>(...)` and match the module's `ModuleTaskDescriptor` metadata, including payload version.
+Confirm that task payloads depend only on `Shared.Application.Tasks`, CQRS contracts, and module ports; they must not depend on scheduler packages, HTTP, CLI, or another module's internals. Long-running task payloads should poll `ITaskControlLoop` or use `TaskControlLoopExtensions` at safe checkpoints, mark acted-on control messages handled or failed, and throw `TaskRunCanceledException` for cooperative cancel/drain stops.
+If the module has recurring work, list each `ITaskScheduleProvider` schedule and its interval, tenant behavior, payload version, and dedupe key strategy. Schedules should enqueue task requests only. Prefer the default version-aware dedupe shape `schedule:<module>:<task>:<schedule>:v<payload-version>:<occurrence>` unless the module documents a safer custom key.
+If the module exposes task admin filters or docs, use `TaskRunStatusNames` wire names such as `retry-scheduled` and `cancellation-requested` rather than raw enum names.
 
 ## Infrastructure
 

@@ -23,6 +23,7 @@ using Shared.Infrastructure.Cqrs;
 using Xunit;
 
 [Trait("Category", "Unit")]
+[Collection(MetricsTestGroupDefinition.Name)]
 public sealed class CachingTests
 {
     [Fact]
@@ -451,7 +452,7 @@ public sealed class CachingTests
         await using ServiceProvider provider = BuildProvider(
             providerName: "Redis",
             addThrowingLogger: true,
-            configureServices: services => services.AddSingleton<IDistributedCache, ThrowingDistributedCache>());
+            configureServices: AddThrowingDistributedCache);
         using IServiceScope scope = provider.CreateScope();
         IApplicationCache cache = scope.ServiceProvider.GetRequiredService<IApplicationCache>();
         int calls = 0;
@@ -486,7 +487,7 @@ public sealed class CachingTests
         using MeterListener listener = CreateThrowingCachingMeterListener();
         await using ServiceProvider provider = BuildProvider(
             providerName: "Redis",
-            configureServices: services => services.AddSingleton<IDistributedCache, ThrowingDistributedCache>());
+            configureServices: AddThrowingDistributedCache);
         using IServiceScope scope = provider.CreateScope();
         IApplicationCache cache = scope.ServiceProvider.GetRequiredService<IApplicationCache>();
 
@@ -503,7 +504,7 @@ public sealed class CachingTests
         await using ServiceProvider provider = BuildProvider(
             providerName: "Redis",
             addThrowingLogger: true,
-            configureServices: services => services.AddSingleton<IDistributedCache, ThrowingDistributedCache>());
+            configureServices: AddThrowingDistributedCache);
         using IServiceScope scope = provider.CreateScope();
         ICacheInvalidationQueue queue = scope.ServiceProvider.GetRequiredService<ICacheInvalidationQueue>();
         ICacheInvalidationQueueFlusher flusher = scope.ServiceProvider.GetRequiredService<ICacheInvalidationQueueFlusher>();
@@ -520,7 +521,7 @@ public sealed class CachingTests
         using MeterListener listener = CreateThrowingCachingMeterListener();
         await using ServiceProvider provider = BuildProvider(
             providerName: "Redis",
-            configureServices: services => services.AddSingleton<IDistributedCache, ThrowingDistributedCache>());
+            configureServices: AddThrowingDistributedCache);
         using IServiceScope scope = provider.CreateScope();
         ICacheInvalidationQueue queue = scope.ServiceProvider.GetRequiredService<ICacheInvalidationQueue>();
         ICacheInvalidationQueueFlusher flusher = scope.ServiceProvider.GetRequiredService<ICacheInvalidationQueueFlusher>();
@@ -758,6 +759,12 @@ public sealed class CachingTests
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
+    private static void AddThrowingDistributedCache(IServiceCollection services)
+    {
+        services.AddSingleton<IDistributedCache, ThrowingDistributedCache>();
+        services.AddSingleton<IDistributedCacheAdapterRegistration, TestDistributedCacheAdapterRegistration>();
+    }
+
     private static Predicate<ServiceDescriptor> HasService<TService, TImplementation>() =>
         descriptor =>
             descriptor.ServiceType == typeof(TService) &&
@@ -856,6 +863,8 @@ public sealed class CachingTests
             CancellationToken token = default) =>
             Task.FromException(new InvalidOperationException("Redis unavailable."));
     }
+
+    private sealed class TestDistributedCacheAdapterRegistration : IDistributedCacheAdapterRegistration;
 
     private sealed class CancelSecondInvalidationCacheStore : ICacheStore
     {

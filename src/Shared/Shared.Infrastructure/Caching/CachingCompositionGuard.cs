@@ -1,6 +1,5 @@
 namespace Shared.Infrastructure.Caching;
 
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 
 internal static class CachingCompositionGuard
@@ -13,22 +12,7 @@ internal static class CachingCompositionGuard
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(serviceProvider);
 
-        if (RequiresRedisAdapter(options) && serviceProvider.GetService<IDistributedCache>() is null)
-        {
-            throw new InvalidOperationException(MissingRedisAdapterMessage);
-        }
-
-        return options;
-    }
-
-    public static CachingOptions EnsureValid(
-        CachingOptions options,
-        IEnumerable<IDistributedCache> distributedCaches)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(distributedCaches);
-
-        if (RequiresRedisAdapter(options) && !distributedCaches.Any())
+        if (RequiresRedisAdapter(options) && serviceProvider.GetService<IDistributedCacheAdapterRegistration>() is null)
         {
             throw new InvalidOperationException(MissingRedisAdapterMessage);
         }

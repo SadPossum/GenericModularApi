@@ -1,6 +1,7 @@
 namespace Shared.Infrastructure.Observability;
 
 using Shared.Application.Messaging;
+using Shared.Application.Tasks;
 
 internal static class MetricTagValues
 {
@@ -19,12 +20,16 @@ internal static class MetricTagValues
     public static string Provider(string provider) =>
         NormalizeDimension(provider, nameof(provider)).ToLowerInvariant();
 
+    public static string TaskStatus(TaskRunStatus status) =>
+        TaskRunStatusNames.ToWireName(status);
+
     public static string Result(string result)
     {
         string normalized = NormalizeDimension(result, nameof(result)).ToLowerInvariant();
         return normalized switch
         {
-            "success" or "failure" or "hit" or "miss" or "bypass" or "processed" or "duplicate" or "failed" => normalized,
+            "success" or "failure" or "hit" or "miss" or "bypass" or "processed" or "duplicate" or "failed" or
+            "claimed" or "canceled" or "timed-out" or "retry-scheduled" => normalized,
             _ => "unknown"
         };
     }

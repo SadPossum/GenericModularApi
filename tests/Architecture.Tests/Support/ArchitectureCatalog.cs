@@ -28,6 +28,13 @@ using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Persistence;
 using Shared.Application.Modules;
+using TaskRuntime.Admin.Contracts;
+using TaskRuntime.AdminCli;
+using TaskRuntime.AdminApi;
+using TaskRuntime.Contracts;
+using TaskRuntime.Persistence;
+using TaskSamples.Application;
+using TaskSamples.Contracts;
 using Tenancy.Api;
 using Tenancy.Contracts;
 
@@ -66,6 +73,16 @@ internal static class ArchitectureCatalog
         new("Ordering", "Ordering.Domain", ModuleProjectKind.Domain, typeof(Order).Assembly),
         new("Ordering", "Ordering.Persistence", ModuleProjectKind.Persistence, typeof(Ordering.Persistence.DependencyInjection).Assembly),
 
+        new("TaskRuntime", "TaskRuntime.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(TaskRuntimeAdminPermissions).Assembly),
+        new("TaskRuntime", "TaskRuntime.AdminCli", ModuleProjectKind.AdminCli, typeof(TaskRuntimeAdminCliModule).Assembly),
+        new("TaskRuntime", "TaskRuntime.AdminApi", ModuleProjectKind.AdminApi, typeof(TaskRuntimeAdminApiModule).Assembly),
+        new("TaskRuntime", "TaskRuntime.Application", ModuleProjectKind.Application, typeof(TaskRuntime.Application.DependencyInjection).Assembly),
+        new("TaskRuntime", "TaskRuntime.Contracts", ModuleProjectKind.Contracts, typeof(TaskRuntimeModuleMetadata).Assembly),
+        new("TaskRuntime", "TaskRuntime.Persistence", ModuleProjectKind.Persistence, typeof(TaskRuntime.Persistence.DependencyInjection).Assembly),
+
+        new("TaskSamples", "TaskSamples.Application", ModuleProjectKind.Application, typeof(TaskSamples.Application.DependencyInjection).Assembly),
+        new("TaskSamples", "TaskSamples.Contracts", ModuleProjectKind.Contracts, typeof(TaskSamplesModuleMetadata).Assembly),
+
         new("Tenancy", "Tenancy.Api", ModuleProjectKind.Api, typeof(TenancyModule).Assembly),
         new("Tenancy", "Tenancy.Contracts", ModuleProjectKind.Contracts, typeof(TenancyModuleMetadata).Assembly),
     ];
@@ -76,6 +93,8 @@ internal static class ArchitectureCatalog
         AdministrationModuleMetadata.Descriptor,
         CatalogModuleMetadata.Descriptor,
         OrderingModuleMetadata.Descriptor,
+        TaskRuntimeModuleMetadata.Descriptor,
+        TaskSamplesModuleMetadata.Descriptor,
         TenancyModuleMetadata.Descriptor,
     ];
 
@@ -106,6 +125,7 @@ internal static class ArchitectureCatalog
         typeof(AdministrationAdminCliModule).Assembly,
         typeof(AuthAdminCliModule).Assembly,
         typeof(CatalogAdminCliModule).Assembly,
+        typeof(TaskRuntimeAdminCliModule).Assembly,
         typeof(Shared.Administration.Cli.AdminCliExecutor).Assembly,
         AdminCliAssemblyReference.Assembly,
     ];

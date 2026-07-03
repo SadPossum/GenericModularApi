@@ -8,4 +8,5 @@ public static class ObservabilityTagNames
     public const string Result = "result";
     public const string ErrorCode = "error.code";
     public const string Subject = "messaging.destination.name";
+    public const string TaskStatus = "task.status";
 }

@@ -12,6 +12,7 @@ using Auth.Domain.Errors;
 using DotNet.Testcontainers.Containers;
 using Integration.Tests.Support;
 using Shared.Administration;
+using Shared.Application.Cqrs;
 using Shared.Application.Queries;
 using Shared.Domain;
 using Testcontainers.MsSql;
@@ -108,10 +109,11 @@ public sealed class AdminApiIntegrationTests
             .ConfigureAwait(false);
         string invalidRoleBody = await invalidRole.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.BadRequest, invalidRole.StatusCode);
-        Assert.Contains(AdministrationApplicationErrors.RoleNameInvalid.Code, invalidRoleBody, StringComparison.Ordinal);
+        Assert.Contains(RequestValidationErrors.FailedCode, invalidRoleBody, StringComparison.Ordinal);
+        Assert.Contains("Admin role name is invalid.", invalidRoleBody, StringComparison.Ordinal);
         Assert.DoesNotContain(AdminErrors.OperationFailed.Code, invalidRoleBody, StringComparison.Ordinal);
         Assert.Equal(
-            invalidRoleAuditCountBefore + 1,
+            invalidRoleAuditCountBefore,
             await application
                 .CountAuditEntriesAsync(AdministrationAdminOperationNames.RolesCreate, AdministrationApplicationErrors.RoleNameInvalid.Code)
                 .ConfigureAwait(false));
@@ -133,10 +135,11 @@ public sealed class AdminApiIntegrationTests
             .ConfigureAwait(false);
         string invalidPermissionBody = await invalidPermission.Content.ReadAsStringAsync().ConfigureAwait(false);
         Assert.Equal(HttpStatusCode.BadRequest, invalidPermission.StatusCode);
-        Assert.Contains(AdministrationApplicationErrors.PermissionCodeInvalid.Code, invalidPermissionBody, StringComparison.Ordinal);
+        Assert.Contains(RequestValidationErrors.FailedCode, invalidPermissionBody, StringComparison.Ordinal);
+        Assert.Contains("Admin permission code is invalid.", invalidPermissionBody, StringComparison.Ordinal);
         Assert.DoesNotContain(AdminErrors.OperationFailed.Code, invalidPermissionBody, StringComparison.Ordinal);
         Assert.Equal(
-            invalidPermissionAuditCountBefore + 1,
+            invalidPermissionAuditCountBefore,
             await application
                 .CountAuditEntriesAsync(AdministrationAdminOperationNames.RolesGrant, AdministrationApplicationErrors.PermissionCodeInvalid.Code)
                 .ConfigureAwait(false));

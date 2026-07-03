@@ -8,6 +8,7 @@ using Shared.Application;
 using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
 using Shared.Application.Observability;
+using Shared.Application.Tasks;
 using Shared.Application.Tenancy;
 using Shared.ErrorHandling;
 using Shared.Infrastructure.Caching;
@@ -16,6 +17,7 @@ using Shared.Infrastructure.Observability;
 using Xunit;
 
 [Trait("Category", "Unit")]
+[Collection(MetricsTestGroupDefinition.Name)]
 public sealed class ObservabilityMetricsTests
 {
     [Fact]
@@ -309,6 +311,53 @@ public sealed class ObservabilityMetricsTests
         Assert.Equal("catalog", request.Tags[ObservabilityTagNames.Module]);
         Assert.Equal("redis", request.Tags[ObservabilityTagNames.Provider]);
         Assert.Equal("unknown", request.Tags[ObservabilityTagNames.Result]);
+    }
+
+    [Fact]
+    public async Task Task_metrics_observe_queue_depth_and_active_run_gauges_with_bounded_status_tags()
+    {
+        List<MetricMeasurement> measurements = [];
+        using MeterListener listener = CreateListener(measurements, ObservabilityMeterNames.Tasks);
+        ServiceCollection services = new();
+        services.AddMetrics();
+        await using ServiceProvider provider = services.BuildServiceProvider();
+        TaskMetrics metrics = new(
+            provider.GetRequiredService<IMeterFactory>(),
+            new TaskMetricsSnapshotStore());
+
+        metrics.RecordSnapshot(new TaskRunStats(
+        [
+            new TaskRunStatusCount(TaskRunStatus.Queued, 2),
+            new TaskRunStatusCount(TaskRunStatus.RetryScheduled, 1),
+            new TaskRunStatusCount(TaskRunStatus.Leased, 3),
+            new TaskRunStatusCount(TaskRunStatus.Running, 4),
+            new TaskRunStatusCount(TaskRunStatus.CancellationRequested, 5)
+        ]));
+        listener.RecordObservableInstruments();
+
+        MetricMeasurement[] queueDepth = measurements
+            .Where(item => item.InstrumentName == ObservabilityInstrumentNames.TaskQueueDepth)
+            .OrderBy(item => item.Tags[ObservabilityTagNames.TaskStatus])
+            .ToArray();
+        MetricMeasurement[] activeRuns = measurements
+            .Where(item => item.InstrumentName == ObservabilityInstrumentNames.TaskActiveRuns)
+            .OrderBy(item => item.Tags[ObservabilityTagNames.TaskStatus])
+            .ToArray();
+
+        Assert.Equal(2, queueDepth.Length);
+        Assert.Contains(queueDepth, item =>
+            item.Value == 2 && Equals(item.Tags[ObservabilityTagNames.TaskStatus], "queued"));
+        Assert.Contains(queueDepth, item =>
+            item.Value == 1 && Equals(item.Tags[ObservabilityTagNames.TaskStatus], "retry-scheduled"));
+        Assert.Equal(3, activeRuns.Length);
+        Assert.Contains(activeRuns, item =>
+            item.Value == 3 && Equals(item.Tags[ObservabilityTagNames.TaskStatus], "leased"));
+        Assert.Contains(activeRuns, item =>
+            item.Value == 4 && Equals(item.Tags[ObservabilityTagNames.TaskStatus], "running"));
+        Assert.Contains(activeRuns, item =>
+            item.Value == 5 && Equals(item.Tags[ObservabilityTagNames.TaskStatus], "cancellation-requested"));
+        Assert.All(queueDepth.Concat(activeRuns), item =>
+            Assert.DoesNotContain(item.Tags.Keys, key => key.Contains("tenant", StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]

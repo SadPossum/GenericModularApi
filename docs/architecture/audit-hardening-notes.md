@@ -27,9 +27,11 @@ Runtime host composition remains explicit. Reflection is acceptable for dispatch
 
 Allowed production reflection is currently limited to:
 
+- `ApplicationServiceCollectionExtensions`, which scans one explicitly supplied module application assembly for CQRS handlers, validators, and domain-event handlers.
 - `RequestDispatcher`, which compiles cached typed delegates for runtime command/query instances.
 - `DomainEventDispatcher`, which compiles cached typed delegates for runtime domain-event instances.
 - `IntegrationEventHandlerInvoker`, which compiles cached typed delegates for integration-event consumers.
+- `TaskHandlerInvoker`, which deserializes registered task payloads and compiles cached typed delegates for task handlers.
 - EF `ApplyConfigurationsFromAssembly` inside module-owned `DbContext` classes.
 - host assembly marker classes used by test hosts and architecture tests.
 - observability module-name inference from assembly names.

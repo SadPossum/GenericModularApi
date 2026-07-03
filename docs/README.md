@@ -20,6 +20,8 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Observability](architecture/observability.md)
 - [Caching](architecture/caching.md)
 - [Administration](architecture/administration.md)
+- [Tasks and Daemons](architecture/tasks-and-daemons.md)
+- [Projection Rebuild Tasks](architecture/projection-rebuild-tasks.md)
 - [Production Readiness Backlog](architecture/production-readiness-backlog.md)
 - [Architecture Hardening Notes](architecture/audit-hardening-notes.md)
 - [Architecture Audit Follow-Up Notes](architecture/audit-follow-up-notes.md)
@@ -35,6 +37,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Catalog Example Module](examples/catalog-module.md)
 - [Ordering Example Module](examples/ordering-module.md)
 - [Cross-Module Integration](examples/cross-module-integration.md)
+- [TaskSamples Example Module](examples/task-samples-module.md)
 
 ## Guidelines
 
@@ -60,6 +63,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [0005 NATS Consumers and Cross-Module Data Ownership](adr/0005-nats-consumers-and-cross-module-data-ownership.md)
 - [0006 Constrained Application Service Registration](adr/0006-constrained-application-service-registration.md)
 - [0007 Shared CQRS Validation Contracts](adr/0007-shared-cqrs-validation-contracts.md)
+- [0008 Optional Tasks and Daemons Foundation](adr/0008-optional-tasks-and-daemons-foundation.md)
 
 ## Documentation Rules
 

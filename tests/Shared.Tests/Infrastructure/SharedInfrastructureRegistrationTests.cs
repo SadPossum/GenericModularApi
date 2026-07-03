@@ -3,14 +3,18 @@ namespace Shared.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Shared.Application;
 using Shared.Application.Caching;
 using Shared.Application.Cqrs;
 using Shared.Application.Messaging;
+using Shared.Application.Tasks;
 using Shared.Application.Tenancy;
+using Shared.ErrorHandling;
 using Shared.Infrastructure;
 using Shared.Infrastructure.Caching;
 using Shared.Infrastructure.Cqrs;
 using Shared.Infrastructure.Messaging;
+using Shared.Infrastructure.Tasks;
 using Shared.Infrastructure.Tenancy;
 using Xunit;
 
@@ -40,6 +44,8 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.Single(builder.Services, HasService<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>());
         Assert.Single(builder.Services, HasService<IValidateOptions<NatsJetStreamOptions>, NatsJetStreamOptionsValidator>());
         Assert.Single(builder.Services, HasService<IValidateOptions<NatsConsumerOptions>, NatsConsumerOptionsValidator>());
+        Assert.Single(builder.Services, HasService<ITaskCommandDispatcher, TaskCommandDispatcher>());
+        Assert.Single(builder.Services, HasService<ITaskControlLoop, TaskControlLoop>());
         Assert.Single(builder.Services, HasService<IHostedService, CachingStartupValidator>());
         Assert.Single(builder.Services, HasOpenGenericService(typeof(ICommandPipelineBehavior<,>), typeof(ValidationCommandBehavior<,>)));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(ICommandPipelineBehavior<,>), typeof(CommandUnitOfWorkBehavior<,>)));
@@ -146,6 +152,33 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
     }
 
+    [Fact]
+    public async Task Task_command_dispatcher_delegates_to_shared_request_dispatcher()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.AddSharedInfrastructure();
+        builder.Services.AddScoped<ICommandHandler<TestTaskCommand, Unit>, TestTaskCommandHandler>();
+
+        using IHost host = builder.Build();
+
+        ITaskCommandDispatcher dispatcher = host.Services.GetRequiredService<ITaskCommandDispatcher>();
+        TaskExecutionContext context = new(
+            Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            "catalog",
+            "rebuild-search",
+            TaskWorkerGroups.Default,
+            "worker-01",
+            "node-01",
+            attempt: 1);
+
+        Result<Unit> result = await dispatcher.DispatchAsync<TestTaskCommand, Unit>(
+            context,
+            new TestTaskCommand(),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
     private static Predicate<ServiceDescriptor> HasService<TService, TImplementation>() =>
         descriptor =>
             descriptor.ServiceType == typeof(TService) &&
@@ -155,4 +188,12 @@ public sealed class SharedInfrastructureRegistrationTests
         descriptor =>
             descriptor.ServiceType == serviceType &&
             descriptor.ImplementationType == implementationType;
+
+    private sealed record TestTaskCommand : ICommand<Unit>;
+
+    private sealed class TestTaskCommandHandler : ICommandHandler<TestTaskCommand, Unit>
+    {
+        public Task<Result<Unit>> HandleAsync(TestTaskCommand command, CancellationToken cancellationToken) =>
+            Task.FromResult(Result.Success(Unit.Value));
+    }
 }

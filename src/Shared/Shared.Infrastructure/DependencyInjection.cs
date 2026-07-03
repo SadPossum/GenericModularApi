@@ -10,16 +10,18 @@ using Shared.Application.Cqrs;
 using Shared.Application.Events;
 using Shared.Application.Identity;
 using Shared.Application.Messaging;
+using Shared.Application.Tasks;
 using Shared.Application.Tenancy;
+using Shared.Application.Time;
 using Shared.Infrastructure.Caching;
 using Shared.Infrastructure.Cqrs;
 using Shared.Infrastructure.Events;
 using Shared.Infrastructure.Identity;
 using Shared.Infrastructure.Messaging;
 using Shared.Infrastructure.Observability;
+using Shared.Infrastructure.Tasks;
 using Shared.Infrastructure.Tenancy;
 using Shared.Infrastructure.Time;
-using Shared.Application.Time;
 
 public static class DependencyInjection
 {
@@ -108,12 +110,16 @@ public static class DependencyInjection
         builder.Services.TryAddSingleton<IIdGenerator, GuidIdGenerator>();
         builder.Services.TryAddSingleton<ISystemClock, SystemClock>();
         builder.Services.TryAddScoped<IRequestDispatcher, RequestDispatcher>();
+        builder.Services.TryAddScoped<ITaskCommandDispatcher, TaskCommandDispatcher>();
+        builder.Services.TryAddScoped<ITaskControlLoop, TaskControlLoop>();
         builder.Services.TryAddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.TryAddSingleton<CommandMetrics>();
         builder.Services.TryAddSingleton<QueryMetrics>();
         builder.Services.TryAddSingleton<OutboxMetrics>();
         builder.Services.TryAddSingleton<InboxMetrics>();
         builder.Services.TryAddSingleton<CacheMetrics>();
+        builder.Services.TryAddSingleton<TaskMetricsSnapshotStore>();
+        builder.Services.TryAddSingleton<TaskMetrics>();
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<Microsoft.Extensions.Logging.ILoggerProvider, HybridCacheMetricsLoggerProvider>());
         builder.Services.TryAddScoped<CacheKeyFormatter>();

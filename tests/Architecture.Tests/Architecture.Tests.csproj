@@ -41,6 +41,14 @@
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Contracts\Ordering.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Domain\Ordering.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Persistence\Ordering.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Admin.Contracts\TaskRuntime.Admin.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.AdminCli\TaskRuntime.AdminCli.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.AdminApi\TaskRuntime.AdminApi.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Application\TaskRuntime.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Contracts\TaskRuntime.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Persistence\TaskRuntime.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskSamples\TaskSamples.Application\TaskSamples.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TaskSamples\TaskSamples.Contracts\TaskSamples.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Tenancy\Tenancy.Api\Tenancy.Api.csproj" />
     <ProjectReference Include="..\..\src\Modules\Tenancy\Tenancy.Contracts\Tenancy.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />

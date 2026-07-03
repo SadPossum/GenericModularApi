@@ -59,6 +59,10 @@ internal static class ModuleMetadataNaming
         return Array.AsReadOnly(values);
     }
 
+    public static IReadOnlyList<T> CopyOptionalList<T>(IReadOnlyList<T>? items)
+        where T : class =>
+        items is null ? [] : CopyRequiredList(items, nameof(items));
+
     public static void EnsureUnique<T>(
         IEnumerable<T> items,
         Func<T, string> keySelector,

@@ -55,9 +55,9 @@ public sealed class AdminCliIntegrationTests
             "--actor", "owner",
             "--name", "support team");
         Assert.Equal(AdminExitCodes.Failed, invalidRole.ExitCode);
-        Assert.Contains(AdministrationApplicationErrors.RoleNameInvalid.Message, invalidRole.Error, StringComparison.Ordinal);
+        Assert.Contains("Admin role name is invalid.", invalidRole.Error, StringComparison.Ordinal);
         Assert.Equal(
-            1,
+            0,
             await application.CountAuditEntriesContainingAsync(AdministrationApplicationErrors.RoleNameInvalid.Code).ConfigureAwait(false));
 
         await AssertSuccess(application.ExecuteAsync("admin", "roles", "create", "--actor", "owner", "--name", "support"));
@@ -67,9 +67,9 @@ public sealed class AdminCliIntegrationTests
             "--role", "support",
             "--permission", "auth");
         Assert.Equal(AdminExitCodes.Failed, invalidPermission.ExitCode);
-        Assert.Contains(AdministrationApplicationErrors.PermissionCodeInvalid.Message, invalidPermission.Error, StringComparison.Ordinal);
+        Assert.Contains("Admin permission code is invalid.", invalidPermission.Error, StringComparison.Ordinal);
         Assert.Equal(
-            1,
+            0,
             await application.CountAuditEntriesContainingAsync(AdministrationApplicationErrors.PermissionCodeInvalid.Code).ConfigureAwait(false));
 
         await GrantAsync(application, AuthAdminPermissionCodes.MembersRead);

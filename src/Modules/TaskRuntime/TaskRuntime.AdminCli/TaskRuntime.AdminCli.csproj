@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaskRuntime.Admin.Contracts\TaskRuntime.Admin.Contracts.csproj" />
+    <ProjectReference Include="..\TaskRuntime.Application\TaskRuntime.Application.csproj" />
+    <ProjectReference Include="..\TaskRuntime.Contracts\TaskRuntime.Contracts.csproj" />
+    <ProjectReference Include="..\TaskRuntime.Persistence\TaskRuntime.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Administration\Shared.Administration.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+  </ItemGroup>
+</Project>

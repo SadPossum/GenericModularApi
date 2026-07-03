@@ -190,6 +190,28 @@ Rules:
 
 Do not inject a bare `IOutboxWriter` into application code. Multiple modules can be composed in one host, so writer selection must be module-qualified.
 
+## Tasks And Daemons
+
+Rules:
+
+- declare owned task and daemon metadata through `ModuleTaskDescriptor`;
+- keep task payloads in the owning module application layer;
+- register task handlers explicitly through `AddTaskHandler<TPayload,THandler>()` from the owning module application registration;
+- keep payload code independent from scheduler packages, HTTP, CLI, and other module internals;
+- use `TaskExecutionContext` for run identity, tenant, node, worker id, worker group, attempt, correlation, and cancellation intent;
+- use explicit task payload versions when changing payload shape; keep old handlers registered until old queued work is drained;
+- use deduplication keys for operator/API/schedule paths where duplicate active work would be harmful;
+- let code-defined schedules use the default version-aware dedupe key shape unless the module has a documented reason to override it: `schedule:<module>:<task>:<schedule>:v<payload-version>:<occurrence>`;
+- expose or accept task run statuses through `TaskRunStatusNames` wire names such as `retry-scheduled`; keep enum names as compatibility input only;
+- report heartbeat and progress through `ITaskRuntimeReporter`;
+- read system-to-runner control messages through `ITaskControlLoop` or `TaskControlLoopExtensions`;
+- dispatch normal application commands from payload code through `ITaskCommandDispatcher` or CQRS contracts;
+- keep runtime stores behind `ITaskRunStore` and use `TaskRunStatusTransitions` for claim, retry, cancellation, and terminal-state rules;
+- persist requester metadata from `TaskRunRequest.RequestedBy` when the runtime owns a durable store;
+- compose `AddTaskRuntimePersistence()` and `AddTaskWorkerRuntime()` only in hosts that should run tasks;
+- compose `AddTaskRunScheduling()` only in hosts that should enqueue code-defined schedules;
+- add external scheduler adapters only as explicit optional infrastructure projects.
+
 ## Administration
 
 Rules:

@@ -15,7 +15,8 @@ public sealed class ModuleDescriptorTests
             typeof(ModulePermissionDescriptor),
             typeof(ModuleIntegrationEventDescriptor),
             typeof(ModuleSubscriptionDescriptor),
-            typeof(ModuleCacheDescriptor)
+            typeof(ModuleCacheDescriptor),
+            typeof(ModuleTaskDescriptor)
         ];
 
         string[] writableProperties = descriptorTypes
@@ -38,7 +39,8 @@ public sealed class ModuleDescriptorTests
             typeof(ModulePermissionDescriptor),
             typeof(ModuleIntegrationEventDescriptor),
             typeof(ModuleSubscriptionDescriptor),
-            typeof(ModuleCacheDescriptor)
+            typeof(ModuleCacheDescriptor),
+            typeof(ModuleTaskDescriptor)
         ];
 
         string[] offenders = descriptorTypes
@@ -72,7 +74,8 @@ public sealed class ModuleDescriptorTests
                     tenantScoped: true)
             ],
             [new ModuleCacheDescriptor(" Items ", " Tenant ", tenantScoped: true, [" Products "])],
-            " Catalog-Admin ");
+            " Catalog-Admin ",
+            [new ModuleTaskDescriptor(" Rebuild-Search ", " Rebuild search index. ", ModuleTaskKind.OneShot, tenantScoped: true, supportsControlMessages: true, " Search-Workers ")]);
 
         Assert.Equal("catalog", descriptor.Name);
         Assert.Equal("catalog", descriptor.Schema);
@@ -82,6 +85,8 @@ public sealed class ModuleDescriptorTests
         Assert.Equal("item-created-projection", Assert.Single(descriptor.Subscriptions).HandlerName);
         Assert.Equal("items", Assert.Single(descriptor.CacheEntries).Name);
         Assert.Equal(["products"], Assert.Single(descriptor.CacheEntries).Tags);
+        Assert.Equal("rebuild-search", Assert.Single(descriptor.Tasks).Name);
+        Assert.Equal("search-workers", Assert.Single(descriptor.Tasks).WorkerGroup);
     }
 
     [Fact]
@@ -97,6 +102,23 @@ public sealed class ModuleDescriptorTests
             [],
             [],
             []));
+    }
+
+    [Fact]
+    public void Module_descriptor_rejects_duplicate_task_metadata()
+    {
+        Assert.Throws<ArgumentException>(() => new ModuleDescriptor(
+            "catalog",
+            "catalog",
+            [],
+            [],
+            [],
+            [],
+            tasks:
+            [
+                new ModuleTaskDescriptor("rebuild-search", "Rebuild search index.", ModuleTaskKind.OneShot, tenantScoped: true, supportsControlMessages: true),
+                new ModuleTaskDescriptor("Rebuild-Search", "Rebuild search index.", ModuleTaskKind.Daemon, tenantScoped: true, supportsControlMessages: true)
+            ]));
     }
 
     [Fact]
@@ -130,6 +152,17 @@ public sealed class ModuleDescriptorTests
             "tenant",
             tenantScoped: false,
             ["items"]));
+    }
+
+    [Fact]
+    public void Module_task_metadata_rejects_unknown_kind()
+    {
+        Assert.Throws<ArgumentException>(() => new ModuleTaskDescriptor(
+            "rebuild-search",
+            "Rebuild search index.",
+            ModuleTaskKind.Unknown,
+            tenantScoped: true,
+            supportsControlMessages: true));
     }
 
     [Theory]

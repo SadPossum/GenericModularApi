@@ -22,10 +22,29 @@ internal sealed class AuthTestApplication(
     bool enablePrometheus = false)
     : WebApplicationFactory<ApiAssemblyReference>
 {
+    private const string JwtIssuer = "GenericModularApi";
+    private const string JwtAudience = "GenericModularApi";
+    private const string JwtSigningKey = "integration-test-signing-key-change-me-000000000000000000";
+    private const string RefreshTokenPepper = "integration-test-refresh-token-pepper-change-me-000000000000000000";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Integration");
+        builder.UseSetting("Persistence:Provider", provider);
+        builder.UseSetting("ConnectionStrings:SqlServer", provider == "SqlServer" ? providerConnectionString : string.Empty);
+        builder.UseSetting("ConnectionStrings:PostgreSql", provider == "PostgreSql" ? providerConnectionString : string.Empty);
+        builder.UseSetting("ConnectionStrings:nats", natsConnectionString);
         builder.UseSetting("NatsJetStream:Enabled", disableOutboxPublisher ? "false" : "true");
+        builder.UseSetting("Tenancy:Enabled", "true");
+        builder.UseSetting("Outbox:PollIntervalMilliseconds", "100");
+        builder.UseSetting("Outbox:LockDurationMilliseconds", "1000");
+        builder.UseSetting("Observability:Prometheus:Enabled", enablePrometheus.ToString());
+        builder.UseSetting("Caching:Enabled", "false");
+        builder.UseSetting("Auth:Jwt:Issuer", JwtIssuer);
+        builder.UseSetting("Auth:Jwt:Audience", JwtAudience);
+        builder.UseSetting("Auth:Jwt:SigningKey", JwtSigningKey);
+        builder.UseSetting("Auth:Jwt:AccessTokenLifetimeMinutes", "15");
+        builder.UseSetting("Auth:RefreshTokens:Pepper", RefreshTokenPepper);
 
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
@@ -35,6 +54,11 @@ internal sealed class AuthTestApplication(
                 ["ConnectionStrings:SqlServer"] = provider == "SqlServer" ? providerConnectionString : string.Empty,
                 ["ConnectionStrings:PostgreSql"] = provider == "PostgreSql" ? providerConnectionString : string.Empty,
                 ["ConnectionStrings:nats"] = natsConnectionString,
+                ["Auth:RefreshTokens:Pepper"] = RefreshTokenPepper,
+                ["Auth:Jwt:Issuer"] = JwtIssuer,
+                ["Auth:Jwt:Audience"] = JwtAudience,
+                ["Auth:Jwt:SigningKey"] = JwtSigningKey,
+                ["Auth:Jwt:AccessTokenLifetimeMinutes"] = "15",
                 ["NatsJetStream:Enabled"] = disableOutboxPublisher ? "false" : "true",
                 ["Tenancy:Enabled"] = "true",
                 ["Outbox:PollIntervalMilliseconds"] = "100",

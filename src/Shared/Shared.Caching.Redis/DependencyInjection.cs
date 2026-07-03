@@ -51,6 +51,8 @@ public static class DependencyInjection
         ConfigurationOptions configuration = ConfigurationOptions.Parse(connectionString);
 
         builder.Services.AddSingleton<RedisCachingRegistrationMarker>();
+        builder.Services.AddSingleton<IDistributedCacheAdapterRegistration>(
+            provider => provider.GetRequiredService<RedisCachingRegistrationMarker>());
         builder.Services
             .AddOptions<RedisCachingOptions>()
             .Bind(redis)
@@ -77,5 +79,5 @@ public static class DependencyInjection
         }
     }
 
-    private sealed class RedisCachingRegistrationMarker;
+    private sealed class RedisCachingRegistrationMarker : IDistributedCacheAdapterRegistration;
 }

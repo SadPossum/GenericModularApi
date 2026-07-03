@@ -810,7 +810,7 @@ if ($RegisterInHost) {
 
 Write-Host "Created module '$Name' under '$moduleRoot'."
 Write-Host 'Next steps:'
-Write-Host '1. Add project references, ModuleProjects entries, and the module descriptor to tests\Architecture.Tests\ArchitectureCatalog.cs before running the architecture suite.'
+Write-Host '1. Add project references, ModuleProjects entries, and the module descriptor to tests\Architecture.Tests\Support\ArchitectureCatalog.cs before running the architecture suite.'
 Write-Host '2. Compose the module explicitly in Host.Api, Host.AdminCli, or Host.AdminApi only when that host should own the capability.'
 Write-Host '3. Keep public contract/domain-state enums on the repo convention: Unknown = 0, stable persisted numeric values, and explicit validation before business decisions.'
 

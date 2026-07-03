@@ -309,6 +309,9 @@ These notes capture architectural and developer-experience findings from the bro
 - Added constrained application assembly registration for CQRS handlers, validators, and domain-event handlers, then migrated Auth, Catalog, Ordering, Administration, and the module scaffolder to use it.
 - Documented ADR 0006 so this reflection rule stays bounded and does not become implicit host/module discovery or integration-event subscription scanning.
 - Evaluated FluentValidation against the current request-shape validators and documented ADR 0007 to keep shared CQRS validator contracts as the default instead of adding a parallel validation stack.
+- Started the optional tasks/daemons framework with ADR 0008, shared task payload/context/progress/control contracts, and module task metadata without adding a scheduler/runtime dependency to default hosts.
+- Added scheduler-neutral task run store contracts, lease request/value objects, shared status-transition rules, and a shared infrastructure `ITaskCommandDispatcher` registration while keeping EF tables, worker services, and scheduler adapters out of default host composition.
+- Added the optional `TaskRuntime` EF persistence module with SQL Server/PostgreSQL migrations, explicit `AddTaskWorkerRuntime()` hosted-worker composition, explicit task-handler registration metadata, architecture guards that task metadata matches handler registration, and a compiled `TaskSamples` module proving task execution through CQRS dispatch.
 
 ## Findings To Keep Watching
 
@@ -316,6 +319,13 @@ These notes capture architectural and developer-experience findings from the bro
 - Treat registration-only unit tests as smoke tests, not proof of behavior. Prefer adding behavior tests where a module boundary, tenant rule, cache invalidation, outbox/inbox transition, or admin authorization decision would otherwise regress silently.
 - If constrained application registration starts to hurt startup, trimming, or AOT scenarios, replace the reflection helper with a source generator or generated explicit descriptors while preserving explicit host/module composition.
 - Revisit FluentValidation only with a concrete module that needs richer nested validation, localization, rule sets, or reusable property validators; any adapter should still report through the shared CQRS validation result shape.
+- Task runtime now has admin CLI/API controls, bounded metrics/logging, richer control-message handling for daemons, stale heartbeat inspection, and hosted queue-depth/active-run gauges. External scheduler adapters remain a separate optional follow-up.
+- Added `ITaskControlLoop`, standard task control command names, cooperative `TaskRunCanceledException` handling, task-run stats read models, and admin CLI/API `stats` plus `control` operations.
+- Projection rebuild tasks now have a concrete requirements note in `projection-rebuild-tasks.md`; keep that implementation as its own slice, but reuse the current task descriptor, payload version, stats, control-message, cancellation, and progress primitives.
+- Added lease renewal from worker-created execution contexts: heartbeat/progress now extends the owned claim window so long-running tasks are not reclaimed solely because the original lease expired. Continue testing provider behavior under concurrent claim/heartbeat races before promoting multi-node workers for critical workloads.
+- Added task runtime observable gauges for queue depth and active runs through a hosted sampler over `ITaskRunStore.GetStatsAsync(...)`; keep future metric tags bounded and do not add tenant/run/payload identifiers to task gauges.
+- Hardened task worker, scheduler, and timeout scanner hosted loops so transient store/provider failures are logged and retried instead of permanently stopping the background runtime.
+- Reduced TaskRuntime admin front-door drift by moving optional status-filter parsing into `TaskRunStatusNames.TryParseOptional(...)`, aligned default admin list page size with `PageRequest.DefaultPageSize`, and updated task docs/templates around stable status names plus version-aware schedule dedupe keys.
 - Architecture tests now use a single explicit catalog for compiled module projects. New non-migration module projects are tested to appear there in the same change that adds the module.
 - Continue the admin API security pass with deeper audit export, audit retention, and external identity-provider mapping requirements.
 - Keep Administration and Tenancy contract metadata aligned with `ArchitectureCatalog`, docs, and scaffolding output as those optional modules evolve.

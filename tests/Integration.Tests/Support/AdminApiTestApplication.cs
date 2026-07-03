@@ -38,7 +38,24 @@ internal sealed class AdminApiTestApplication(
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Integration");
+        builder.UseSetting("Persistence:Provider", provider);
+        builder.UseSetting("ConnectionStrings:SqlServer", provider == "SqlServer" ? providerConnectionString : string.Empty);
+        builder.UseSetting("ConnectionStrings:PostgreSql", provider == "PostgreSql" ? providerConnectionString : string.Empty);
+        builder.UseSetting("ConnectionStrings:nats", natsConnectionString);
         builder.UseSetting("NatsJetStream:Enabled", disableOutboxPublisher ? "false" : "true");
+        builder.UseSetting("Tenancy:Enabled", "true");
+        builder.UseSetting("Outbox:PollIntervalMilliseconds", "100");
+        builder.UseSetting("Outbox:LockDurationMilliseconds", "1000");
+        builder.UseSetting("Auth:RefreshTokenLifetimeDays", "30");
+        builder.UseSetting("Auth:RefreshTokens:Pepper", RefreshTokenPepper);
+        builder.UseSetting("Auth:Jwt:Issuer", JwtIssuer);
+        builder.UseSetting("Auth:Jwt:Audience", JwtAudience);
+        builder.UseSetting("Auth:Jwt:SigningKey", JwtSigningKey);
+        builder.UseSetting("Auth:Jwt:AccessTokenLifetimeMinutes", "15");
+        builder.UseSetting(
+            "Administration:Api:AllowGeneratedPasswordResponses",
+            allowGeneratedPasswordResponses.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        builder.UseSetting("Caching:Enabled", "false");
 
         builder.ConfigureAppConfiguration((_, configuration) =>
         {

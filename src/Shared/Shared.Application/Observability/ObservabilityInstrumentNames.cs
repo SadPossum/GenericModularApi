@@ -18,4 +18,11 @@ public static class ObservabilityInstrumentNames
     public const string CacheDuration = "gma.cache.duration";
     public const string CacheBackendFailures = "gma.cache.backend.failures";
     public const string CacheInvalidationFailures = "gma.cache.invalidation.failures";
+
+    public const string TaskClaimed = "gma.tasks.claimed";
+    public const string TaskCompleted = "gma.tasks.completed";
+    public const string TaskDuration = "gma.tasks.duration";
+    public const string TaskTimedOut = "gma.tasks.timed_out";
+    public const string TaskQueueDepth = "gma.tasks.queue.depth";
+    public const string TaskActiveRuns = "gma.tasks.active.runs";
 }

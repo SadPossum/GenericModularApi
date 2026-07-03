@@ -185,6 +185,9 @@ public sealed class ModuleBoundaryTests
             "CatalogAdminCliModule",
             "CatalogAdminApiModule",
             "Ordering",
+            "TaskRuntime",
+            "TaskSamples",
+            "AddTaskWorkerRuntime",
             "AddNatsJetStreamConsumers"
         ];
 

@@ -13,6 +13,7 @@ using Shared.Infrastructure.Observability;
 using Xunit;
 
 [Trait("Category", "Unit")]
+[Collection(MetricsTestGroupDefinition.Name)]
 public sealed class OutboxPublisherServiceTests
 {
     [Fact]

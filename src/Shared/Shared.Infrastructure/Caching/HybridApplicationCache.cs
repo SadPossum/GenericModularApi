@@ -2,7 +2,6 @@ namespace Shared.Infrastructure.Caching;
 
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,10 +12,10 @@ internal sealed class HybridApplicationCache(
     CacheKeyFormatter keyFormatter,
     CacheMetrics metrics,
     IOptions<CachingOptions> options,
-    IEnumerable<IDistributedCache> distributedCaches,
+    IServiceProvider serviceProvider,
     ILogger<HybridApplicationCache> logger) : IApplicationCache, ICacheStore
 {
-    private readonly CachingOptions cachingOptions = CachingCompositionGuard.EnsureValid(options.Value, distributedCaches);
+    private readonly CachingOptions cachingOptions = CachingCompositionGuard.EnsureValid(options.Value, serviceProvider);
 
     public async ValueTask<T> GetOrCreateAsync<T>(
         CacheKey key,

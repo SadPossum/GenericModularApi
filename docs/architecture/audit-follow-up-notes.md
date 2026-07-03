@@ -306,11 +306,14 @@ These notes capture architectural and developer-experience findings from the bro
 - Added shared event base records for integration events, domain events, and tenant-scoped domain events; migrated Auth/Catalog events; and guarded module events against re-declaring common metadata by hand.
 - Reorganized test sources under intent folders across unit, architecture, and integration projects, then added a developer-experience guard so new tests do not drift back into project roots.
 - Updated testing guidelines with the current test project list, folder taxonomy, category traits, and the distinction between fast default validation and opt-in Docker coverage.
+- Added constrained application assembly registration for CQRS handlers, validators, and domain-event handlers, then migrated Auth, Catalog, Ordering, Administration, and the module scaffolder to use it.
+- Documented ADR 0006 so this reflection rule stays bounded and does not become implicit host/module discovery or integration-event subscription scanning.
 
 ## Findings To Keep Watching
 
 - `DeveloperExperienceGuardTests` is intentionally still a broad policy suite after this pass. Split it by concern later if edit conflicts or navigation cost rise, but keep the helpers local enough that the guards remain easy to audit.
 - Treat registration-only unit tests as smoke tests, not proof of behavior. Prefer adding behavior tests where a module boundary, tenant rule, cache invalidation, outbox/inbox transition, or admin authorization decision would otherwise regress silently.
+- If constrained application registration starts to hurt startup, trimming, or AOT scenarios, replace the reflection helper with a source generator or generated explicit descriptors while preserving explicit host/module composition.
 - Architecture tests now use a single explicit catalog for compiled module projects. New non-migration module projects are tested to appear there in the same change that adds the module.
 - Continue the admin API security pass with deeper audit export, audit retention, and external identity-provider mapping requirements.
 - Keep Administration and Tenancy contract metadata aligned with `ArchitectureCatalog`, docs, and scaffolding output as those optional modules evolve.

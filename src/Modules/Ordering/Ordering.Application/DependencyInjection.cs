@@ -2,12 +2,9 @@ namespace Ordering.Application;
 
 using Catalog.Contracts;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Ordering.Application.Commands;
 using Ordering.Application.Handlers;
-using Ordering.Application.Validation;
 using Ordering.Contracts;
-using Shared.Application.Cqrs;
+using Shared.Application.Composition;
 using Shared.Application.Messaging;
 
 public static class DependencyInjection
@@ -16,10 +13,7 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddEnumerable([
-            ServiceDescriptor.Scoped<ICommandHandler<PlaceOrderCommand, OrderDto>, PlaceOrderCommandHandler>(),
-            ServiceDescriptor.Scoped<ICommandValidator<PlaceOrderCommand>, PlaceOrderCommandValidator>()
-        ]);
+        services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
         services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
             OrderingModuleMetadata.Name,
             CatalogIntegrationSubjects.ItemCreated,

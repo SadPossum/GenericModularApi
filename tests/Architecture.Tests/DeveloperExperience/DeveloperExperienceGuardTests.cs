@@ -1223,10 +1223,19 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Module_application_dependency_injection_uses_repeat_safe_handler_registration()
+    public void Module_application_dependency_injection_uses_constrained_assembly_registration()
     {
         string repositoryRoot = FindRepositoryRoot();
         string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string srcRoot = Path.Combine(repositoryRoot, "src");
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string helperSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Application",
+            "Composition",
+            "ApplicationServiceCollectionExtensions.cs"));
         string[] handlerRegistrationTokens =
         [
             "ICommandHandler<",
@@ -1244,8 +1253,9 @@ public sealed partial class DeveloperExperienceGuardTests
             ".TryAddTransient<",
             ".TryAddSingleton<"
         ];
+        string registrationCall = "services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);";
 
-        string[] offenders = Directory
+        string[] applicationRegistrationOffenders = Directory
             .EnumerateFiles(modulesRoot, "DependencyInjection.cs", SearchOption.AllDirectories)
             .Where(path => path.Contains(".Application", StringComparison.Ordinal))
             .Select(path => new
@@ -1254,15 +1264,80 @@ public sealed partial class DeveloperExperienceGuardTests
                 Source = File.ReadAllText(path),
             })
             .SelectMany(item =>
-                handlerRegistrationTokens
+            {
+                List<string> offenders = [];
+                if (!item.Source.Contains(registrationCall, StringComparison.Ordinal))
+                {
+                    offenders.Add(
+                        $"{Path.GetRelativePath(repositoryRoot, item.Path)} should call AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly).");
+                }
+
+                offenders.AddRange(handlerRegistrationTokens
                     .Where(token => item.Source.Contains(token, StringComparison.Ordinal))
                     .SelectMany(token => unsafeRegistrationPrefixes
                         .Where(prefix => item.Source.Contains(prefix + token, StringComparison.Ordinal))
-                        .Select(prefix => $"{Path.GetRelativePath(repositoryRoot, item.Path)} uses {prefix}{token}; use services.TryAddEnumerable with ServiceDescriptor instead.")))
+                        .Select(prefix => $"{Path.GetRelativePath(repositoryRoot, item.Path)} uses {prefix}{token}; use AddApplicationServicesFromAssembly instead.")));
+
+                return offenders;
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] misplacedRegistrationOffenders = EnumerateSourceFiles(srcRoot)
+            .Where(path => File.ReadAllText(path).Contains("AddApplicationServicesFromAssembly(", StringComparison.Ordinal))
+            .Where(path => !path.EndsWith(
+                Path.Combine("Shared.Application", "Composition", "ApplicationServiceCollectionExtensions.cs"),
+                StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.EndsWith(
+                Path.Combine(".Application", "DependencyInjection.cs"),
+                StringComparison.OrdinalIgnoreCase))
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} uses application assembly registration outside module application DI.")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] helperOffenders =
+        [
+            helperSource.Contains("typeof(ICommandHandler<,>)", StringComparison.Ordinal)
+                ? string.Empty
+                : "ApplicationServiceCollectionExtensions should register command handlers.",
+            helperSource.Contains("typeof(IQueryHandler<,>)", StringComparison.Ordinal)
+                ? string.Empty
+                : "ApplicationServiceCollectionExtensions should register query handlers.",
+            helperSource.Contains("typeof(ICommandValidator<>)", StringComparison.Ordinal)
+                ? string.Empty
+                : "ApplicationServiceCollectionExtensions should register command validators.",
+            helperSource.Contains("typeof(IQueryValidator<>)", StringComparison.Ordinal)
+                ? string.Empty
+                : "ApplicationServiceCollectionExtensions should register query validators.",
+            helperSource.Contains("typeof(IDomainEventHandler<>)", StringComparison.Ordinal)
+                ? string.Empty
+                : "ApplicationServiceCollectionExtensions should register domain event handlers.",
+            helperSource.Contains("IIntegrationEventHandler", StringComparison.Ordinal)
+                ? "ApplicationServiceCollectionExtensions must not register integration event handlers; subscriptions need explicit subject and handler metadata."
+                : string.Empty
+        ];
+        string[] scaffoldOffenders =
+        [
+            scaffolder.Contains("using Shared.Application.Composition;", StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold Shared.Application.Composition usage.",
+            scaffolder.Contains(registrationCall, StringComparison.Ordinal)
+                ? string.Empty
+                : "eng/new-module.ps1 should scaffold AddApplicationServicesFromAssembly."
+        ];
+        string[] broadScanningPackageOffenders = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(repositoryRoot, "*.props", SearchOption.AllDirectories))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path => File.ReadAllText(path).Contains("Include=\"Scrutor\"", StringComparison.Ordinal))
+            .Select(path => $"{Path.GetRelativePath(repositoryRoot, path)} references Scrutor; ADR 0006 keeps application registration in-house and constrained.")
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        Assert.Empty(offenders);
+        Assert.Empty(applicationRegistrationOffenders
+            .Concat(misplacedRegistrationOffenders)
+            .Concat(helperOffenders.Where(offender => !string.IsNullOrWhiteSpace(offender)))
+            .Concat(scaffoldOffenders.Where(offender => !string.IsNullOrWhiteSpace(offender)))
+            .Concat(broadScanningPackageOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
     }
 
     [Fact]

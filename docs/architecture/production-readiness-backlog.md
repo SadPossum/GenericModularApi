@@ -18,7 +18,7 @@ This tracker records the long-running hardening backlog for the skeleton. Each i
 | Shared event abstractions | Implemented | Added `IntegrationEvent`, `DomainEvent`, and `TenantDomainEvent` base records, migrated Auth/Catalog events, and guarded module events from bypassing shared metadata validation. |
 | Admin naming | Implemented | CLI-only module front doors use `.AdminCli`; shared typed permission/operation helpers stay in `.Admin.Contracts`, and HTTP admin front doors stay in `.AdminApi`. |
 | Test organization and value audit | Implemented | Test files now live under intent folders, docs describe the taxonomy, and architecture guards enforce test categories, names, Docker traits, and folder placement. Follow-up notes capture the remaining long-term split and coverage watchpoints. |
-| Code magic/reflection | Pending | Evaluate constrained assembly registration for handlers/validators; document why built-in .NET alternatives are or are not enough. |
+| Code magic/reflection | Implemented | Added constrained module-application assembly registration for CQRS handlers, validators, and domain-event handlers; integration-event subscriptions remain explicit. ADR 0006 documents why this stays in-house instead of adopting broad scanning. |
 | Validation library | Pending | Evaluate FluentValidation against the current small validation contracts; switch only if consistency and ergonomics improve. |
 | Tasks/daemons framework | Pending | Design optional production-ready task runtime with monitoring, control, node placement, and command/control communication. |
 | Notifications and streaming | Pending | Design optional user notification and real-time update module/adapters. |

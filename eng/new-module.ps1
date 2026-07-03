@@ -198,7 +198,10 @@ $($applicationReferences -join "`r`n")
 </Project>
 "@
 
-$applicationUsings = @('using Microsoft.Extensions.DependencyInjection;')
+$applicationUsings = @(
+    'using Microsoft.Extensions.DependencyInjection;',
+    'using Shared.Application.Composition;'
+)
 
 if ($Cache) {
     $applicationUsings += 'using Shared.Application.Caching;'
@@ -212,6 +215,8 @@ $($applicationUsings | Sort-Object | Get-Unique | Out-String)public static class
     public static IServiceCollection Add${Name}Application(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
 
         return services;
     }

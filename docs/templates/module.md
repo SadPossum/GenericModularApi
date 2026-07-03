@@ -97,7 +97,8 @@ Confirm the application `.csproj` references only shared abstractions, its own c
 Do not reference `Shared.Administration` from feature module application projects; keep admin framework usage in `.AdminCli`/`.AdminApi` front doors. `Administration.Application` is the owner-side exception.
 Confirm that handlers use `ISystemClock` and `IIdGenerator` instead of direct system time or ID generation.
 Confirm that application DI registration extends `IServiceCollection`, not `IHostApplicationBuilder`.
-Confirm that application DI extension methods reject null receivers and use repeat-safe registration (`TryAddEnumerable` for handlers, validators, and event handlers).
+Confirm that application DI extension methods reject null receivers and call `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` for CQRS handlers, validators, and domain-event handlers.
+Confirm that integration-event handlers are registered explicitly with `AddIntegrationEventHandler<TEvent,THandler>(...)` so subject names and stable handler names remain public contracts.
 
 ## Infrastructure
 

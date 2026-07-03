@@ -277,7 +277,8 @@ The scaffold follows current runtime conventions:
 
 - application registration extends `IServiceCollection`; runtime/front-door projects pass host configuration only when application options need it;
 - application and persistence registration extensions reject null receivers explicitly;
-- application/persistence DI uses repeat-safe registration so public API, admin API, and CLI surfaces can compose the same module safely;
+- application DI uses constrained assembly registration for CQRS handlers, validators, and domain-event handlers; integration-event subscriptions stay explicit because subject names and stable handler names are public contracts;
+- persistence DI uses repeat-safe registration so public API, admin API, and CLI surfaces can compose the same module safely;
 - persistence registration may extend `IHostApplicationBuilder` because it owns provider/configuration wiring;
 - persistence registration calls `AddPersistenceOptions(builder.Configuration)` before provider-specific DbContext setup;
 - persisted commands should use `ITransactionalCommand<TResponse>`;

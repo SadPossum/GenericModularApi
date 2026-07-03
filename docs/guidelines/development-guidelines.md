@@ -245,6 +245,8 @@ Rules:
 - Keep warnings as errors.
 - Prefer small, explicit classes.
 - Keep application-layer DI registration host-agnostic. Use `IServiceCollection`; pass `IConfiguration` only for application-owned options.
+- Use `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` from module application registration for CQRS handlers, validators, and domain-event handlers. This is the project's only default reflection-based application registration convention.
+- Keep integration-event subscriptions explicit with `AddIntegrationEventHandler<TEvent,THandler>(...)`; subjects and durable handler names are public cross-module contracts.
 - Keep one application handler class per file under `<Module>.Application/Handlers`.
 - Keep one public contract type per file under `<Module>.Contracts`.
 - Add comments only when they explain non-obvious decisions.

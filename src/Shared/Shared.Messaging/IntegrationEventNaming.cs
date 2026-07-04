@@ -5,10 +5,10 @@ using Shared.Naming;
 
 public static class IntegrationEventNaming
 {
-    public const string DefaultSubjectPrefix = "gma";
+    public const string DefaultSubjectPrefix = ApplicationNamespaces.Default;
 
     public static string NormalizeSubjectPrefix(string subjectPrefix, string parameterName = "subjectPrefix") =>
-        SharedNameSegments.NormalizeKebabSegment(subjectPrefix, "subject prefix", parameterName);
+        ApplicationNamespaces.Normalize(subjectPrefix, parameterName);
 
     public static string NormalizeModuleName(string moduleName, string parameterName = "moduleName") =>
         SharedModuleNames.Normalize(moduleName, parameterName);
@@ -44,7 +44,18 @@ public static class IntegrationEventNaming
             $"{NormalizeSubjectPrefix(subjectPrefix)}.{NormalizeModuleName(moduleName)}.{NormalizeEventName(eventName)}.v{version}");
     }
 
+    public static string CreateSubject(
+        string moduleName,
+        string eventName,
+        int version) =>
+        CreateSubject(DefaultSubjectPrefix, moduleName, eventName, version);
+
     public static string NormalizeSubject(string subject, string parameterName = "subject")
+    {
+        return ParseSubject(subject, parameterName).CreateSubject();
+    }
+
+    public static IntegrationEventSubject ParseSubject(string subject, string parameterName = "subject")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(subject, parameterName);
 
@@ -57,10 +68,10 @@ public static class IntegrationEventNaming
             parts[3] != string.Create(CultureInfo.InvariantCulture, $"v{version}"))
         {
             throw new ArgumentException(
-                $"{parameterName} must use the gma.<module>.<event>.v<version> integration-event subject shape.",
+                $"{parameterName} must use the <namespace>.<module>.<event>.v<version> integration-event subject shape.",
                 parameterName);
         }
 
-        return CreateSubject(parts[0], parts[1], parts[2], version);
+        return new IntegrationEventSubject(parts[0], parts[1], parts[2], version);
     }
 }

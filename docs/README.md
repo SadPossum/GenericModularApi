@@ -65,6 +65,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [0006 Constrained Application Service Registration](adr/0006-constrained-application-service-registration.md)
 - [0007 Shared CQRS Validation Contracts](adr/0007-shared-cqrs-validation-contracts.md)
 - [0008 Optional Tasks and Daemons Foundation](adr/0008-optional-tasks-and-daemons-foundation.md)
+- [0009 Configurable Application Identity](adr/0009-configurable-application-identity.md)
 
 ## Documentation Rules
 

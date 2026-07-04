@@ -33,7 +33,8 @@ internal sealed class CachingOptionsValidator : IValidateOptions<CachingOptions>
             return ValidateOptionsResult.Fail("Caching:MaximumKeyLength must be positive.");
         }
 
-        if (!CacheStorageIdentifiers.IsValidKeyPrefix(options.KeyPrefix))
+        if (!string.IsNullOrWhiteSpace(options.KeyPrefix) &&
+            !CacheStorageIdentifiers.IsValidKeyPrefix(options.KeyPrefix))
         {
             return ValidateOptionsResult.Fail(
                 $"Caching:KeyPrefix must be 1-{CachingOptions.KeyPrefixMaxLength} characters and use only ASCII letters, digits, '-' or '_'.");

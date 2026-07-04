@@ -11,6 +11,7 @@ using Shared.Tasks;
 using Shared.Tasks.Infrastructure;
 using Shared.Results;
 using Shared.Persistence.EntityFrameworkCore;
+using Shared.Runtime.Time;
 using TaskRuntime.Application;
 using TaskRuntime.Application.Commands;
 using TaskRuntime.Application.Queries;
@@ -25,7 +26,11 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
     private readonly string connectionString;
     private readonly IHost host;
 
-    public TaskRuntimeTestApplication(string provider, string connectionString, bool workerEnabled)
+    public TaskRuntimeTestApplication(
+        string provider,
+        string connectionString,
+        bool workerEnabled,
+        DateTimeOffset? clockUtcNow = null)
     {
         this.provider = provider;
         this.connectionString = connectionString;
@@ -53,6 +58,10 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
             ["Tasks:Worker:NodeId"] = "node-test",
         });
         builder.Logging.ClearProviders();
+        if (clockUtcNow is not null)
+        {
+            builder.Services.AddSingleton<ISystemClock>(new FixedClock(clockUtcNow.Value));
+        }
 
         builder.Services.AddTaskRuntimeApplication();
         builder.AddTaskRuntimePersistence();
@@ -392,6 +401,11 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
     {
         await this.host.StopAsync().ConfigureAwait(false);
         this.host.Dispose();
+    }
+
+    private sealed class FixedClock(DateTimeOffset utcNow) : ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; } = utcNow;
     }
 }
 

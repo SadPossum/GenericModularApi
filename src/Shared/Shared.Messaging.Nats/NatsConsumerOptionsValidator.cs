@@ -6,12 +6,8 @@ internal sealed class NatsConsumerOptionsValidator : IValidateOptions<NatsConsum
 {
     public ValidateOptionsResult Validate(string? name, NatsConsumerOptions options)
     {
-        if (string.IsNullOrWhiteSpace(options.DurablePrefix))
-        {
-            return ValidateOptionsResult.Fail($"{NatsConsumerOptions.SectionName}:DurablePrefix is required.");
-        }
-
-        if (!NatsConsumerDurableName.IsValidSegment(options.DurablePrefix))
+        if (!string.IsNullOrWhiteSpace(options.DurablePrefix) &&
+            !NatsConsumerDurableName.IsValidSegment(options.DurablePrefix))
         {
             return ValidateOptionsResult.Fail(
                 $"{NatsConsumerOptions.SectionName}:DurablePrefix must be a lowercase kebab-case durable-name segment.");

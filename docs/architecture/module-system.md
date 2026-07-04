@@ -341,7 +341,7 @@ For a richer optional shell:
 ```
 
 Then decide explicitly whether to register it in `Host.Api`.
-When `-RegisterInHost` is used, the script inserts the public API module at the explicit `// gma:new-module:public-api-modules` composition marker in `src/Host.Api/Program.cs`.
+When `-RegisterInHost` is used, the script inserts the public API module at the explicit `// module-scaffold:public-api-modules` composition marker in `src/Host.Api/Program.cs`.
 If the module is committed as compiled code, add its projects to `ArchitectureCatalog` so boundary tests cover it.
 
 The scaffold follows current runtime conventions:

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Shared.Runtime;
 
 public static class DependencyInjection
 {
@@ -20,10 +21,14 @@ public static class DependencyInjection
         }
 
         AuthInfrastructureOptionsValidation.Validate(configuration);
+        ApplicationIdentityOptions applicationIdentity = configuration
+            .GetSection(ApplicationIdentityOptions.SectionName)
+            .Get<ApplicationIdentityOptions>() ?? new ApplicationIdentityOptions();
         services.AddSingleton<AuthInfrastructureRegistrationMarker>();
         services
             .AddOptions<JwtSettings>()
             .Bind(configuration.GetSection(JwtSettings.SectionName))
+            .PostConfigure(options => AuthInfrastructureOptionsValidation.ApplyJwtIdentityDefaults(options, applicationIdentity))
             .ValidateOnStart();
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<JwtSettings>, JwtSettingsValidator>());

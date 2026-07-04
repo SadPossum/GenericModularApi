@@ -4,14 +4,17 @@ using Shared.Naming;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Caching;
+using Shared.Runtime;
 using Shared.Tenancy;
 
 internal sealed class CacheKeyFormatter(
     ITenantContext tenantContext,
     IHostEnvironment environment,
-    IOptions<CachingOptions> options)
+    IOptions<CachingOptions> options,
+    IOptions<ApplicationIdentityOptions> applicationIdentity)
 {
     private readonly CachingOptions cachingOptions = options.Value;
+    private readonly string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
 
     public string Format(CacheKey key) => this.Format(key.Module, key.Entry, key.Scope, key.Segments);
 
@@ -28,7 +31,10 @@ internal sealed class CacheKeyFormatter(
         string scopeName = scope.ToString().ToLowerInvariant();
         IEnumerable<string> parts = new[]
         {
-            CacheStorageIdentifiers.NormalizeKeyPrefix(this.cachingOptions.KeyPrefix),
+            CacheStorageIdentifiers.NormalizeKeyPrefix(
+                string.IsNullOrWhiteSpace(this.cachingOptions.KeyPrefix)
+                    ? this.applicationNamespace
+                    : this.cachingOptions.KeyPrefix),
             CacheStorageIdentifiers.NormalizeEnvironmentName(environment.EnvironmentName),
             module,
             scopeName,

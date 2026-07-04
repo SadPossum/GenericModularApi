@@ -23,8 +23,8 @@ internal sealed class JwtTokenService(IOptions<JwtSettings> options, ISystemCloc
         Claim[] claims =
         [
             new Claim(ClaimTypes.NameIdentifier, accessTokenClaims.MemberId.Value.ToString()),
-            new Claim(GmaClaimNames.TenantId, accessTokenClaims.TenantId),
-            new Claim(GmaClaimNames.SessionId, accessTokenClaims.SessionId.Value.ToString())
+            new Claim(ApplicationClaimNames.TenantId, accessTokenClaims.TenantId),
+            new Claim(ApplicationClaimNames.SessionId, accessTokenClaims.SessionId.Value.ToString())
         ];
 
         DateTimeOffset nowUtc = clock.UtcNow;
@@ -58,8 +58,8 @@ internal sealed class JwtTokenService(IOptions<JwtSettings> options, ISystemCloc
         {
             ClaimsPrincipal principal = handler.ValidateToken(accessToken, parameters, out _);
             string? memberIdValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
-            string? tenantId = principal.FindFirstValue(GmaClaimNames.TenantId);
-            string? sessionIdValue = principal.FindFirstValue(GmaClaimNames.SessionId);
+            string? tenantId = principal.FindFirstValue(ApplicationClaimNames.TenantId);
+            string? sessionIdValue = principal.FindFirstValue(ApplicationClaimNames.SessionId);
 
             return Guid.TryParse(memberIdValue, out Guid memberId) &&
                    Guid.TryParse(sessionIdValue, out Guid sessionId)

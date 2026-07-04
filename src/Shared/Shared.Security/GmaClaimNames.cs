@@ -2,14 +2,12 @@ namespace Shared.Security;
 
 public static class GmaClaimNames
 {
-    public const int MaxLength = 256;
+    public const int MaxLength = ApplicationClaimNames.MaxLength;
 
-    public const string Subject = "sub";
-    public const string TenantId = "tenant_id";
-    public const string SessionId = "sid";
+    public const string Subject = ApplicationClaimNames.Subject;
+    public const string TenantId = ApplicationClaimNames.TenantId;
+    public const string SessionId = ApplicationClaimNames.SessionId;
 
     public static bool IsValidClaimName(string? claimName) =>
-        !string.IsNullOrWhiteSpace(claimName) &&
-        claimName.Length <= MaxLength &&
-        !claimName.Any(character => char.IsWhiteSpace(character) || char.IsControl(character));
+        ApplicationClaimNames.IsValidClaimName(claimName);
 }

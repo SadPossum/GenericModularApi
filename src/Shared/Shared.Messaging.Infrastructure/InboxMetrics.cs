@@ -2,23 +2,26 @@ namespace Shared.Messaging.Infrastructure;
 
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Options;
 using Shared.Messaging;
 using Shared.Observability;
 using Shared.Observability.Infrastructure;
+using Shared.Runtime;
 
 public sealed class InboxMetrics
 {
     private readonly Counter<long> messages;
     private readonly Histogram<double> processDuration;
 
-    public InboxMetrics(IMeterFactory meterFactory)
+    public InboxMetrics(IMeterFactory meterFactory, IOptions<ApplicationIdentityOptions> applicationIdentity)
     {
-        Meter meter = meterFactory.Create(ObservabilityMeterNames.Messaging);
+        string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+        Meter meter = meterFactory.Create(ObservabilityMeterNames.MessagingFor(applicationNamespace));
         this.messages = meter.CreateCounter<long>(
-            ObservabilityInstrumentNames.InboxMessages,
+            ObservabilityInstrumentNames.InboxMessagesFor(applicationNamespace),
             description: "Number of inbox message processing outcomes.");
         this.processDuration = meter.CreateHistogram<double>(
-            ObservabilityInstrumentNames.InboxProcessDuration,
+            ObservabilityInstrumentNames.InboxProcessDurationFor(applicationNamespace),
             unit: "ms",
             description: "Inbox message processing duration in milliseconds.");
     }

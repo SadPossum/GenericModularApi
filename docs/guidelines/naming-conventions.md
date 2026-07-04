@@ -202,7 +202,7 @@ Keep existing numeric values stable once the enum is persisted, published in an 
 Subjects:
 
 ```text
-gma.{module}.{event}.v{version}
+{application-namespace}.{module}.{event}.v{version}
 ```
 
 Example:
@@ -211,7 +211,7 @@ Example:
 gma.auth.member-registered.v1
 ```
 
-Use lowercase kebab-case for the `{module}`, `{event}`, and integration-event consumer handler-name segments. Subscription metadata is validated at composition time, so invalid subject shapes such as extra dots, spaces, or zero-padded versions should fail before a host starts consumers.
+Use lowercase kebab-case for the `{application-namespace}`, `{module}`, `{event}`, and integration-event consumer handler-name segments. The default application namespace is `gma`; set `ApplicationIdentity:Namespace` to the product or bounded system name before creating production NATS streams, cache keys, or dashboards. Module contracts should expose stable logical event names and subject factory methods rather than embedding physical provider subjects by hand. Subscription metadata is validated at composition time, so invalid subject shapes such as extra dots, spaces, or zero-padded versions should fail before a host starts consumers.
 
 ## Endpoints
 

@@ -140,8 +140,8 @@ Auth application options validate `Auth:RefreshTokenLifetimeDays` so misconfigur
 Refresh tokens are stored as hashes, never as raw token values.
 The HMAC key is configured through `Auth:RefreshTokens:Pepper`. The option class intentionally has no secret default. Checked-in development settings provide a disposable local placeholder, and deployments must override it through a secret provider, for example `Auth__RefreshTokens__Pepper`.
 
-JWT signing is configured through `Auth:Jwt`. The signing key must be at least 32 bytes and should also come from a secret provider outside local development.
-Auth access tokens use `ClaimTypes.NameIdentifier` for the member id and shared `GmaClaimNames` constants for tenant and session claims. Keep claim-name changes centralized in `Shared.Security.GmaClaimNames` so public Auth endpoints, admin APIs, token validation, and test token helpers stay aligned.
+JWT signing is configured through `Auth:Jwt`. The signing key must be at least 32 bytes and should also come from a secret provider outside local development. `Auth:Jwt:Issuer` and `Auth:Jwt:Audience` default to `ApplicationIdentity:DisplayName` when they are not explicitly configured.
+Auth access tokens use `ClaimTypes.NameIdentifier` for the member id and shared `ApplicationClaimNames` constants for tenant and session claims. Keep claim-name changes centralized in `Shared.Security.ApplicationClaimNames` so public Auth endpoints, admin APIs, token validation, and test token helpers stay aligned.
 
 Login and refresh fail when a member is disabled.
 
@@ -175,11 +175,13 @@ auth.__ef_migrations_history
 Auth publishes:
 
 ```text
-gma.auth.member-registered.v1
-gma.auth.member-disabled.v1
-gma.auth.member-enabled.v1
-gma.auth.member-sessions-revoked.v1
+{application-namespace}.auth.member-registered.v1
+{application-namespace}.auth.member-disabled.v1
+{application-namespace}.auth.member-enabled.v1
+{application-namespace}.auth.member-sessions-revoked.v1
 ```
+
+The default application namespace is `gma`. Subject accessors in `AuthIntegrationSubjects` render through shared integration-event naming helpers so production apps can set `ApplicationIdentity:Namespace` without editing Auth contracts.
 
 Source domain event:
 

@@ -132,7 +132,8 @@ public sealed class TaskRuntimeIntegrationTests
         await using TaskRuntimeTestApplication application = new(
             provider,
             providerLease.ConnectionString,
-            workerEnabled: false);
+            workerEnabled: false,
+            clockUtcNow: Now);
         await application.MigrateDatabaseAsync().ConfigureAwait(false);
 
         Guid runId = Guid.Parse($"11111111-1111-1111-1111-{(provider == "SqlServer" ? "111111111111" : "222222222222")}");

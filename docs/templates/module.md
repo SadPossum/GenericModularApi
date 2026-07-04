@@ -125,9 +125,10 @@ Confirm that persisted enum numeric values are stable and that public contract/d
 
 | Event | Subject | Version | Tenant-scoped |
 | --- | --- | --- | --- |
-| `<EventName>` | `gma.<module>.<event>.v1` | `1` | yes/no |
+| `<EventName>` | `{application-namespace}.<module>.<event>.v1` | `1` | yes/no |
 
 Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type.
+Confirm subject constants or accessors render through `IntegrationEventNaming` or module subject factory methods, with `gma` only as the default `ApplicationIdentity:Namespace`.
 
 ## Inbound Subscriptions
 
@@ -135,9 +136,9 @@ List producer contracts consumed by this module. State handler name, subject, lo
 
 | Producer | Event | Subject | Handler | Local state updated |
 | --- | --- | --- | --- | --- |
-| `<Producer>` | `<EventName>` | `gma.<producer>.<event>.v1` | `<stable-handler-name>` | `<projection/table>` |
+| `<Producer>` | `<EventName>` | `{application-namespace}.<producer>.<event>.v1` | `<stable-handler-name>` | `<projection/table>` |
 
-Use lowercase kebab-case for module, event, and handler-name segments. Subjects must follow `gma.<module>.<event>.v<version>`.
+Use lowercase kebab-case for application namespace, module, event, and handler-name segments. Subjects must follow `{application-namespace}.<module>.<event>.v<version>`.
 Confirm that the module references producer `.Contracts` only.
 Confirm that consumed producer enum/status values are validated before they affect local decisions.
 

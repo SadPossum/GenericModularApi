@@ -155,13 +155,13 @@ The hosted worker:
 - marks cancellation-requested reclaimed leases as canceled without requiring the handler to still be registered;
 - leaves the lease to expire on host shutdown cancellation.
 - processes leases with bounded per-worker-host concurrency;
-- emits bounded `gma.tasks` metrics for claimed, completed, duration, timed-out, queue-depth, and active-run measurements;
+- emits bounded `{ApplicationIdentity:Namespace}.tasks` metrics for claimed, completed, duration, timed-out, queue-depth, and active-run measurements;
 - runs an optional stale timeout scanner that marks abandoned leases/runs as `TimedOut`.
 
 The metrics sampler reads `ITaskRunStore.GetStatsAsync(...)` and updates observable gauges:
 
-- `gma.tasks.queue.depth` for `Queued` and `RetryScheduled` runs;
-- `gma.tasks.active.runs` for `Leased`, `Running`, and `CancellationRequested` runs.
+- `{ApplicationIdentity:Namespace}.tasks.queue.depth` for `Queued` and `RetryScheduled` runs;
+- `{ApplicationIdentity:Namespace}.tasks.active.runs` for `Leased`, `Running`, and `CancellationRequested` runs.
 
 Gauge tags are bounded to task status and do not include tenant ids, payloads, run ids, or control-message ids.
 

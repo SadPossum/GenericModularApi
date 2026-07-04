@@ -86,7 +86,7 @@ Authorization: Bearer <access-token>
 X-Tenant-Id: default
 ```
 
-By default, tenant-scoped admin API calls require any present token `tenant_id` claim to match `X-Tenant-Id`. That default claim name is centralized as `GmaClaimNames.TenantId`. Tokens without a tenant claim are allowed for external identity-provider or global-admin scenarios, but RBAC must still grant the actor access to the requested tenant. The knobs are:
+By default, tenant-scoped admin API calls require any present token `tenant_id` claim to match `X-Tenant-Id`. That default claim name is centralized as `ApplicationClaimNames.TenantId`. Tokens without a tenant claim are allowed for external identity-provider or global-admin scenarios, but RBAC must still grant the actor access to the requested tenant. The knobs are:
 
 ```text
 Administration__Api__TenantIdClaim=tenant_id
@@ -181,7 +181,7 @@ Register the module in `Host.Api` during scaffolding:
 .\eng\new-module.ps1 -Name Billing -RegisterInHost
 ```
 
-`-RegisterInHost` inserts the module at the explicit `// gma:new-module:public-api-modules` marker in `src/Host.Api/Program.cs`.
+`-RegisterInHost` inserts the module at the explicit `// module-scaffold:public-api-modules` marker in `src/Host.Api/Program.cs`.
 Manual registration is usually better until the module is real. Optional modules should remain explicit host choices.
 
 ## Build Discipline

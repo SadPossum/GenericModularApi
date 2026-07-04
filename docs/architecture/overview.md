@@ -146,11 +146,11 @@ builder.AddCachingInfrastructure();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging(); // no-op unless NATS publishing is enabled
-builder.Services.AddGmaApiSecurityDefaults(); // no default scheme; Auth or another adapter supplies one
+builder.Services.AddApiSecurityDefaults(); // no default scheme; Auth or another adapter supplies one
 builder.AddModule<TenancyModule>();
 builder.AddModule<AuthModule>();
-builder.AddGmaOpenApi();
-app.UseGmaOpenApi(); // serves Swagger only in Development
+builder.AddSharedOpenApi();
+app.UseSharedOpenApi(); // serves Swagger only in Development
 app.MapModules();
 ```
 
@@ -224,6 +224,7 @@ Shared.Administration.Cli
   -> Shared.Cqrs
   -> Shared.Results
   -> Shared.Naming
+  -> Shared.Runtime
 
 Shared.Api
   -> Shared.Results
@@ -265,6 +266,8 @@ Shared.Caching.Infrastructure
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
   -> Shared.Results
+  -> Shared.Runtime
+  -> Shared.Runtime.Infrastructure
   -> Shared.Tenancy
 
 Shared.Caching.Redis
@@ -279,6 +282,7 @@ Shared.Cqrs.Infrastructure
   -> Shared.Naming
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
+  -> Shared.Runtime.Infrastructure
   -> Shared.Tenancy
   -> Shared.Tenancy.Infrastructure
 
@@ -311,6 +315,8 @@ Shared.Messaging.Infrastructure
 Shared.Messaging.Nats
   -> Shared.Messaging
   -> Shared.Messaging.Infrastructure
+  -> Shared.Naming
+  -> Shared.Runtime
   -> Shared.Tenancy
 
 Shared.Messaging.Nats.Aspire
@@ -326,11 +332,12 @@ Shared.Numerics
   -> no project references
 
 Shared.Observability
-  -> no project references
+  -> Shared.Naming
 
 Shared.Observability.Infrastructure
   -> Shared.Naming
   -> Shared.Observability
+  -> Shared.Runtime
 
 Shared.Pagination
   -> no project references
@@ -346,9 +353,10 @@ Shared.Results
   -> no project references
 
 Shared.Runtime
-  -> no project references
+  -> Shared.Naming
 
 Shared.Runtime.Infrastructure
+  -> Shared.Naming
   -> Shared.Runtime
 
 Shared.Security

@@ -804,7 +804,7 @@ if ($RegisterInHost) {
     $program = Get-Content -LiteralPath $programPath -Raw
     $moduleUsing = "using $Name.Api;"
     $moduleRegistration = "builder.AddModule<${Name}Module>();"
-    $hostRegistrationAnchor = '// gma:new-module:public-api-modules'
+    $hostRegistrationAnchor = '// module-scaffold:public-api-modules'
 
     if (-not $program.Contains($moduleUsing)) {
         $program = "$moduleUsing`r`n$program"

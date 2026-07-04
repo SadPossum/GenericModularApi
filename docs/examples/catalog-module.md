@@ -73,11 +73,11 @@ catalog.items.discontinue
 
 | Event | Subject |
 | --- | --- |
-| `CatalogItemCreatedIntegrationEvent` | `gma.catalog.item-created.v1` |
-| `CatalogItemUpdatedIntegrationEvent` | `gma.catalog.item-updated.v1` |
-| `CatalogItemDiscontinuedIntegrationEvent` | `gma.catalog.item-discontinued.v1` |
+| `CatalogItemCreatedIntegrationEvent` | `{application-namespace}.catalog.item-created.v1` |
+| `CatalogItemUpdatedIntegrationEvent` | `{application-namespace}.catalog.item-updated.v1` |
+| `CatalogItemDiscontinuedIntegrationEvent` | `{application-namespace}.catalog.item-discontinued.v1` |
 
-Events are written by domain-event handlers through the module outbox.
+Events are written by domain-event handlers through the module outbox. The local default namespace is `gma`; `CatalogIntegrationSubjects` can render the same logical events under a configured application namespace.
 
 ## Compose Explicitly
 

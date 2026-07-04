@@ -16,11 +16,11 @@ Current dependencies:
 
 Required production configuration:
 
+- `ApplicationIdentity:DisplayName`
+- `ApplicationIdentity:Namespace`
 - `Persistence:Provider`
 - provider connection string
 - `ConnectionStrings:nats`
-- `Auth:Jwt:Issuer`
-- `Auth:Jwt:Audience`
 - `Auth:Jwt:SigningKey`
 - `Auth:RefreshTokens:Pepper`
 - `Auth:RefreshTokenLifetimeDays`
@@ -34,10 +34,10 @@ Recommended production configuration:
 - `Outbox:LockDurationMilliseconds`
 - `Outbox:MaxAttempts`
 - `NatsJetStream:Enabled`
-- `NatsJetStream:StreamName`
+- optional `NatsJetStream:StreamName` only when broker naming must differ from `ApplicationIdentity:Namespace`
 - `ConnectionStrings:nats` when JetStream publishing is enabled
 - `NatsConsumers:Enabled` only for hosts that explicitly register consumers
-- `NatsConsumers:DurablePrefix`
+- optional `NatsConsumers:DurablePrefix` only when durable names must differ from `ApplicationIdentity:Namespace`
 - `NatsConsumers:FetchBatchSize`
 - `NatsConsumers:PollInterval`
 - `NatsConsumers:AckWait`
@@ -60,7 +60,7 @@ Recommended production configuration:
 - `Caching:DefaultLocalExpiration`
 - `Caching:MaximumPayloadBytes`
 - `Caching:MaximumKeyLength`
-- `Caching:KeyPrefix`
+- optional `Caching:KeyPrefix` only when cache storage must differ from `ApplicationIdentity:Namespace`
 - `Caching:Redis:ConnectionName` when Redis is selected
 - `ConnectionStrings:redis` when Redis is selected
 - optional `Caching:Redis:InstanceName` only when Redis itself needs an extra provider-level prefix
@@ -70,6 +70,7 @@ Recommended production configuration:
 - `Administration:Api:TenantIdClaim`
 - `Administration:Api:RequireTenantClaimMatch`
 - `Administration:Api:AllowGeneratedPasswordResponses`
+- optional `Auth:Jwt:Issuer` and `Auth:Jwt:Audience` only when they must differ from `ApplicationIdentity:DisplayName`
 
 Never use checked-in development JWT signing keys, refresh-token peppers, or database passwords in production. Auth option classes intentionally have no secret defaults; local placeholders live only in development configuration. The JWT signing key and refresh-token pepper are both validated for minimum shape at startup, but secret rotation and storage are still deployment responsibilities.
 
@@ -108,7 +109,7 @@ Caching is disabled by default and must remain an optimization. Redis configurat
 When enabling Redis:
 
 - provision bounded memory and an eviction policy appropriate for disposable data;
-- monitor `gma.cache.backend.failures` and `gma.cache.invalidation.failures`;
+- monitor `{ApplicationIdentity:Namespace}.cache.backend.failures` and `{ApplicationIdentity:Namespace}.cache.invalidation.failures`;
 - keep TTLs bounded so failed invalidation self-recovers;
 - disable L1 or shorten local TTL for entries that need faster cross-node coherence;
 - never use cache contents for authorization or tenant resolution.

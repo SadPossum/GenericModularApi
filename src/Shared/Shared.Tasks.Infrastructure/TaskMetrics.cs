@@ -2,8 +2,10 @@ namespace Shared.Tasks.Infrastructure;
 
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Options;
 using Shared.Observability;
 using Shared.Observability.Infrastructure;
+using Shared.Runtime;
 using Shared.Tasks;
 
 public sealed class TaskMetrics
@@ -14,33 +16,37 @@ public sealed class TaskMetrics
     private readonly Histogram<double> duration;
     private readonly TaskMetricsSnapshotStore snapshots;
 
-    public TaskMetrics(IMeterFactory meterFactory, TaskMetricsSnapshotStore snapshots)
+    public TaskMetrics(
+        IMeterFactory meterFactory,
+        TaskMetricsSnapshotStore snapshots,
+        IOptions<ApplicationIdentityOptions> applicationIdentity)
     {
         ArgumentNullException.ThrowIfNull(meterFactory);
         ArgumentNullException.ThrowIfNull(snapshots);
 
         this.snapshots = snapshots;
-        Meter meter = meterFactory.Create(ObservabilityMeterNames.Tasks);
+        string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+        Meter meter = meterFactory.Create(ObservabilityMeterNames.TasksFor(applicationNamespace));
         this.claimed = meter.CreateCounter<long>(
-            ObservabilityInstrumentNames.TaskClaimed,
+            ObservabilityInstrumentNames.TaskClaimedFor(applicationNamespace),
             description: "Number of task runs claimed by workers.");
         this.completed = meter.CreateCounter<long>(
-            ObservabilityInstrumentNames.TaskCompleted,
+            ObservabilityInstrumentNames.TaskCompletedFor(applicationNamespace),
             description: "Number of task runs completed by workers.");
         this.timedOut = meter.CreateCounter<long>(
-            ObservabilityInstrumentNames.TaskTimedOut,
+            ObservabilityInstrumentNames.TaskTimedOutFor(applicationNamespace),
             description: "Number of stale task runs marked timed out.");
         this.duration = meter.CreateHistogram<double>(
-            ObservabilityInstrumentNames.TaskDuration,
+            ObservabilityInstrumentNames.TaskDurationFor(applicationNamespace),
             unit: "ms",
             description: "Task handler execution duration in milliseconds.");
         _ = meter.CreateObservableGauge(
-            ObservabilityInstrumentNames.TaskQueueDepth,
+            ObservabilityInstrumentNames.TaskQueueDepthFor(applicationNamespace),
             snapshots.ObserveQueueDepth,
             unit: "{runs}",
             description: "Current queued or retry-scheduled task runs by status.");
         _ = meter.CreateObservableGauge(
-            ObservabilityInstrumentNames.TaskActiveRuns,
+            ObservabilityInstrumentNames.TaskActiveRunsFor(applicationNamespace),
             snapshots.ObserveActiveRuns,
             unit: "{runs}",
             description: "Current leased, running, or cancellation-requested task runs by status.");

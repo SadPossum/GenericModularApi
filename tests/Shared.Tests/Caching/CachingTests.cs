@@ -16,6 +16,7 @@ using Shared.Tenancy;
 using Shared.Cqrs.UnitOfWork;
 using Shared.Caching.Redis;
 using Shared.Results;
+using Shared.Runtime;
 using Shared.Caching.Infrastructure;
 using Shared.Cqrs.Infrastructure;
 using Xunit;
@@ -120,11 +121,26 @@ public sealed class CachingTests
         var formatter = new CacheKeyFormatter(
             new MutableTenantContext { TenantId = " alpha " },
             new MutableHostEnvironment { EnvironmentName = " RedisTests_1 " },
-            Options.Create(new CachingOptions { KeyPrefix = " GMA-DEV_1 " }));
+            Options.Create(new CachingOptions { KeyPrefix = " GMA-DEV_1 " }),
+            Options.Create(new ApplicationIdentityOptions()));
 
         string physicalKey = formatter.Format(CacheKey.Tenant("catalog", "product", "42"));
 
         Assert.Equal("gma-dev_1:redistests_1:catalog:tenant:alpha:product:42", physicalKey);
+    }
+
+    [Fact]
+    public void Cache_formatter_uses_application_namespace_when_storage_prefix_is_not_configured()
+    {
+        var formatter = new CacheKeyFormatter(
+            new MutableTenantContext { TenantId = " alpha " },
+            new MutableHostEnvironment { EnvironmentName = " RedisTests " },
+            Options.Create(new CachingOptions()),
+            Options.Create(new ApplicationIdentityOptions { Namespace = "acme-orders" }));
+
+        string physicalKey = formatter.Format(CacheKey.Tenant("catalog", "product", "42"));
+
+        Assert.Equal("acme-orders:redistests:catalog:tenant:alpha:product:42", physicalKey);
     }
 
     [Theory]
@@ -539,7 +555,9 @@ public sealed class CachingTests
         ServiceCollection services = [];
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CacheMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CacheMetrics metrics = new(
+            provider.GetRequiredService<IMeterFactory>(),
+            Options.Create(new ApplicationIdentityOptions()));
         using HybridCacheMetricsLoggerProvider loggerProvider = new(
             metrics,
             Options.Create(new CachingOptions { Provider = CacheProvider.Redis }));

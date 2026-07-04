@@ -1,7 +1,10 @@
 namespace Shared.Tests;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Shared.Messaging;
+using Shared.Naming;
+using Shared.Runtime;
 using Shared.Runtime.Time;
 using Shared.Messaging.Infrastructure;
 using Xunit;
@@ -62,6 +65,25 @@ public sealed class EfOutboxWriterTests
     }
 
     [Fact]
+    public async Task Enqueue_uses_configured_application_namespace_for_subject()
+    {
+        using TestDbContext dbContext = CreateDbContext();
+        TestOutboxWriter writer = new(dbContext, "catalog", "acme-orders");
+
+        await writer.EnqueueAsync(
+            new TestIntegrationEvent(
+                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                "item-created",
+                1,
+                "tenant-a",
+                Now),
+            CancellationToken.None);
+
+        OutboxMessage message = Assert.Single(dbContext.ChangeTracker.Entries<OutboxMessage>()).Entity;
+        Assert.Equal("acme-orders.catalog.item-created.v1", message.Subject);
+    }
+
+    [Fact]
     public async Task Enqueue_rejects_null_event()
     {
         using TestDbContext dbContext = CreateDbContext();
@@ -101,8 +123,15 @@ public sealed class EfOutboxWriterTests
         return new TestDbContext(options);
     }
 
-    private sealed class TestOutboxWriter(TestDbContext dbContext, string moduleName)
-        : EfOutboxWriter<TestDbContext>(dbContext, new TestClock(), moduleName);
+    private sealed class TestOutboxWriter(
+        TestDbContext dbContext,
+        string moduleName,
+        string applicationNamespace = ApplicationNamespaces.Default)
+        : EfOutboxWriter<TestDbContext>(
+            dbContext,
+            new TestClock(),
+            Options.Create(new ApplicationIdentityOptions { Namespace = applicationNamespace }),
+            moduleName);
 
     private sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
     {

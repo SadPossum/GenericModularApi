@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Shared.Runtime.Identity;
 using Shared.Messaging;
 using Shared.Observability;
+using Shared.Runtime;
 using Shared.Runtime.Time;
 using Shared.Messaging.Infrastructure;
 using Shared.Observability.Infrastructure;
@@ -45,7 +46,9 @@ public sealed class OutboxPublisherServiceTests
                 PollIntervalMilliseconds = 10_000,
                 LockDurationMilliseconds = 1_000,
             }),
-            new OutboxMetrics(provider.GetRequiredService<IMeterFactory>()),
+            new OutboxMetrics(
+                provider.GetRequiredService<IMeterFactory>(),
+                Options.Create(new ApplicationIdentityOptions())),
             new ThrowingLogger<OutboxPublisherService>());
 
         await service.StartAsync(CancellationToken.None);
@@ -246,7 +249,9 @@ public sealed class OutboxPublisherServiceTests
                 PollIntervalMilliseconds = 10_000,
                 LockDurationMilliseconds = 1_000,
             }),
-            new OutboxMetrics(provider.GetRequiredService<IMeterFactory>()),
+            new OutboxMetrics(
+                provider.GetRequiredService<IMeterFactory>(),
+                Options.Create(new ApplicationIdentityOptions())),
             logger);
 
     private static MeterListener CreateThrowingMessagingMeterListener()

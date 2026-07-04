@@ -45,7 +45,7 @@ Consumers must still keep inbox idempotency because delivery remains at-least-on
 Integration event subjects use:
 
 ```text
-gma.{module}.{event}.v{version}
+{application-namespace}.{module}.{event}.v{version}
 ```
 
 Example:
@@ -53,6 +53,8 @@ Example:
 ```text
 gma.auth.member-registered.v1
 ```
+
+`gma` is the default `ApplicationIdentity:Namespace` for this skeleton. Set a project-specific namespace such as `acme-orders` before creating production streams, durable consumers, cache keys, or dashboards. Module contracts should keep stable logical module/event/version names and render physical subjects through `IntegrationEventNaming` or the module's subject factory methods.
 
 ## Outbox Flow
 
@@ -88,13 +90,12 @@ NATS stream options:
 ```json
 {
   "NatsJetStream": {
-    "Enabled": false,
-    "StreamName": "GMA_EVENTS"
+    "Enabled": false
   }
 }
 ```
 
-`StreamName` is required when JetStream publishing or consumers are enabled. The skeleton intentionally accepts only ASCII letters, digits, `-`, and `_` for stream names. That follows the portable subset of [NATS JetStream naming guidance](https://docs.nats.io/nats-concepts/jetstream/streams): stream names must not contain whitespace, `.`, `*`, `>`, path separators, or non-printable characters. The `gma` subject prefix is a contract convention, not a deployment option.
+`StreamName` is optional. When it is absent, infrastructure derives a stream name from `ApplicationIdentity:Namespace`, for example `gma` becomes `GMA_EVENTS` and `acme-orders` becomes `ACME_ORDERS_EVENTS`. Override `NatsJetStream:StreamName` only when an existing broker naming policy requires it. The skeleton intentionally accepts only ASCII letters, digits, `-`, and `_` for stream names. That follows the portable subset of [NATS JetStream naming guidance](https://docs.nats.io/nats-concepts/jetstream/streams): stream names must not contain whitespace, `.`, `*`, `>`, path separators, or non-printable characters.
 
 ## Claiming and Retry
 

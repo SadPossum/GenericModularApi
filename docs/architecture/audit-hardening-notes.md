@@ -11,7 +11,7 @@ These are current audit notes for future refactoring passes. They are intentiona
 - Outbox publishing starts only when a host opts into a concrete messaging adapter.
 - Disabled NATS consumers can be registered without a NATS connection; the connection is resolved only after consumer runtime is enabled.
 - NATS pull fetch expiration is clamped above the client minimum, while polling/retry delay remains configurable.
-- NATS stream name lives in `NatsJetStream` options; the `gma` subject prefix remains a contract convention.
+- NATS stream names, subjects, durable prefixes, cache key prefixes, and app-owned meter names derive from `ApplicationIdentity:Namespace` unless an adapter-specific physical override is configured.
 - Architecture tests now guard production project package references so `System.CommandLine` stays in CLI front doors and backend adapter packages stay out of module projects.
 - Repeated architecture-test module assembly lists were replaced with one explicit test-only `ArchitectureCatalog`.
 - Feature-module typed admin permission constants moved into optional `<Module>.Admin.Contracts` projects, leaving public `.Contracts` free of `Shared.Administration`.

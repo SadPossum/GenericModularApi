@@ -7,8 +7,10 @@ Describe why this event exists and who is expected to consume it.
 ## Subject
 
 ```text
-gma.<module>.<event>.v<version>
+{application-namespace}.<module>.<event>.v<version>
 ```
+
+Use `gma` only as the default local skeleton namespace. Production applications should set `ApplicationIdentity:Namespace` and render subjects through shared naming helpers or module subject factories.
 
 ## Version
 
@@ -54,7 +56,7 @@ If no consumer exists yet, write `No consumers yet` and include the intended com
 For each consumer, document:
 
 - stable lowercase kebab-case handler name;
-- durable consumer name shape: `gma-<environment>-<consumer-module>-<handler-name>`;
+- durable consumer name shape: `<application-namespace>-<environment>-<consumer-module>-<handler-name>`;
 - inbox table/schema;
 - local projection/table updated;
 - idempotency key;

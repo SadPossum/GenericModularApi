@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Shared.Cqrs;
 using Shared.Caching;
 using Shared.Cqrs.Infrastructure;
+using Shared.Runtime.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -29,6 +30,7 @@ public static class DependencyInjection
                 validation.Failures);
         }
 
+        builder.AddRuntimeInfrastructure();
         builder.AddCqrsInfrastructure();
 
         if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(CachingInfrastructureRegistrationMarker)))

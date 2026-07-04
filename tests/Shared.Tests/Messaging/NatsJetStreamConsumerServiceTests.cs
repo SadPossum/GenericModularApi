@@ -11,6 +11,7 @@ using Shared.Messaging;
 using Shared.Messaging.Nats;
 using Shared.Messaging.Infrastructure;
 using Shared.Observability.Infrastructure;
+using Shared.Runtime;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -150,6 +151,7 @@ public sealed class NatsJetStreamConsumerServiceTests
             new NatsJetStreamEventBus(
                 connection: null!,
                 Options.Create(invalidOptions),
+                Options.Create(new ApplicationIdentityOptions()),
                 NullLogger<NatsJetStreamEventBus>.Instance));
         Assert.Throws<ArgumentException>(() =>
             CreateService(
@@ -343,8 +345,11 @@ public sealed class NatsJetStreamConsumerServiceTests
             registry,
             Options.Create(consumerOptions),
             Options.Create(jetStreamOptions ?? new NatsJetStreamOptions()),
+            Options.Create(new ApplicationIdentityOptions()),
             new TestHostEnvironment(),
-            new InboxMetrics(provider.GetRequiredService<IMeterFactory>()),
+            new InboxMetrics(
+                provider.GetRequiredService<IMeterFactory>(),
+                Options.Create(new ApplicationIdentityOptions())),
             new ThrowingLogger());
 
     private sealed class ThrowingLogger : ILogger<NatsJetStreamConsumerService>

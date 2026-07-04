@@ -25,7 +25,7 @@ The service:
 
 - validates that every subscription has a matching module-owned inbox store;
 - creates a durable JetStream pull consumer per subscription;
-- names durable consumers as a NATS-safe physical key shaped like `gma-<environment>-<consumer-module>-<handler-name>`;
+- names durable consumers as a NATS-safe physical key shaped like `<application-namespace>-<environment>-<consumer-module>-<handler-name>`;
 - deserializes messages by subscription event type;
 - sets tenant context from the event tenant id for tenant-scoped subscriptions;
 - invokes the handler through DI with a cached typed delegate;
@@ -34,7 +34,7 @@ The service:
 
 NATS durable names cannot use subject-style dots. Keep subjects dotted, but keep physical durable names hyphenated and derived from the stable handler name.
 The consumer runtime uses reflection only when compiling a per-subscription handler invoker. Message processing then calls the cached typed delegate, preserving direct handler exceptions for inbox failure metadata and retry diagnostics. Keep this framework magic covered by focused tests whenever the invocation path changes.
-Subscription metadata is validated when it is created: module names, event names, and stable handler names are lowercase kebab-case segments, and subjects follow `gma.<module>.<event>.v<version>`.
+Subscription metadata is validated when it is created: module names, event names, and stable handler names are lowercase kebab-case segments, and subjects follow `<application-namespace>.<module>.<event>.v<version>`. The default namespace is `gma`; configured consumers render the physical subject from `ApplicationIdentity:Namespace`.
 
 ## Options
 
@@ -42,7 +42,6 @@ Subscription metadata is validated when it is created: module names, event names
 {
   "NatsConsumers": {
     "Enabled": false,
-    "DurablePrefix": "gma",
     "FetchBatchSize": 10,
     "PollInterval": "00:00:01",
     "AckWait": "00:00:30",
@@ -54,10 +53,10 @@ Subscription metadata is validated when it is created: module names, event names
 ```
 
 `Enabled=false` is the default. A host may register the hosted service without starting consumers until configuration enables it.
-Stream name is configured through `NatsJetStream` options and uses the same restricted portable character set as publishing: ASCII letters, digits, `-`, and `_`. The `gma` subject prefix is part of the event contract convention.
-`DurablePrefix` is the first segment of the physical durable consumer name, not a subject prefix.
+Stream name is configured through `NatsJetStream` options and uses the same restricted portable character set as publishing: ASCII letters, digits, `-`, and `_`. If `NatsJetStream:StreamName` is blank, it is derived from `ApplicationIdentity:Namespace`.
+`DurablePrefix` is optional. When it is absent, the first segment of the physical durable consumer name is derived from `ApplicationIdentity:Namespace`. It is not a subject prefix.
 The runtime keeps NATS fetch expiration above the NATS client minimum even when `PollInterval` is configured below one second. Short poll intervals may still be useful for retry delays and tests, but the pull fetch window must remain valid for the client.
-Consumer runtime values are validated at startup. `DurablePrefix` is required and must be a lowercase kebab-case durable-name segment, `FetchBatchSize` must be between 1 and 500, and `PollInterval`, `AckWait`, `MaxDeliver`, `HandlerTimeout`, and `NakDelay` must be positive. Environment names used by consumer hosts must also normalize to a lowercase kebab-case durable-name segment; use values like `development`, `staging`, or `production`.
+Consumer runtime values are validated at startup. A configured `DurablePrefix` must be a lowercase kebab-case durable-name segment, `FetchBatchSize` must be between 1 and 500, and `PollInterval`, `AckWait`, `MaxDeliver`, `HandlerTimeout`, and `NakDelay` must be positive. Environment names used by consumer hosts must also normalize to a lowercase kebab-case durable-name segment; use values like `development`, `staging`, or `production`.
 
 ## Inbox
 

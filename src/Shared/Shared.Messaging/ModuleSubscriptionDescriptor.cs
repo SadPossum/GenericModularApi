@@ -13,15 +13,17 @@ public sealed record ModuleSubscriptionDescriptor
     {
         this.ProducerModule = ModuleMetadataNaming.NormalizeModuleName(producerModule, nameof(producerModule));
         this.EventType = IntegrationEventNaming.NormalizeEventName(eventType, nameof(eventType));
-        this.Subject = IntegrationEventNaming.NormalizeSubject(subject, nameof(subject));
+        IntegrationEventSubject parsedSubject = IntegrationEventNaming.ParseSubject(subject, nameof(subject));
+        this.SubjectPrefix = parsedSubject.SubjectPrefix;
+        this.Subject = parsedSubject.CreateSubject();
         this.HandlerName = IntegrationEventNaming.NormalizeHandlerName(handlerName, nameof(handlerName));
         this.TenantScoped = tenantScoped;
 
         string expectedSubject = IntegrationEventNaming.CreateSubject(
-            "gma",
+            this.SubjectPrefix,
             this.ProducerModule,
             this.EventType,
-            VersionFromSubject(this.Subject));
+            parsedSubject.Version);
         if (!string.Equals(this.Subject, expectedSubject, StringComparison.Ordinal))
         {
             throw new ArgumentException(
@@ -32,13 +34,12 @@ public sealed record ModuleSubscriptionDescriptor
 
     public string ProducerModule { get; }
     public string EventType { get; }
+    public string SubjectPrefix { get; }
     public string Subject { get; }
     public string HandlerName { get; }
     public bool TenantScoped { get; }
+    public int Version => IntegrationEventNaming.ParseSubject(this.Subject).Version;
 
-    private static int VersionFromSubject(string subject)
-    {
-        string versionSegment = subject.Split('.')[3];
-        return int.Parse(versionSegment[1..], System.Globalization.CultureInfo.InvariantCulture);
-    }
+    public string CreateSubject(string subjectPrefix) =>
+        IntegrationEventNaming.CreateSubject(subjectPrefix, this.ProducerModule, this.EventType, this.Version);
 }

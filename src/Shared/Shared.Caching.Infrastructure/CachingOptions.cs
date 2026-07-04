@@ -11,5 +11,5 @@ public sealed class CachingOptions
     public TimeSpan DefaultLocalExpiration { get; set; } = TimeSpan.FromSeconds(30);
     public int MaximumPayloadBytes { get; set; } = 1024 * 1024;
     public int MaximumKeyLength { get; set; } = 1024;
-    public string KeyPrefix { get; set; } = "gma";
+    public string? KeyPrefix { get; set; }
 }

@@ -12,51 +12,51 @@ Observability is split into vendor-neutral module instrumentation and optional h
 
 ## Meter and Source Names
 
-All application-owned meters and activity sources use the `gma.*` prefix.
+All application-owned meters and activity sources use the configured `{application-namespace}.*` prefix. The default `ApplicationIdentity:Namespace` is `gma`.
 
 Current meters:
 
 ```text
-gma.application
-gma.caching
-gma.messaging
+{application-namespace}.application
+{application-namespace}.caching
+{application-namespace}.messaging
 ```
 
 Future module example:
 
 ```text
-gma.billing
+{application-namespace}.billing
 ```
 
-`ServiceDefaults` subscribes to `gma.*`, so new module meters do not require exporter changes.
+`ServiceDefaults` subscribes to `{application-namespace}.*`, so new module meters do not require exporter changes after the application namespace is configured.
 
 ## Current Metrics
 
 CQRS:
 
-- `gma.commands.executed`
-- `gma.commands.duration`
-- `gma.queries.executed`
-- `gma.queries.duration`
+- `{application-namespace}.commands.executed`
+- `{application-namespace}.commands.duration`
+- `{application-namespace}.queries.executed`
+- `{application-namespace}.queries.duration`
 
 Outbox:
 
-- `gma.outbox.claimed`
-- `gma.outbox.published`
-- `gma.outbox.failed`
-- `gma.outbox.publish.duration`
+- `{application-namespace}.outbox.claimed`
+- `{application-namespace}.outbox.published`
+- `{application-namespace}.outbox.failed`
+- `{application-namespace}.outbox.publish.duration`
 
 Inbox:
 
-- `gma.inbox.messages`
-- `gma.inbox.process.duration`
+- `{application-namespace}.inbox.messages`
+- `{application-namespace}.inbox.process.duration`
 
 Caching:
 
-- `gma.cache.requests`
-- `gma.cache.duration`
-- `gma.cache.backend.failures`
-- `gma.cache.invalidation.failures`
+- `{application-namespace}.cache.requests`
+- `{application-namespace}.cache.duration`
+- `{application-namespace}.cache.backend.failures`
+- `{application-namespace}.cache.invalidation.failures`
 
 Common metric tags:
 
@@ -94,7 +94,7 @@ RouteGroupBuilder group = endpoints.MapGroup("/api/auth")
     .WithTags("Auth");
 ```
 
-HTTP hosts call `UseConfiguredSerilog()` from `Shared.Logging.Serilog` to load their local Serilog appsettings, then call `UseGmaSerilogRequestLogging()` from `Shared.Api.Serilog`. The request logging adapter reads endpoint metadata and enriches Serilog request events with module, tenant, and trace properties while hosts still own levels, sinks, and deployment-specific configuration data.
+HTTP hosts call `UseConfiguredSerilog()` from `Shared.Logging.Serilog` to load their local Serilog appsettings, then call `UseSharedSerilogRequestLogging()` from `Shared.Api.Serilog`. The request logging adapter reads endpoint metadata and enriches Serilog request events with module, tenant, and trace properties while hosts still own levels, sinks, and deployment-specific configuration data.
 
 `Shared.Api` remains vendor-neutral and owns only HTTP/module metadata. Serilog-specific request logging lives in the separate adapter project so modules can depend on generic API contracts without inheriting logging backend packages.
 Serilog host configuration lives in `Shared.Logging.Serilog`, so host projects do not reference Serilog packages directly.
@@ -158,14 +158,18 @@ This keeps Loki out of module and host contracts. A deployment can replace Loki 
 Create a module-owned internal metrics class using `IMeterFactory`:
 
 ```csharp
+using Microsoft.Extensions.Options;
+using Shared.Runtime;
+
 internal sealed class BillingMetrics
 {
     private readonly Counter<long> invoicesCreated;
 
-    public BillingMetrics(IMeterFactory meterFactory)
+    public BillingMetrics(IMeterFactory meterFactory, IOptions<ApplicationIdentityOptions> applicationIdentity)
     {
-        Meter meter = meterFactory.Create("gma.billing");
-        this.invoicesCreated = meter.CreateCounter<long>("gma.billing.invoices.created");
+        string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+        Meter meter = meterFactory.Create($"{applicationNamespace}.billing");
+        this.invoicesCreated = meter.CreateCounter<long>($"{applicationNamespace}.billing.invoices.created");
     }
 }
 ```

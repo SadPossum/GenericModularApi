@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 public static class ApiSecurityServiceCollectionExtensions
 {
-    public static IServiceCollection AddGmaApiSecurityDefaults(this IServiceCollection services)
+    public static IServiceCollection AddApiSecurityDefaults(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -13,4 +13,7 @@ public static class ApiSecurityServiceCollectionExtensions
 
         return services;
     }
+
+    public static IServiceCollection AddGmaApiSecurityDefaults(this IServiceCollection services) =>
+        AddApiSecurityDefaults(services);
 }

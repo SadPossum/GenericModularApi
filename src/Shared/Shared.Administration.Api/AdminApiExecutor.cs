@@ -17,7 +17,7 @@ public sealed class AdminApiExecutor(
     IOptions<AdminApiOptions> options,
     IOptions<TenantOptions> tenantOptions)
 {
-    private const string AuditHeaderName = "X-GMA-Admin-Audit";
+    private const string AuditHeaderName = "X-Admin-Audit";
 
     public async Task<IResult> ExecuteAsync<T>(
         HttpContext httpContext,
@@ -112,7 +112,7 @@ public sealed class AdminApiExecutor(
 
         string? actorId =
             user.FindFirstValue(options.Value.ActorIdClaim) ??
-            user.FindFirstValue(GmaClaimNames.Subject) ??
+            user.FindFirstValue(ApplicationClaimNames.Subject) ??
             user.FindFirstValue(ClaimTypes.NameIdentifier) ??
             user.FindFirstValue(ClaimTypes.Name);
 

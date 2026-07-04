@@ -25,6 +25,17 @@ public sealed class CatalogIntegrationEventContractTests
     }
 
     [Fact]
+    public void Catalog_subjects_support_default_and_configured_application_namespaces()
+    {
+        Assert.Equal("gma.catalog.item-created.v1", CatalogIntegrationSubjects.ItemCreated);
+        Assert.Equal("acme-orders.catalog.item-created.v1", CatalogIntegrationSubjects.CreateItemCreated("acme-orders"));
+        Assert.Equal("acme-orders.catalog.item-updated.v1", CatalogIntegrationSubjects.CreateItemUpdated("acme-orders"));
+        Assert.Equal(
+            "acme-orders.catalog.item-discontinued.v1",
+            CatalogIntegrationSubjects.CreateItemDiscontinued("acme-orders"));
+    }
+
+    [Fact]
     public void Created_event_normalizes_metadata_and_item_snapshot()
     {
         CatalogItemCreatedIntegrationEvent integrationEvent = new(

@@ -22,18 +22,18 @@ builder.AddCachingInfrastructure();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging();
-builder.Services.AddGmaApiSecurityDefaults();
+builder.Services.AddApiSecurityDefaults();
 
 builder.AddAdminApiModule<AdministrationAdminApiModule>();
 builder.AddAdminApiModule<AuthAdminApiModule>();
 
 builder.AddServiceDefaults();
-builder.AddGmaOpenApi();
+builder.AddSharedOpenApi();
 
 WebApplication app = builder.Build();
 
-app.UseGmaOpenApi();
-app.UseGmaSerilogRequestLogging();
+app.UseSharedOpenApi();
+app.UseSharedSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

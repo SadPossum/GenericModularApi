@@ -83,6 +83,8 @@ Set these variables in the request file:
 
 Core runtime keys:
 
+- `ApplicationIdentity:DisplayName`
+- `ApplicationIdentity:Namespace`
 - `Persistence:Provider`
 - `ConnectionStrings:SqlServer`
 - `ConnectionStrings:PostgreSql`
@@ -94,7 +96,7 @@ Core runtime keys:
 - `Caching:DefaultLocalExpiration`
 - `Caching:MaximumPayloadBytes`
 - `Caching:MaximumKeyLength`
-- `Caching:KeyPrefix`
+- `Caching:KeyPrefix` optional physical override; defaults to `ApplicationIdentity:Namespace`
 - `Caching:Redis:ConnectionName`
 - `Caching:Redis:InstanceName`
 - `Tenancy:Enabled`
@@ -105,10 +107,10 @@ Core runtime keys:
 - `Outbox:LockDurationMilliseconds`
 - `Outbox:MaxAttempts`
 - `NatsJetStream:Enabled`
-- `NatsJetStream:StreamName`
+- `NatsJetStream:StreamName` optional physical override; defaults from `ApplicationIdentity:Namespace`
 - `ConnectionStrings:nats` when JetStream publishing is enabled
 - `NatsConsumers:Enabled`
-- `NatsConsumers:DurablePrefix`
+- `NatsConsumers:DurablePrefix` optional physical override; defaults to `ApplicationIdentity:Namespace`
 - `NatsConsumers:FetchBatchSize`
 - `NatsConsumers:PollInterval`
 - `NatsConsumers:AckWait`
@@ -124,8 +126,8 @@ Core runtime keys:
 - `Observability:Otlp:ExportLogs`
 - `Auth:RefreshTokenLifetimeDays`
 - `Auth:RefreshTokens:Pepper`
-- `Auth:Jwt:Issuer`
-- `Auth:Jwt:Audience`
+- `Auth:Jwt:Issuer` optional override; defaults to `ApplicationIdentity:DisplayName`
+- `Auth:Jwt:Audience` optional override; defaults to `ApplicationIdentity:DisplayName`
 - `Auth:Jwt:SigningKey`
 - `Auth:Jwt:AccessTokenLifetimeMinutes`
 - `Administration:Bootstrap:AllowWhenAssignmentsExist`

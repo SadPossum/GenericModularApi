@@ -29,6 +29,34 @@ public static class IntegrationEventSubscriptionServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddIntegrationEventHandler<TEvent, THandler>(
+        this IServiceCollection services,
+        string consumerModule,
+        string producerModule,
+        string eventName,
+        int version,
+        string handlerName,
+        bool tenantScoped = true)
+        where TEvent : IIntegrationEvent
+        where THandler : class, IIntegrationEventHandler<TEvent>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        IntegrationEventSubscription subscription = IntegrationEventSubscription.Create<TEvent, THandler>(
+            consumerModule,
+            producerModule,
+            eventName,
+            version,
+            handlerName,
+            tenantScoped);
+
+        services.TryAddSingleton<IIntegrationEventSubscriptionRegistry, IntegrationEventSubscriptionRegistry>();
+        services.TryAddScoped<THandler>();
+        AddSubscription(services, subscription);
+
+        return services;
+    }
+
     private static void AddSubscription(IServiceCollection services, IntegrationEventSubscription subscription)
     {
         foreach (IntegrationEventSubscription existing in services

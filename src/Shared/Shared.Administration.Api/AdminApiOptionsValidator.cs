@@ -7,10 +7,10 @@ internal sealed class AdminApiOptionsValidator : IValidateOptions<AdminApiOption
 {
     public ValidateOptionsResult Validate(string? name, AdminApiOptions options)
     {
-        if (!GmaClaimNames.IsValidClaimName(options.ActorIdClaim))
+        if (!ApplicationClaimNames.IsValidClaimName(options.ActorIdClaim))
         {
             return ValidateOptionsResult.Fail(
-                $"{AdminApiOptions.SectionName}:ActorIdClaim must be 1-{GmaClaimNames.MaxLength} characters and cannot contain whitespace or control characters.");
+                $"{AdminApiOptions.SectionName}:ActorIdClaim must be 1-{ApplicationClaimNames.MaxLength} characters and cannot contain whitespace or control characters.");
         }
 
         if (options.RequireTenantClaimMatch && string.IsNullOrWhiteSpace(options.TenantIdClaim))
@@ -20,10 +20,10 @@ internal sealed class AdminApiOptionsValidator : IValidateOptions<AdminApiOption
         }
 
         if (!string.IsNullOrWhiteSpace(options.TenantIdClaim) &&
-            !GmaClaimNames.IsValidClaimName(options.TenantIdClaim))
+            !ApplicationClaimNames.IsValidClaimName(options.TenantIdClaim))
         {
             return ValidateOptionsResult.Fail(
-                $"{AdminApiOptions.SectionName}:TenantIdClaim must be 1-{GmaClaimNames.MaxLength} characters and cannot contain whitespace or control characters.");
+                $"{AdminApiOptions.SectionName}:TenantIdClaim must be 1-{ApplicationClaimNames.MaxLength} characters and cannot contain whitespace or control characters.");
         }
 
         return ValidateOptionsResult.Success;

@@ -416,8 +416,8 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             string source = File.ReadAllText(hostProgram);
 
-            Assert.Contains("AddGmaOpenApi()", source, StringComparison.Ordinal);
-            Assert.Contains("UseGmaOpenApi()", source, StringComparison.Ordinal);
+            Assert.Contains("AddSharedOpenApi()", source, StringComparison.Ordinal);
+            Assert.Contains("UseSharedOpenApi()", source, StringComparison.Ordinal);
             Assert.DoesNotContain("AddEndpointsApiExplorer", source, StringComparison.Ordinal);
             Assert.DoesNotContain("AddSwaggerGen", source, StringComparison.Ordinal);
             Assert.DoesNotContain("UseSwagger", source, StringComparison.Ordinal);
@@ -499,7 +499,7 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             string source = File.ReadAllText(hostProgram);
 
-            Assert.Contains("AddGmaApiSecurityDefaults()", source, StringComparison.Ordinal);
+            Assert.Contains("AddApiSecurityDefaults()", source, StringComparison.Ordinal);
             Assert.Contains("UseAuthentication()", source, StringComparison.Ordinal);
             Assert.Contains("UseAuthorization()", source, StringComparison.Ordinal);
             Assert.DoesNotContain("AddAuthentication(", source, StringComparison.Ordinal);
@@ -516,6 +516,12 @@ public sealed partial class DeveloperExperienceGuardTests
             "src",
             "Shared",
             "Shared.Security",
+            "ApplicationClaimNames.cs");
+        string compatibilityClaimNamesPath = Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Security",
             "GmaClaimNames.cs");
         string[] rawClaimNameLiterals =
         [
@@ -527,12 +533,46 @@ public sealed partial class DeveloperExperienceGuardTests
             .EnumerateFiles(Path.Combine(repositoryRoot, "src"), "*.cs", SearchOption.AllDirectories)
             .Where(path => !HasIgnoredPathSegment(path))
             .Where(path => !string.Equals(path, claimNamesPath, StringComparison.OrdinalIgnoreCase))
+            .Where(path => !string.Equals(path, compatibilityClaimNamesPath, StringComparison.OrdinalIgnoreCase))
             .SelectMany(path =>
             {
                 string source = File.ReadAllText(path);
                 return rawClaimNameLiterals
                     .Where(token => source.Contains(token, StringComparison.Ordinal))
                     .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_contracts_do_not_hardcode_default_application_namespace_subjects()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+
+        string[] offenders = Directory
+            .EnumerateFiles(modulesRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path => path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(segment => segment.EndsWith(".Contracts", StringComparison.Ordinal)))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                List<string> fileOffenders = [];
+                if (source.Contains("\"gma.", StringComparison.Ordinal))
+                {
+                    fileOffenders.Add($"{Path.GetRelativePath(repositoryRoot, path)}:\"gma.");
+                }
+
+                if (source.Contains("\"GMA.", StringComparison.Ordinal))
+                {
+                    fileOffenders.Add($"{Path.GetRelativePath(repositoryRoot, path)}:\"GMA.");
+                }
+
+                return fileOffenders;
             })
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -682,7 +722,7 @@ public sealed partial class DeveloperExperienceGuardTests
             Assert.Contains("UseConfiguredSerilog()", source, StringComparison.Ordinal);
             Assert.DoesNotContain("UseSerilog(", source, StringComparison.Ordinal);
             Assert.DoesNotContain("ReadFrom.Configuration", source, StringComparison.Ordinal);
-            Assert.Contains("UseGmaSerilogRequestLogging()", source, StringComparison.Ordinal);
+            Assert.Contains("UseSharedSerilogRequestLogging()", source, StringComparison.Ordinal);
             Assert.DoesNotContain("UseSerilogRequestLogging", source, StringComparison.Ordinal);
             Assert.DoesNotContain("EnrichDiagnosticContext", source, StringComparison.Ordinal);
         }
@@ -2228,13 +2268,17 @@ public sealed partial class DeveloperExperienceGuardTests
         string[] requiredConsumerKeys =
         [
             "Enabled",
-            "DurablePrefix",
             "FetchBatchSize",
             "PollInterval",
             "AckWait",
             "MaxDeliver",
             "HandlerTimeout",
             "NakDelay"
+        ];
+        string[] documentedConsumerKeys =
+        [
+            .. requiredConsumerKeys,
+            "DurablePrefix"
         ];
         string[] hostAppsettingsOffenders = Directory
             .EnumerateFiles(srcRoot, "appsettings.json", SearchOption.AllDirectories)
@@ -2251,7 +2295,7 @@ public sealed partial class DeveloperExperienceGuardTests
             "docs",
             "guidelines",
             "deployment-guidelines.md"));
-        string[] docsOffenders = requiredConsumerKeys
+        string[] docsOffenders = documentedConsumerKeys
             .Where(key => !deploymentDocs.Contains($"NatsConsumers:{key}", StringComparison.Ordinal))
             .Select(key => $"deployment-guidelines.md missing NatsConsumers:{key}")
             .ToArray();
@@ -3163,9 +3207,7 @@ public sealed partial class DeveloperExperienceGuardTests
             Path.Combine(sharedRoot, "Shared.Results", "Shared.Results.csproj"),
             Path.Combine(sharedRoot, "Shared.Naming", "Shared.Naming.csproj"),
             Path.Combine(sharedRoot, "Shared.Numerics", "Shared.Numerics.csproj"),
-            Path.Combine(sharedRoot, "Shared.Observability", "Shared.Observability.csproj"),
             Path.Combine(sharedRoot, "Shared.Pagination", "Shared.Pagination.csproj"),
-            Path.Combine(sharedRoot, "Shared.Runtime", "Shared.Runtime.csproj"),
             Path.Combine(sharedRoot, "Shared.Security", "Shared.Security.csproj")
         ];
         string modulesProjectPath = Path.Combine(sharedRoot, "Shared.Modules", "Shared.Modules.csproj");
@@ -3401,7 +3443,8 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Administration\Shared.Administration.csproj",
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
                     @"..\Shared.Results\Shared.Results.csproj",
-                    @"..\Shared.Naming\Shared.Naming.csproj"
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj"
                 ]),
             new(
                 "Shared.Api",
@@ -3459,6 +3502,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj",
                     @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
                 ]),
@@ -3510,6 +3554,8 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
@@ -3563,6 +3609,8 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.Messaging\Shared.Messaging.csproj",
                     @"..\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
@@ -3589,15 +3637,20 @@ public sealed partial class DeveloperExperienceGuardTests
                 [@"..\Shared.Naming\Shared.Naming.csproj"]),
             new("Shared.Naming", [], [], []),
             new("Shared.Numerics", [], [], []),
-            new("Shared.Observability", [], [], []),
+            new(
+                "Shared.Observability",
+                [],
+                [],
+                [@"..\Shared.Naming\Shared.Naming.csproj"]),
             new("Shared.Pagination", [], [], []),
             new(
                 "Shared.Observability.Infrastructure",
-                [],
+                ["Microsoft.Extensions.Options.ConfigurationExtensions"],
                 [],
                 [
                     @"..\Shared.Naming\Shared.Naming.csproj",
-                    @"..\Shared.Observability\Shared.Observability.csproj"
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj"
                 ]),
             new(
                 "Shared.Persistence.EntityFrameworkCore",
@@ -3617,9 +3670,14 @@ public sealed partial class DeveloperExperienceGuardTests
                 ]),
             new(
                 "Shared.Runtime.Infrastructure",
-                ["Microsoft.Extensions.Hosting"],
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions",
+                    "Microsoft.Extensions.Hosting"
+                ],
                 [],
                 [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj"
                 ]),
             new(
@@ -3660,7 +3718,11 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Tasks\Shared.Tasks.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
-            new("Shared.Runtime", [], [], []),
+            new(
+                "Shared.Runtime",
+                [],
+                [],
+                [@"..\Shared.Naming\Shared.Naming.csproj"]),
             new("Shared.Security", [], [], []),
             new(
                 "Shared.Tenancy",
@@ -4023,7 +4085,10 @@ public sealed partial class DeveloperExperienceGuardTests
                     "prometheus-net.AspNetCore"
                 ],
                 ["Microsoft.AspNetCore.App"],
-                [])
+                [
+                    @"..\Shared\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared\Shared.Runtime\Shared.Runtime.csproj"
+                ])
         ];
         HashSet<string> expectedProjectPaths = expectedShapes
             .Select(shape => NormalizePath(shape.ProjectPath))
@@ -5091,7 +5156,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string apiHost = File.ReadAllText(Path.Combine(repositoryRoot, "src", "Host.Api", "Program.cs"));
         string[] requiredTokens =
         [
-            "$hostRegistrationAnchor = '// gma:new-module:public-api-modules'",
+            "$hostRegistrationAnchor = '// module-scaffold:public-api-modules'",
             "composition marker",
             "Could not register '$Name' in Host.Api",
             "Could not verify '$moduleRegistration'",
@@ -5108,7 +5173,7 @@ public sealed partial class DeveloperExperienceGuardTests
             .ToArray();
 
         Assert.Empty(offenders);
-        Assert.Contains("// gma:new-module:public-api-modules", apiHost, StringComparison.Ordinal);
+        Assert.Contains("// module-scaffold:public-api-modules", apiHost, StringComparison.Ordinal);
         Assert.DoesNotContain("$hostRegistrationAnchor = 'builder.AddModule<AuthModule>();'", scaffolder, StringComparison.Ordinal);
     }
 

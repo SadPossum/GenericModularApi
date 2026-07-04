@@ -53,6 +53,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Nats\Shared.Messaging.Nats.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Runtime\Shared.Runtime.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj" />

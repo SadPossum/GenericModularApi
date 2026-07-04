@@ -7,6 +7,7 @@ using NATS.Client.Core;
 using Shared.Messaging;
 using Shared.Messaging.Nats;
 using Shared.Messaging.Infrastructure;
+using Shared.Runtime;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -27,6 +28,7 @@ public sealed class EventBusTests
         var eventBus = new NatsJetStreamEventBus(
             CreateUnusedNatsConnection(),
             Options.Create(new NatsJetStreamOptions()),
+            Options.Create(new ApplicationIdentityOptions()),
             NullLogger<NatsJetStreamEventBus>.Instance);
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
@@ -40,11 +42,13 @@ public sealed class EventBusTests
             new NatsJetStreamEventBus(
                 connection: null!,
                 Options.Create(new NatsJetStreamOptions()),
+                Options.Create(new ApplicationIdentityOptions()),
                 NullLogger<NatsJetStreamEventBus>.Instance));
         Assert.Throws<ArgumentException>(() =>
             new NatsJetStreamEventBus(
                 connection: null!,
                 Options.Create(new NatsJetStreamOptions { StreamName = "GMA.EVENTS" }),
+                Options.Create(new ApplicationIdentityOptions()),
                 NullLogger<NatsJetStreamEventBus>.Instance));
     }
 

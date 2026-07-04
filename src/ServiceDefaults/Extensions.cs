@@ -15,6 +15,8 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Prometheus;
 using ServiceDefaults.Observability;
+using Shared.Naming;
+using Shared.Runtime;
 
 public static class Extensions
 {
@@ -30,7 +32,12 @@ public static class Extensions
         builder.Services.AddSingleton<ServiceDefaultsRegistrationMarker>();
         IConfigurationSection observabilitySection = builder.Configuration.GetSection(ObservabilityOptions.SectionName);
         ObservabilityOptions observability = observabilitySection.Get<ObservabilityOptions>() ?? new();
+        ApplicationIdentityOptions applicationIdentity = builder.Configuration
+            .GetSection(ApplicationIdentityOptions.SectionName)
+            .Get<ApplicationIdentityOptions>() ?? new ApplicationIdentityOptions();
         ValidateObservabilityOptions(observability);
+        ValidateApplicationIdentityOptions(applicationIdentity);
+        string applicationNamespace = applicationIdentity.EffectiveNamespace;
 
         builder.Services
             .AddOptions<ObservabilityOptions>()
@@ -46,7 +53,7 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation();
                 metrics.AddHttpClientInstrumentation();
-                metrics.AddMeter("gma.*");
+                metrics.AddMeter($"{applicationNamespace}.*");
 
                 if (observability.Otlp.Enabled && observability.Otlp.ExportMetrics)
                 {
@@ -57,7 +64,7 @@ public static class Extensions
             {
                 tracing.AddAspNetCoreInstrumentation();
                 tracing.AddHttpClientInstrumentation();
-                tracing.AddSource("gma.*");
+                tracing.AddSource($"{applicationNamespace}.*");
 
                 if (observability.Otlp.Enabled && observability.Otlp.ExportTraces)
                 {
@@ -120,6 +127,28 @@ public static class Extensions
         if (result.Failed)
         {
             throw new OptionsValidationException(ObservabilityOptions.SectionName, typeof(ObservabilityOptions), result.Failures);
+        }
+    }
+
+    private static void ValidateApplicationIdentityOptions(ApplicationIdentityOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.DisplayName))
+        {
+            throw new OptionsValidationException(
+                ApplicationIdentityOptions.SectionName,
+                typeof(ApplicationIdentityOptions),
+                [$"{ApplicationIdentityOptions.SectionName}:DisplayName is required."]);
+        }
+
+        if (!ApplicationNamespaces.IsValid(options.Namespace))
+        {
+            throw new OptionsValidationException(
+                ApplicationIdentityOptions.SectionName,
+                typeof(ApplicationIdentityOptions),
+                [
+                    $"{ApplicationIdentityOptions.SectionName}:Namespace must be a lowercase kebab-case value " +
+                    $"with {ApplicationNamespaces.MaxLength} characters or fewer."
+                ]);
         }
     }
 

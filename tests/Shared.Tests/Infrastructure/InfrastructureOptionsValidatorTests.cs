@@ -13,6 +13,8 @@ using Shared.Caching.Redis;
 using Shared.Caching.Infrastructure;
 using Shared.Messaging.Infrastructure;
 using Shared.Persistence.EntityFrameworkCore;
+using Shared.Runtime;
+using Shared.Runtime.Infrastructure;
 using Shared.Tenancy.Infrastructure;
 using Xunit;
 
@@ -48,6 +50,49 @@ public sealed class InfrastructureOptionsValidatorTests
         context.ClearTenant();
         Assert.Equal("default", context.TenantId);
         Assert.Throws<ArgumentException>(() => context.SetTenant(" "));
+    }
+
+    [Fact]
+    public void Application_identity_validator_accepts_default_and_custom_namespace()
+    {
+        var validator = new ApplicationIdentityOptionsValidator();
+
+        ValidateOptionsResult defaultResult = validator.Validate(name: null, new ApplicationIdentityOptions());
+        ValidateOptionsResult customResult = validator.Validate(
+            name: null,
+            new ApplicationIdentityOptions
+            {
+                DisplayName = "Acme Orders",
+                Namespace = "acme-orders"
+            });
+
+        Assert.True(defaultResult.Succeeded);
+        Assert.True(customResult.Succeeded);
+        Assert.Equal("acme-orders", new ApplicationIdentityOptions { Namespace = " Acme-Orders " }.EffectiveNamespace);
+    }
+
+    [Theory]
+    [InlineData("", "app", "Namespace")]
+    [InlineData("gma.value", "app", "Namespace")]
+    [InlineData("gma_value", "app", "Namespace")]
+    [InlineData("gma value", "app", "Namespace")]
+    [InlineData("gma", "", "DisplayName")]
+    public void Application_identity_validator_rejects_invalid_settings(
+        string applicationNamespace,
+        string displayName,
+        string expectedFailure)
+    {
+        var validator = new ApplicationIdentityOptionsValidator();
+
+        ValidateOptionsResult result = validator.Validate(
+            name: null,
+            new ApplicationIdentityOptions
+            {
+                Namespace = applicationNamespace,
+                DisplayName = displayName
+            });
+
+        AssertFailure(result, expectedFailure);
     }
 
     [Fact]
@@ -181,8 +226,6 @@ public sealed class InfrastructureOptionsValidatorTests
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData(" ")]
     [InlineData("gma dev")]
     [InlineData("gma:dev")]
     [InlineData("gma.dev")]
@@ -408,7 +451,7 @@ public sealed class InfrastructureOptionsValidatorTests
     }
 
     [Fact]
-    public void Nats_jetstream_validator_rejects_missing_stream_name()
+    public void Nats_jetstream_validator_accepts_missing_stream_name_as_application_identity_default()
     {
         var validator = new NatsJetStreamOptionsValidator();
 
@@ -416,7 +459,9 @@ public sealed class InfrastructureOptionsValidatorTests
             name: null,
             new NatsJetStreamOptions { StreamName = string.Empty });
 
-        AssertFailure(result, "StreamName");
+        Assert.True(result.Succeeded);
+        Assert.Equal("ACME_ORDERS_EVENTS", new NatsJetStreamOptions().EffectiveStreamName("acme-orders"));
+        Assert.Equal("acme-orders.>", NatsJetStreamOptions.CreateSubjectWildcard("acme-orders"));
     }
 
     [Theory]
@@ -459,10 +504,10 @@ public sealed class InfrastructureOptionsValidatorTests
         ValidateOptionsResult result = validator.Validate(name: null, new NatsConsumerOptions());
 
         Assert.True(result.Succeeded);
+        Assert.Equal("acme-orders", new NatsConsumerOptions().EffectiveDurablePrefix("acme-orders"));
     }
 
     [Theory]
-    [InlineData("", 10, 1000, 30000, 5, 30000, 1000, "DurablePrefix")]
     [InlineData("gma.prod", 10, 1000, 30000, 5, 30000, 1000, "DurablePrefix")]
     [InlineData("gma prod", 10, 1000, 30000, 5, 30000, 1000, "DurablePrefix")]
     [InlineData("gma", 0, 1000, 30000, 5, 30000, 1000, "FetchBatchSize")]

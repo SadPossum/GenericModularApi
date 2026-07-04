@@ -4,9 +4,11 @@ using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Shared.Cqrs;
 using Shared.Messaging;
 using Shared.Observability;
+using Shared.Runtime;
 using Shared.Tasks;
 using Shared.Tenancy;
 using Shared.Results;
@@ -29,7 +31,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
             new TestTenantContext(),
@@ -62,7 +64,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
             new TestTenantContext(),
@@ -83,6 +85,28 @@ public sealed class ObservabilityMetricsTests
     }
 
     [Fact]
+    public async Task Application_metrics_use_configured_application_namespace()
+    {
+        List<MetricMeasurement> measurements = [];
+        using MeterListener listener = CreateListener(
+            measurements,
+            ObservabilityMeterNames.ApplicationFor("acme-orders"));
+        ServiceCollection services = new();
+        services.AddMetrics();
+        await using ServiceProvider provider = services.BuildServiceProvider();
+        CommandMetrics metrics = new(
+            provider.GetRequiredService<IMeterFactory>(),
+            ApplicationIdentity("acme-orders"));
+
+        metrics.Record("auth", nameof(TestCommand), isSuccess: true, null, TimeSpan.FromMilliseconds(1));
+
+        MetricMeasurement executed = Assert.Single(
+            measurements,
+            item => item.InstrumentName == ObservabilityInstrumentNames.CommandsExecutedFor("acme-orders"));
+        Assert.Equal(1, executed.Value);
+    }
+
+    [Fact]
     public async Task Query_behavior_records_bounded_module_operation_and_result_tags()
     {
         List<MetricMeasurement> measurements = [];
@@ -90,7 +114,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        QueryMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
             new TestTenantContext(),
@@ -123,7 +147,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        QueryMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
             new TestTenantContext(),
@@ -151,7 +175,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        OutboxMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        OutboxMetrics metrics = CreateOutboxMetrics(provider.GetRequiredService<IMeterFactory>());
 
         metrics.RecordClaimed("auth", 3);
         metrics.RecordClaimed("catalog", 0);
@@ -173,7 +197,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        OutboxMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        OutboxMetrics metrics = CreateOutboxMetrics(provider.GetRequiredService<IMeterFactory>());
         const string subject = "gma.auth.member-registered.v1";
 
         metrics.RecordPublished("auth", subject, TimeSpan.FromMilliseconds(12));
@@ -213,7 +237,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        InboxMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        InboxMetrics metrics = CreateInboxMetrics(provider.GetRequiredService<IMeterFactory>());
         const string subject = "gma.catalog.item-created.v1";
 
         metrics.RecordProcessed(
@@ -250,7 +274,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        InboxMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        InboxMetrics metrics = CreateInboxMetrics(provider.GetRequiredService<IMeterFactory>());
 
         metrics.RecordProcessed(
             "ordering",
@@ -274,7 +298,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        OutboxMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        OutboxMetrics metrics = CreateOutboxMetrics(provider.GetRequiredService<IMeterFactory>());
 
         metrics.RecordPublished(
             " Auth ",
@@ -297,7 +321,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CacheMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CacheMetrics metrics = CreateCacheMetrics(provider.GetRequiredService<IMeterFactory>());
 
         metrics.RecordRequest(
             " Catalog ",
@@ -324,7 +348,8 @@ public sealed class ObservabilityMetricsTests
         await using ServiceProvider provider = services.BuildServiceProvider();
         TaskMetrics metrics = new(
             provider.GetRequiredService<IMeterFactory>(),
-            new TaskMetricsSnapshotStore());
+            new TaskMetricsSnapshotStore(),
+            ApplicationIdentity());
 
         metrics.RecordSnapshot(new TaskRunStats(
         [
@@ -367,8 +392,8 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics commandMetrics = new(provider.GetRequiredService<IMeterFactory>());
-        OutboxMetrics outboxMetrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics commandMetrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
+        OutboxMetrics outboxMetrics = CreateOutboxMetrics(provider.GetRequiredService<IMeterFactory>());
 
         Assert.Throws<ArgumentException>(() =>
             commandMetrics.Record("auth module", nameof(TestCommand), isSuccess: true, null, TimeSpan.Zero));
@@ -386,7 +411,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             new ThrowingLogger<LoggingCommandBehavior<TestCommand, Unit>>(),
             new TestTenantContext(),
@@ -411,7 +436,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        QueryMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             new ThrowingLogger<LoggingQueryBehavior<TestQuery, Unit>>(),
             new TestTenantContext(),
@@ -435,7 +460,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = [];
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
             new TestTenantContext(),
@@ -456,7 +481,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = [];
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        QueryMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
             new TestTenantContext(),
@@ -476,7 +501,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             new ThrowingLogger<LoggingCommandBehavior<TestCommand, Unit>>(),
             new TestTenantContext(),
@@ -498,7 +523,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = new();
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        QueryMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             new ThrowingLogger<LoggingQueryBehavior<TestQuery, Unit>>(),
             new TestTenantContext(),
@@ -521,7 +546,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = [];
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        CommandMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
             new TestTenantContext(),
@@ -544,7 +569,7 @@ public sealed class ObservabilityMetricsTests
         ServiceCollection services = [];
         services.AddMetrics();
         await using ServiceProvider provider = services.BuildServiceProvider();
-        QueryMetrics metrics = new(provider.GetRequiredService<IMeterFactory>());
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
             new TestTenantContext(),
@@ -559,6 +584,25 @@ public sealed class ObservabilityMetricsTests
 
         Assert.Same(expected, actual);
     }
+
+    private static CommandMetrics CreateCommandMetrics(IMeterFactory meterFactory) =>
+        new(meterFactory, ApplicationIdentity());
+
+    private static QueryMetrics CreateQueryMetrics(IMeterFactory meterFactory) =>
+        new(meterFactory, ApplicationIdentity());
+
+    private static OutboxMetrics CreateOutboxMetrics(IMeterFactory meterFactory) =>
+        new(meterFactory, ApplicationIdentity());
+
+    private static InboxMetrics CreateInboxMetrics(IMeterFactory meterFactory) =>
+        new(meterFactory, ApplicationIdentity());
+
+    private static CacheMetrics CreateCacheMetrics(IMeterFactory meterFactory) =>
+        new(meterFactory, ApplicationIdentity());
+
+    private static IOptions<ApplicationIdentityOptions> ApplicationIdentity(
+        string applicationNamespace = "gma") =>
+        Options.Create(new ApplicationIdentityOptions { Namespace = applicationNamespace });
 
     private static MeterListener CreateListener(
         ICollection<MetricMeasurement> measurements,

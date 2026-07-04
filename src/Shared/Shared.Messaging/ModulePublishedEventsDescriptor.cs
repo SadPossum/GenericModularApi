@@ -22,7 +22,7 @@ public sealed record ModulePublishedEventsDescriptor : ModuleDescriptorFeature
         foreach (ModuleIntegrationEventDescriptor publishedEvent in this.PublishedEvents)
         {
             string expectedSubject = IntegrationEventNaming.CreateSubject(
-                "gma",
+                publishedEvent.SubjectPrefix,
                 context.ModuleName,
                 publishedEvent.EventType,
                 publishedEvent.Version);

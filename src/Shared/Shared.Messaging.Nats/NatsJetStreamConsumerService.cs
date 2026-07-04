@@ -11,6 +11,7 @@ using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
+using Shared.Runtime;
 using Shared.Tenancy;
 
 internal sealed class NatsJetStreamConsumerService(
@@ -19,6 +20,7 @@ internal sealed class NatsJetStreamConsumerService(
     IIntegrationEventSubscriptionRegistry subscriptions,
     IOptions<NatsConsumerOptions> options,
     IOptions<NatsJetStreamOptions> jetStreamOptions,
+    IOptions<ApplicationIdentityOptions> applicationIdentity,
     IHostEnvironment environment,
     InboxMetrics metrics,
     ILogger<NatsJetStreamConsumerService> logger)
@@ -26,7 +28,8 @@ internal sealed class NatsJetStreamConsumerService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim streamSetupLock = new(1, 1);
-    private readonly string streamName = NatsStreamNames.Normalize(jetStreamOptions.Value.StreamName);
+    private readonly string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+    private readonly string streamName = jetStreamOptions.Value.EffectiveStreamName(applicationIdentity.Value.EffectiveNamespace);
     private volatile bool streamReady;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -62,9 +65,10 @@ internal sealed class NatsJetStreamConsumerService(
         CancellationToken stoppingToken)
     {
         string durableName = this.GetDurableName(subscription);
+        string subject = subscription.CreateSubject(this.applicationNamespace);
         ConsumerConfig consumerConfig = new(durableName)
         {
-            FilterSubject = subscription.Subject,
+            FilterSubject = subject,
             AckWait = options.Value.EffectiveAckWait,
             MaxDeliver = options.Value.EffectiveMaxDeliver,
             MaxAckPending = options.Value.EffectiveFetchBatchSize
@@ -74,7 +78,7 @@ internal sealed class NatsJetStreamConsumerService(
             .CreateOrUpdateConsumerAsync(this.streamName, consumerConfig, stoppingToken)
             .ConfigureAwait(false);
 
-        this.LogConsumerStarted(durableName, subscription.Subject);
+        this.LogConsumerStarted(durableName, subject);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -101,7 +105,7 @@ internal sealed class NatsJetStreamConsumerService(
             }
             catch (Exception exception)
             {
-                this.LogPollingFailure(durableName, subscription.Subject, exception);
+                this.LogPollingFailure(durableName, subject, exception);
                 await Task.Delay(options.Value.EffectivePollInterval, stoppingToken).ConfigureAwait(false);
             }
         }
@@ -112,6 +116,7 @@ internal sealed class NatsJetStreamConsumerService(
         IntegrationEventSubscription subscription,
         CancellationToken stoppingToken)
     {
+        string subject = subscription.CreateSubject(this.applicationNamespace);
         IIntegrationEvent? integrationEvent;
         try
         {
@@ -131,7 +136,7 @@ internal sealed class NatsJetStreamConsumerService(
         }
         catch (JsonException exception)
         {
-            this.LogDeserializationFailure(subscription.Subject, subscription.EventType.FullName, exception);
+            this.LogDeserializationFailure(subject, subscription.EventType.FullName, exception);
             await message.AckTerminateAsync(
                     new AckOpts { TerminateReason = "deserialization-failed" },
                     stoppingToken)
@@ -141,7 +146,7 @@ internal sealed class NatsJetStreamConsumerService(
 
         if (integrationEvent is null)
         {
-            this.LogDeserializationNull(subscription.Subject, subscription.EventType.FullName);
+            this.LogDeserializationNull(subject, subscription.EventType.FullName);
             await message.AckTerminateAsync(
                     new AckOpts { TerminateReason = "deserialization-returned-null" },
                     stoppingToken)
@@ -151,7 +156,7 @@ internal sealed class NatsJetStreamConsumerService(
 
         if (IntegrationEventMetadata.TryGetInvalidReason(integrationEvent, out string invalidReason))
         {
-            this.LogInvalidEventMetadata(subscription.Subject, subscription.EventType.FullName, invalidReason);
+            this.LogInvalidEventMetadata(subject, subscription.EventType.FullName, invalidReason);
             await message.AckTerminateAsync(
                     new AckOpts { TerminateReason = invalidReason },
                     stoppingToken)
@@ -171,7 +176,7 @@ internal sealed class NatsJetStreamConsumerService(
         InboxMessageRecord inboxMessage = new(
             integrationEvent.EventId,
             subscription.HandlerName,
-            subscription.Subject,
+            subject,
             integrationEvent.EventName,
             integrationEvent.Version,
             integrationEvent.TenantId,
@@ -226,7 +231,7 @@ internal sealed class NatsJetStreamConsumerService(
             metrics.RecordProcessed(
                 subscription.ConsumerModule,
                 subscription.HandlerName,
-                subscription.Subject,
+                subscription.CreateSubject(this.applicationNamespace),
                 status,
                 elapsed);
         }
@@ -313,7 +318,7 @@ internal sealed class NatsJetStreamConsumerService(
             }
 
             await jetStream.CreateStreamAsync(
-                    new StreamConfig(this.streamName, [NatsJetStreamOptions.SubjectWildcard]),
+                    new StreamConfig(this.streamName, [NatsJetStreamOptions.CreateSubjectWildcard(this.applicationNamespace)]),
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             this.streamReady = true;
@@ -331,7 +336,7 @@ internal sealed class NatsJetStreamConsumerService(
 
     private string GetDurableName(IntegrationEventSubscription subscription)
     {
-        return CreateDurableName(options.Value.DurablePrefix, environment.EnvironmentName, subscription);
+        return CreateDurableName(options.Value.EffectiveDurablePrefix(this.applicationNamespace), environment.EnvironmentName, subscription);
     }
 
     internal static string CreateDurableName(

@@ -7,15 +7,19 @@ using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
 using Shared.Messaging;
+using Shared.Runtime;
 
 public sealed class NatsJetStreamEventBus(
     INatsConnection connection,
     IOptions<NatsJetStreamOptions> options,
+    IOptions<ApplicationIdentityOptions> applicationIdentity,
     ILogger<NatsJetStreamEventBus> logger) : IEventBus, IDisposable
 {
     private readonly SemaphoreSlim streamSetupLock = new(1, 1);
-    private readonly string streamName = NatsStreamNames.Normalize(
-        (options ?? throw new ArgumentNullException(nameof(options))).Value.StreamName);
+    private readonly string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+    private readonly string streamName = (options ?? throw new ArgumentNullException(nameof(options)))
+        .Value
+        .EffectiveStreamName(applicationIdentity.Value.EffectiveNamespace);
     private readonly INatsConnection connection = connection ?? throw new ArgumentNullException(nameof(connection));
     private volatile bool streamReady;
 
@@ -65,7 +69,7 @@ public sealed class NatsJetStreamEventBus(
             }
 
             await jetStream.CreateStreamAsync(
-                    new StreamConfig(this.streamName, [NatsJetStreamOptions.SubjectWildcard]),
+                    new StreamConfig(this.streamName, [NatsJetStreamOptions.CreateSubjectWildcard(this.applicationNamespace)]),
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 

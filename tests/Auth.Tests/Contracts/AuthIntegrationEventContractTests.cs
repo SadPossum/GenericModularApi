@@ -22,6 +22,18 @@ public sealed class AuthIntegrationEventContractTests
     }
 
     [Fact]
+    public void Auth_subjects_support_default_and_configured_application_namespaces()
+    {
+        Assert.Equal("gma.auth.member-registered.v1", AuthIntegrationSubjects.MemberRegistered);
+        Assert.Equal("acme-orders.auth.member-registered.v1", AuthIntegrationSubjects.CreateMemberRegistered("acme-orders"));
+        Assert.Equal("acme-orders.auth.member-disabled.v1", AuthIntegrationSubjects.CreateMemberDisabled("acme-orders"));
+        Assert.Equal("acme-orders.auth.member-enabled.v1", AuthIntegrationSubjects.CreateMemberEnabled("acme-orders"));
+        Assert.Equal(
+            "acme-orders.auth.member-sessions-revoked.v1",
+            AuthIntegrationSubjects.CreateMemberSessionsRevoked("acme-orders"));
+    }
+
+    [Fact]
     public void Member_registered_event_normalizes_metadata_and_username()
     {
         MemberRegisteredIntegrationEvent integrationEvent = new(

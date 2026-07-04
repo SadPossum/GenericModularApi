@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Naming;
+using Shared.Runtime;
 using System.CommandLine;
 
 public static class AdminCliModuleExtensions
@@ -34,7 +35,9 @@ public static class AdminCliModuleExtensions
         ArgumentNullException.ThrowIfNull(serviceProvider);
 
         AdminCliGlobalOptions options = serviceProvider.GetRequiredService<AdminCliGlobalOptions>();
-        RootCommand rootCommand = new("GenericModularApi administration CLI")
+        string displayName = serviceProvider.GetService<IOptions<ApplicationIdentityOptions>>()?.Value.EffectiveDisplayName ??
+                             ApplicationIdentityOptions.DefaultDisplayName;
+        RootCommand rootCommand = new($"{displayName} administration CLI")
         {
             options.ActorOption,
             options.TenantOption,

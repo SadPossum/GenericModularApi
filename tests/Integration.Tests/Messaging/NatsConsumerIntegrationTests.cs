@@ -18,6 +18,7 @@ using Ordering.Application;
 using Ordering.Persistence;
 using Shared.Messaging;
 using Shared.Messaging.Nats;
+using Shared.Runtime;
 using Shared.Tenancy;
 using Shared.Tenancy.Infrastructure;
 using Testcontainers.PostgreSql;
@@ -124,6 +125,7 @@ public sealed class NatsConsumerIntegrationTests
         NatsJetStreamEventBus firstBus = new(
             connection,
             Options.Create(new NatsJetStreamOptions { StreamName = streamName }),
+            Options.Create(new ApplicationIdentityOptions()),
             new ThrowingLogger<NatsJetStreamEventBus>());
 
         await firstBus.PublishAsync(CreateMessage("tenant-logger", "logger-1"), CancellationToken.None).ConfigureAwait(false);
@@ -131,6 +133,7 @@ public sealed class NatsConsumerIntegrationTests
         NatsJetStreamEventBus secondBus = new(
             connection,
             Options.Create(new NatsJetStreamOptions { StreamName = streamName }),
+            Options.Create(new ApplicationIdentityOptions()),
             new ThrowingLogger<NatsJetStreamEventBus>());
 
         await secondBus.PublishAsync(CreateMessage("tenant-logger", "logger-2"), CancellationToken.None).ConfigureAwait(false);
@@ -152,6 +155,7 @@ public sealed class NatsConsumerIntegrationTests
         NatsJetStreamEventBus eventBus = new(
             connection,
             Options.Create(new NatsJetStreamOptions { StreamName = streamName }),
+            Options.Create(new ApplicationIdentityOptions()),
             NullLogger<NatsJetStreamEventBus>.Instance);
         OutboxMessageRecord message = CreateMessage("tenant-dedupe", "dedupe");
 

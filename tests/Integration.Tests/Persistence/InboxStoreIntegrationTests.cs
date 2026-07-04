@@ -9,6 +9,7 @@ using Ordering.Persistence;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
 using Shared.Runtime.Infrastructure;
+using Shared.Tenancy.Infrastructure;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -163,6 +164,7 @@ public sealed class InboxStoreIntegrationTests
         builder.Configuration["ConnectionStrings:PostgreSql"] = connectionString;
         builder.Configuration["Tenancy:Enabled"] = "false";
         builder.AddRuntimeInfrastructure();
+        builder.AddTenancyInfrastructure();
         builder.AddOrderingPersistence();
 
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

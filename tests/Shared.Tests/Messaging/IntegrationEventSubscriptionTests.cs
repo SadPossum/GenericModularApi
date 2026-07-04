@@ -83,6 +83,22 @@ public sealed class IntegrationEventSubscriptionTests
         Assert.Equal("catalog-item-created-projection", subscription.HandlerName);
     }
 
+    [Fact]
+    public void Factory_keeps_logical_event_identity_separate_from_physical_subject_prefix()
+    {
+        IntegrationEventSubscription subscription =
+            IntegrationEventSubscription.Create<TestIntegrationEvent, TestIntegrationEventHandler>(
+                "ordering",
+                "gma.catalog.item-created.v1",
+                "catalog-item-created-projection");
+
+        Assert.Equal("catalog", subscription.ProducerModule);
+        Assert.Equal("item-created", subscription.EventName);
+        Assert.Equal(1, subscription.Version);
+        Assert.Equal("gma.catalog.item-created.v1", subscription.Subject);
+        Assert.Equal("acme-orders.catalog.item-created.v1", subscription.CreateSubject("acme-orders"));
+    }
+
     [Theory]
     [InlineData("ordering.module", "gma.catalog.item-created.v1", "catalog-item-created-projection")]
     [InlineData("ordering", "gma.catalog.item-created", "catalog-item-created-projection")]

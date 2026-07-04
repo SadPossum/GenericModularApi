@@ -2,21 +2,24 @@ namespace Shared.Observability.Infrastructure;
 
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Options;
 using Shared.Observability;
+using Shared.Runtime;
 
 public sealed class CommandMetrics
 {
     private readonly Counter<long> executed;
     private readonly Histogram<double> duration;
 
-    public CommandMetrics(IMeterFactory meterFactory)
+    public CommandMetrics(IMeterFactory meterFactory, IOptions<ApplicationIdentityOptions> applicationIdentity)
     {
-        Meter meter = meterFactory.Create(ObservabilityMeterNames.Application);
+        string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+        Meter meter = meterFactory.Create(ObservabilityMeterNames.ApplicationFor(applicationNamespace));
         this.executed = meter.CreateCounter<long>(
-            ObservabilityInstrumentNames.CommandsExecuted,
+            ObservabilityInstrumentNames.CommandsExecutedFor(applicationNamespace),
             description: "Number of commands completed by the application pipeline.");
         this.duration = meter.CreateHistogram<double>(
-            ObservabilityInstrumentNames.CommandsDuration,
+            ObservabilityInstrumentNames.CommandsDurationFor(applicationNamespace),
             unit: "ms",
             description: "Command execution duration in milliseconds.");
     }

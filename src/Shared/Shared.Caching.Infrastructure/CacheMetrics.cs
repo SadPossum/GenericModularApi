@@ -2,23 +2,25 @@ namespace Shared.Caching.Infrastructure;
 
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Options;
 using Shared.Observability;
 using Shared.Observability.Infrastructure;
+using Shared.Runtime;
 
-internal sealed class CacheMetrics(IMeterFactory meterFactory)
+internal sealed class CacheMetrics(IMeterFactory meterFactory, IOptions<ApplicationIdentityOptions> applicationIdentity)
 {
     private readonly Counter<long> requests = meterFactory
-        .Create(ObservabilityMeterNames.Caching)
-        .CreateCounter<long>(ObservabilityInstrumentNames.CacheRequests);
+        .Create(ObservabilityMeterNames.CachingFor(applicationIdentity.Value.EffectiveNamespace))
+        .CreateCounter<long>(ObservabilityInstrumentNames.CacheRequestsFor(applicationIdentity.Value.EffectiveNamespace));
     private readonly Histogram<double> duration = meterFactory
-        .Create(ObservabilityMeterNames.Caching)
-        .CreateHistogram<double>(ObservabilityInstrumentNames.CacheDuration, "ms");
+        .Create(ObservabilityMeterNames.CachingFor(applicationIdentity.Value.EffectiveNamespace))
+        .CreateHistogram<double>(ObservabilityInstrumentNames.CacheDurationFor(applicationIdentity.Value.EffectiveNamespace), "ms");
     private readonly Counter<long> backendFailures = meterFactory
-        .Create(ObservabilityMeterNames.Caching)
-        .CreateCounter<long>(ObservabilityInstrumentNames.CacheBackendFailures);
+        .Create(ObservabilityMeterNames.CachingFor(applicationIdentity.Value.EffectiveNamespace))
+        .CreateCounter<long>(ObservabilityInstrumentNames.CacheBackendFailuresFor(applicationIdentity.Value.EffectiveNamespace));
     private readonly Counter<long> invalidationFailures = meterFactory
-        .Create(ObservabilityMeterNames.Caching)
-        .CreateCounter<long>(ObservabilityInstrumentNames.CacheInvalidationFailures);
+        .Create(ObservabilityMeterNames.CachingFor(applicationIdentity.Value.EffectiveNamespace))
+        .CreateCounter<long>(ObservabilityInstrumentNames.CacheInvalidationFailuresFor(applicationIdentity.Value.EffectiveNamespace));
 
     public void RecordRequest(string module, string provider, string result, TimeSpan elapsed)
     {

@@ -280,7 +280,7 @@ Rules:
 
 - use `ILogger<T>` for logging;
 - use `IMeterFactory` for metrics;
-- use meter and activity-source names under `gma.*`;
+- use meter and activity-source names under `{ApplicationIdentity:Namespace}.*`; `gma.*` is only the skeleton default;
 - attach module metadata with `.WithModuleName(this.Name)` to route groups; endpoint metadata validates the same lowercase module-name shape as messaging and module descriptors;
 - keep metric tags bounded;
 - do not add tenant, user, token, message, or request ids as metric tags;

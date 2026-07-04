@@ -2,6 +2,7 @@ namespace Auth.Tests;
 
 using Auth.Infrastructure;
 using Microsoft.Extensions.Options;
+using Shared.Runtime;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -10,11 +11,11 @@ public sealed class JwtSettingsValidatorTests
     private readonly JwtSettingsValidator validator = new();
 
     [Fact]
-    public void Validate_rejects_default_settings_without_signing_key()
+    public void Validate_rejects_default_settings_without_identity_values()
     {
         ValidateOptionsResult result = this.validator.Validate(name: null, new JwtSettings());
 
-        AssertFailure(result, "SigningKey");
+        AssertFailure(result, "Issuer");
     }
 
     [Fact]
@@ -23,6 +24,19 @@ public sealed class JwtSettingsValidatorTests
         ValidateOptionsResult result = this.validator.Validate(name: null, ValidSettings());
 
         Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public void Apply_identity_defaults_uses_application_display_name_for_missing_issuer_and_audience()
+    {
+        JwtSettings settings = ValidSettings(issuer: string.Empty, audience: " ");
+
+        AuthInfrastructureOptionsValidation.ApplyJwtIdentityDefaults(
+            settings,
+            new ApplicationIdentityOptions { DisplayName = "Acme Orders" });
+
+        Assert.Equal("Acme Orders", settings.Issuer);
+        Assert.Equal("Acme Orders", settings.Audience);
     }
 
     [Fact]

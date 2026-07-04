@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 public static class DependencyInjection
 {
-    public static IHostApplicationBuilder AddGmaOpenApi(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder AddSharedOpenApi(this IHostApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
@@ -16,7 +16,10 @@ public static class DependencyInjection
         return builder;
     }
 
-    public static WebApplication UseGmaOpenApi(this WebApplication app)
+    public static IHostApplicationBuilder AddGmaOpenApi(this IHostApplicationBuilder builder) =>
+        AddSharedOpenApi(builder);
+
+    public static WebApplication UseSharedOpenApi(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -28,4 +31,7 @@ public static class DependencyInjection
 
         return app;
     }
+
+    public static WebApplication UseGmaOpenApi(this WebApplication app) =>
+        UseSharedOpenApi(app);
 }

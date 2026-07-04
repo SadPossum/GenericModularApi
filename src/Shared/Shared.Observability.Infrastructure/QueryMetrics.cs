@@ -2,21 +2,24 @@ namespace Shared.Observability.Infrastructure;
 
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Options;
 using Shared.Observability;
+using Shared.Runtime;
 
 public sealed class QueryMetrics
 {
     private readonly Counter<long> executed;
     private readonly Histogram<double> duration;
 
-    public QueryMetrics(IMeterFactory meterFactory)
+    public QueryMetrics(IMeterFactory meterFactory, IOptions<ApplicationIdentityOptions> applicationIdentity)
     {
-        Meter meter = meterFactory.Create(ObservabilityMeterNames.Application);
+        string applicationNamespace = applicationIdentity.Value.EffectiveNamespace;
+        Meter meter = meterFactory.Create(ObservabilityMeterNames.ApplicationFor(applicationNamespace));
         this.executed = meter.CreateCounter<long>(
-            ObservabilityInstrumentNames.QueriesExecuted,
+            ObservabilityInstrumentNames.QueriesExecutedFor(applicationNamespace),
             description: "Number of queries completed by the application pipeline.");
         this.duration = meter.CreateHistogram<double>(
-            ObservabilityInstrumentNames.QueriesDuration,
+            ObservabilityInstrumentNames.QueriesDurationFor(applicationNamespace),
             unit: "ms",
             description: "Query execution duration in milliseconds.");
     }

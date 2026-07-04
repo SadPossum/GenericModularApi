@@ -151,7 +151,7 @@ public sealed class AuthModule : IModule
             return true;
         }
 
-        string? tokenTenantId = user.FindFirstValue(GmaClaimNames.TenantId);
+        string? tokenTenantId = user.FindFirstValue(ApplicationClaimNames.TenantId);
 
         return !string.IsNullOrWhiteSpace(tokenTenantId) &&
                string.Equals(tokenTenantId, tenantContext.TenantId, StringComparison.Ordinal);

@@ -159,7 +159,9 @@ public sealed class ModuleDescriptorTests
         Assert.Equal("catalog-admin", descriptor.AdminSurfaceName);
         Assert.Equal(5, descriptor.Features.Count);
         Assert.Equal("catalog.items.read", Assert.Single(descriptor.GetPermissions()).Code);
-        Assert.Equal("item-created", Assert.Single(descriptor.GetPublishedEvents()).EventType);
+        ModuleIntegrationEventDescriptor publishedEvent = Assert.Single(descriptor.GetPublishedEvents());
+        Assert.Equal("catalog", publishedEvent.ModuleName);
+        Assert.Equal("item-created", publishedEvent.EventType);
         Assert.Equal("item-created-projection", Assert.Single(descriptor.GetSubscriptions()).HandlerName);
         Assert.Equal("items", Assert.Single(descriptor.GetCacheEntries()).Name);
         Assert.Equal(CacheScope.Tenant, Assert.Single(descriptor.GetCacheEntries()).Scope);

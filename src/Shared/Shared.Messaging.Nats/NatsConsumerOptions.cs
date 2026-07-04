@@ -5,7 +5,7 @@ public sealed class NatsConsumerOptions
     public const string SectionName = "NatsConsumers";
 
     public bool Enabled { get; set; }
-    public string DurablePrefix { get; set; } = "gma";
+    public string? DurablePrefix { get; set; }
     public int FetchBatchSize { get; set; } = 10;
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(1);
     public TimeSpan AckWait { get; set; } = TimeSpan.FromSeconds(30);
@@ -23,4 +23,8 @@ public sealed class NatsConsumerOptions
     public TimeSpan EffectiveAckWait => this.AckWait <= TimeSpan.Zero ? TimeSpan.FromSeconds(30) : this.AckWait;
     public TimeSpan EffectiveHandlerTimeout => this.HandlerTimeout <= TimeSpan.Zero ? TimeSpan.FromSeconds(30) : this.HandlerTimeout;
     public TimeSpan EffectiveNakDelay => this.NakDelay <= TimeSpan.Zero ? TimeSpan.FromSeconds(1) : this.NakDelay;
+    public string EffectiveDurablePrefix(string applicationNamespace) =>
+        string.IsNullOrWhiteSpace(this.DurablePrefix)
+            ? applicationNamespace
+            : this.DurablePrefix;
 }

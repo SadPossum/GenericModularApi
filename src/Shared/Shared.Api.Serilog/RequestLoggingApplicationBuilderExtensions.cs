@@ -11,7 +11,7 @@ using Shared.Tenancy;
 
 public static class RequestLoggingApplicationBuilderExtensions
 {
-    public static IApplicationBuilder UseGmaSerilogRequestLogging(this IApplicationBuilder app)
+    public static IApplicationBuilder UseSharedSerilogRequestLogging(this IApplicationBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -37,4 +37,7 @@ public static class RequestLoggingApplicationBuilderExtensions
             };
         });
     }
+
+    public static IApplicationBuilder UseGmaSerilogRequestLogging(this IApplicationBuilder app) =>
+        UseSharedSerilogRequestLogging(app);
 }

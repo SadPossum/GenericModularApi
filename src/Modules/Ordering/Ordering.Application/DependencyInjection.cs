@@ -7,7 +7,7 @@ using Ordering.Application.Tasks;
 using Ordering.Contracts;
 using Shared.Application.Composition;
 using Shared.Messaging;
-using Shared.ProjectionRebuild;
+using Shared.ProjectionRebuild.Tasks;
 using Shared.Tasks;
 
 public static class DependencyInjection
@@ -17,7 +17,7 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
-        services.AddProjectionRebuild();
+        services.AddProjectionRebuildTasks();
         services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
             OrderingModuleMetadata.Name,
             CatalogModuleMetadata.Name);

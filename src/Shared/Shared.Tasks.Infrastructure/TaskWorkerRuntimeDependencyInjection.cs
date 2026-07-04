@@ -4,11 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Shared.Cqrs.Infrastructure;
 using Shared.Observability.Infrastructure;
 using Shared.Runtime.Infrastructure;
 using Shared.Tasks;
-using Shared.Tasks.Cqrs;
 
 public static class TaskWorkerRuntimeDependencyInjection
 {
@@ -17,7 +15,6 @@ public static class TaskWorkerRuntimeDependencyInjection
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.AddRuntimeInfrastructure();
-        builder.AddCqrsInfrastructure();
 
         if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(TaskInfrastructureRegistrationMarker)))
         {
@@ -25,7 +22,6 @@ public static class TaskWorkerRuntimeDependencyInjection
         }
 
         builder.Services.AddSingleton<TaskInfrastructureRegistrationMarker>();
-        builder.Services.TryAddScoped<ITaskCommandDispatcher, TaskCommandDispatcher>();
         builder.Services.TryAddScoped<ITaskControlLoop, TaskControlLoop>();
         builder.Services.TryAddSingleton<TaskMetricsSnapshotStore>();
         builder.Services.TryAddSingleton<TaskMetrics>();

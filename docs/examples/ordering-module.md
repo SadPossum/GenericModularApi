@@ -63,6 +63,7 @@ The rebuild flow is:
 
 ```text
 CatalogItemProjectionExportSource
+  -> TaskProjectionRebuildRunner<CatalogItemProjectionExport>
   -> ProjectionRebuildRunner<CatalogItemProjectionExport>
   -> CatalogItemProjectionRebuildWriter
   -> ordering.catalog_item_projections

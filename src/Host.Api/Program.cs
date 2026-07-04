@@ -4,7 +4,7 @@ using Shared.Api.Modules;
 using Shared.Api.OpenApi;
 using Shared.Api.Security;
 using Shared.Api.Serilog;
-using Shared.Caching.Infrastructure;
+using Shared.Caching.Cqrs;
 using Shared.Caching.Redis;
 using Shared.Infrastructure;
 using Shared.Logging.Serilog;
@@ -17,7 +17,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Host.UseConfiguredSerilog();
 
 builder.AddRedisCaching();
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging();

@@ -14,7 +14,7 @@ using Microsoft.Extensions.Hosting;
 using Shared.Administration.Cli;
 using Shared.Cqrs;
 using Shared.Tenancy;
-using Shared.Caching.Infrastructure;
+using Shared.Caching.Cqrs;
 using Shared.Results;
 using Shared.Infrastructure;
 using Shared.Messaging.Infrastructure;
@@ -48,7 +48,7 @@ internal sealed class AdminCliTestApplication : IAsyncDisposable
         });
 
         builder.Services.AddSharedAdministrationCli();
-        builder.AddCachingInfrastructure();
+        builder.AddCachingCqrs();
         builder.AddSharedInfrastructure();
         builder.AddMessagingInfrastructure();
         builder.AddAdminModule<AdministrationAdminCliModule>();

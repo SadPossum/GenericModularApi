@@ -8,6 +8,7 @@ using Shared.Naming;
 using Shared.Observability;
 using Shared.ProjectionRebuild;
 using Shared.ProjectionRebuild.EntityFrameworkCore;
+using Shared.ProjectionRebuild.Tasks;
 using Shared.Runtime;
 using Shared.Runtime.Time;
 using Shared.Tasks;
@@ -222,8 +223,8 @@ public sealed class ProjectionRebuildTests
         List<MetricMeasurement> measurements = [];
         using MeterListener listener = CreateListener(measurements);
         RecordingCheckpointStore store = new("ordering");
-        RecordingReporter reporter = new();
-        using ServiceProvider provider = BuildProvider([store], reporter);
+        RecordingObserver observer = new();
+        using ServiceProvider provider = BuildProvider([store]);
         using IServiceScope scope = provider.CreateScope();
         ProjectionRebuildRunner<string> runner =
             scope.ServiceProvider.GetRequiredService<ProjectionRebuildRunner<string>>();
@@ -231,7 +232,7 @@ public sealed class ProjectionRebuildTests
             new ProjectionReadBatch<string>(["a", "b"], "b", hasMore: true),
             new ProjectionReadBatch<string>(["c"], "c", hasMore: false));
         RecordingWriter writer = new(snapshotCount => new ProjectionWriteResult(snapshotCount));
-        TaskExecutionContext context = CreateContext();
+        ProjectionRebuildExecutionContext context = CreateRebuildContext();
         ProjectionRebuildRequest request = new("catalog-item-projections", 1, batchSize: 2);
 
         ProjectionRebuildSummary summary = await runner.RunAsync(
@@ -241,7 +242,8 @@ public sealed class ProjectionRebuildTests
             writer,
             context,
             tenantScoped: true,
-            CancellationToken.None);
+            observer: observer,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal("ordering", summary.ModuleName);
         Assert.Equal("catalog-item-projections", summary.ProjectionName);
@@ -254,9 +256,9 @@ public sealed class ProjectionRebuildTests
         Assert.Equal([["a", "b"], ["c"]], writer.WrittenBatches);
         Assert.Equal(2, store.SaveCount);
         Assert.Equal(summary.Checkpoint, Assert.Single(store.Checkpoints.Values));
-        Assert.Equal([99, 100], reporter.Progress.Select(progress => progress.PercentComplete));
-        Assert.Contains(reporter.Progress, progress =>
-            progress.Message is not null &&
+        Assert.Equal(2, observer.PauseCount);
+        Assert.Equal([99, 100], observer.Progress.Select(progress => progress.PercentComplete));
+        Assert.Contains(observer.Progress, progress =>
             progress.Message.Contains("processed=3", StringComparison.Ordinal) &&
             progress.Message.Contains("cursor=c", StringComparison.Ordinal));
         Assert.Contains(measurements, measurement =>
@@ -287,9 +289,10 @@ public sealed class ProjectionRebuildTests
             new ProjectionRebuildRequest("catalog-item-projections", 1),
             source,
             writer,
-            CreateContext(),
+            CreateRebuildContext(),
             tenantScoped: true,
-            CancellationToken.None);
+            observer: ProjectionRebuildRunObserver.None,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(summary.Checkpoint.IsCompleted);
         Assert.Equal(1, boundary.ExecutionCount);
@@ -315,9 +318,10 @@ public sealed class ProjectionRebuildTests
             new ProjectionRebuildRequest("catalog-item-projections", 1),
             source,
             writer,
-            CreateContext(),
+            CreateRebuildContext(),
             tenantScoped: true,
-            CancellationToken.None));
+            observer: ProjectionRebuildRunObserver.None,
+            cancellationToken: CancellationToken.None));
 
         Assert.Equal(1, boundary.ExecutionCount);
         Assert.Equal(0, boundary.CommitCount);
@@ -355,9 +359,10 @@ public sealed class ProjectionRebuildTests
             new ProjectionRebuildRequest("catalog-item-projections", 1),
             source,
             writer,
-            CreateContext(),
+            CreateRebuildContext(),
             tenantScoped: true,
-            CancellationToken.None);
+            observer: ProjectionRebuildRunObserver.None,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(["b"], source.Cursors);
         Assert.Equal(3, summary.Checkpoint.ProcessedCount);
@@ -394,9 +399,10 @@ public sealed class ProjectionRebuildTests
             new ProjectionRebuildRequest("catalog-item-projections", 1, cursor: " y "),
             source,
             writer,
-            CreateContext(),
+            CreateRebuildContext(),
             tenantScoped: true,
-            CancellationToken.None);
+            observer: ProjectionRebuildRunObserver.None,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(["y"], source.Cursors);
         Assert.Equal(1, summary.Checkpoint.ProcessedCount);
@@ -420,16 +426,54 @@ public sealed class ProjectionRebuildTests
             new ProjectionRebuildRequest("catalog-item-projections", 1),
             source,
             writer,
-            CreateContext(),
+            CreateRebuildContext(),
             tenantScoped: true,
-            CancellationToken.None));
+            observer: ProjectionRebuildRunObserver.None,
+            cancellationToken: CancellationToken.None));
 
         Assert.Empty(store.Checkpoints);
     }
 
+    [Fact]
+    public async Task Task_bridge_adapts_task_context_to_core_rebuild_observer()
+    {
+        RecordingCheckpointStore store = new("ordering");
+        RecordingTaskReporter reporter = new();
+        RecordingTaskControlLoop controlLoop = new();
+        ServiceCollection services = new();
+        services.AddMetrics();
+        services.AddOptions();
+        services.Configure<ApplicationIdentityOptions>(options => options.Namespace = "gma");
+        services.AddProjectionRebuildTasks();
+        services.AddSingleton<ISystemClock>(new FixedClock(Now));
+        services.AddSingleton<ITaskRuntimeReporter>(reporter);
+        services.AddSingleton<ITaskControlLoop>(controlLoop);
+        services.AddSingleton<IProjectionRebuildCheckpointStore>(store);
+        using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+        using IServiceScope scope = provider.CreateScope();
+        TaskProjectionRebuildRunner<string> runner =
+            scope.ServiceProvider.GetRequiredService<TaskProjectionRebuildRunner<string>>();
+        RecordingSource source = new(new ProjectionReadBatch<string>(["a"], "a", hasMore: false));
+        RecordingWriter writer = new(snapshotCount => new ProjectionWriteResult(snapshotCount));
+        TaskExecutionContext taskContext = CreateTaskContext();
+
+        ProjectionRebuildSummary summary = await runner.RunAsync(
+            "ordering",
+            new ProjectionRebuildRequest("catalog-item-projections", 1),
+            source,
+            writer,
+            taskContext,
+            tenantScoped: true,
+            CancellationToken.None);
+
+        Assert.True(summary.Checkpoint.IsCompleted);
+        Assert.Equal("tenant-a", summary.TenantId);
+        Assert.Equal([100], reporter.Progress.Select(progress => progress.PercentComplete));
+        Assert.Equal([taskContext.RunId], controlLoop.PolledRunIds);
+    }
+
     private static ServiceProvider BuildProvider(
         IReadOnlyCollection<IProjectionRebuildCheckpointStore> stores,
-        RecordingReporter? reporter = null,
         IReadOnlyCollection<IProjectionRebuildTransactionBoundary>? boundaries = null)
     {
         ServiceCollection services = new();
@@ -438,8 +482,6 @@ public sealed class ProjectionRebuildTests
         services.Configure<ApplicationIdentityOptions>(options => options.Namespace = "gma");
         services.AddProjectionRebuild();
         services.AddSingleton<ISystemClock>(new FixedClock(Now));
-        services.AddSingleton<ITaskRuntimeReporter>(reporter ?? new RecordingReporter());
-        services.AddSingleton<ITaskControlLoop, EmptyControlLoop>();
 
         foreach (IProjectionRebuildCheckpointStore store in stores)
         {
@@ -465,7 +507,9 @@ public sealed class ProjectionRebuildTests
         return new TestProjectionDbContext(options);
     }
 
-    private static TaskExecutionContext CreateContext() =>
+    private static ProjectionRebuildExecutionContext CreateRebuildContext() => new(RunId, "tenant-a");
+
+    private static TaskExecutionContext CreateTaskContext() =>
         new(
             RunId,
             "ordering",
@@ -651,7 +695,33 @@ public sealed class ProjectionRebuildTests
         string moduleName)
         : EfProjectionRebuildTransactionBoundary<TestProjectionDbContext>(dbContext, moduleName);
 
-    private sealed class RecordingReporter : ITaskRuntimeReporter
+    private sealed class RecordingObserver : IProjectionRebuildRunObserver
+    {
+        public List<ProjectionRebuildProgress> Progress { get; } = [];
+        public int PauseCount { get; private set; }
+
+        public Task PauseIfRequestedAsync(
+            ProjectionRebuildExecutionContext context,
+            TimeSpan pollInterval,
+            int maxMessages,
+            CancellationToken cancellationToken)
+        {
+            this.PauseCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task ReportProgressAsync(
+            ProjectionRebuildExecutionContext context,
+            ProjectionRebuildProgress progress,
+            DateTimeOffset nowUtc,
+            CancellationToken cancellationToken)
+        {
+            this.Progress.Add(progress);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RecordingTaskReporter : ITaskRuntimeReporter
     {
         public List<TaskProgress> Progress { get; } = [];
 
@@ -672,13 +742,18 @@ public sealed class ProjectionRebuildTests
         }
     }
 
-    private sealed class EmptyControlLoop : ITaskControlLoop
+    private sealed class RecordingTaskControlLoop : ITaskControlLoop
     {
+        public List<Guid> PolledRunIds { get; } = [];
+
         public Task<TaskControlPollResult> PollAsync(
             TaskExecutionContext context,
             int maxMessages,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new TaskControlPollResult([]));
+            CancellationToken cancellationToken)
+        {
+            this.PolledRunIds.Add(context.RunId);
+            return Task.FromResult(new TaskControlPollResult([]));
+        }
 
         public Task MarkHandledAsync(
             TaskExecutionContext context,

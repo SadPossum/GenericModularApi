@@ -1,7 +1,5 @@
 namespace Shared.ProjectionRebuild;
 
-using Shared.Tasks;
-
 public sealed record ProjectionRebuildRequest
 {
     public const int DefaultBatchSize = 500;
@@ -14,7 +12,7 @@ public sealed record ProjectionRebuildRequest
         bool dryRun = false,
         string? cursor = null)
     {
-        this.ProjectionName = TaskNames.NormalizeTaskName(projectionName, nameof(projectionName));
+        this.ProjectionName = ProjectionRebuildNames.NormalizeProjectionName(projectionName, nameof(projectionName));
         this.ProjectionVersion = projectionVersion > 0
             ? projectionVersion
             : throw new ArgumentOutOfRangeException(nameof(projectionVersion), projectionVersion, "Projection version must be positive.");

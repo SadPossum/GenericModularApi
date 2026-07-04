@@ -1,6 +1,7 @@
 namespace Shared.Caching.Infrastructure;
 
 using System.Diagnostics.CodeAnalysis;
+using Shared.Caching;
 
 internal static class CacheStorageIdentifiers
 {

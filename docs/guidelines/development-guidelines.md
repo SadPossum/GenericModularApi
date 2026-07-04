@@ -61,6 +61,8 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared messaging contracts | `Shared.Messaging` |
 | Shared task contracts | `Shared.Tasks` |
 | Shared task-to-CQRS bridge | `Shared.Tasks.Cqrs` |
+| Shared projection rebuild contracts/runtime | `Shared.ProjectionRebuild` |
+| Shared projection rebuild task bridge | `Shared.ProjectionRebuild.Tasks` |
 | Shared CQRS contracts | `Shared.Cqrs` |
 | Shared tenancy contracts | `Shared.Tenancy` |
 | Shared application assembly registration | `Shared.Application.Composition` |
@@ -72,6 +74,7 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared CQRS runtime | `Shared.Cqrs.Infrastructure` |
 | Shared clock/id runtime | `Shared.Runtime.Infrastructure` |
 | Shared cache runtime | `Shared.Caching.Infrastructure` |
+| Shared cache-to-CQRS bridge | `Shared.Caching.Cqrs` |
 | Shared messaging runtime | `Shared.Messaging.Infrastructure` |
 | Shared NATS messaging transport | `Shared.Messaging.Nats` |
 | Shared task runtime | `Shared.Tasks.Infrastructure` |
@@ -264,7 +267,8 @@ Rules:
 - expose or accept task run statuses through `TaskRunStatusNames` wire names such as `retry-scheduled`; keep enum names as compatibility input only;
 - report heartbeat and progress through `ITaskRuntimeReporter`;
 - read system-to-runner control messages through `ITaskControlLoop` or `TaskControlLoopExtensions`;
-- dispatch normal application commands from payload code through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or CQRS contracts;
+- dispatch normal application commands from payload code through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or CQRS contracts, and compose `AddTaskCqrs()` only in hosts whose task handlers need it;
+- adapt projection rebuilds to task progress/control through `TaskProjectionRebuildRunner<TSnapshot>` from `Shared.ProjectionRebuild.Tasks`;
 - keep runtime stores behind `ITaskRunStore` and use `TaskRunStatusTransitions` for claim, retry, cancellation, and terminal-state rules;
 - persist requester metadata from `TaskRunRequest.RequestedBy` when the runtime owns a durable store;
 - compose `AddTaskRuntimePersistence()` and `AddTaskWorkerRuntime()` only in hosts that should run tasks;

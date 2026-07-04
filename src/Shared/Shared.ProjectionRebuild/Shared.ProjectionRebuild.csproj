@@ -8,6 +8,5 @@
     <ProjectReference Include="..\Shared.Observability\Shared.Observability.csproj" />
     <ProjectReference Include="..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />
     <ProjectReference Include="..\Shared.Runtime\Shared.Runtime.csproj" />
-    <ProjectReference Include="..\Shared.Tasks\Shared.Tasks.csproj" />
   </ItemGroup>
 </Project>

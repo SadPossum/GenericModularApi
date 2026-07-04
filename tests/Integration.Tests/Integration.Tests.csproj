@@ -49,11 +49,11 @@
     <ProjectReference Include="..\..\src\Host.Api\Host.Api.csproj" />
     <ProjectReference Include="..\..\src\Host.AdminApi\Host.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching\Shared.Caching.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration\Shared.Administration.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
-    <ProjectReference Include="..\..\src\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
@@ -62,6 +62,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Results\Shared.Results.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Runtime\Shared.Runtime.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />

@@ -7,10 +7,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shared.Cqrs;
 using Shared.Caching;
-using Shared.Cqrs.Infrastructure;
 using Shared.Runtime.Infrastructure;
+using Shared.Tenancy.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -31,7 +30,7 @@ public static class DependencyInjection
         }
 
         builder.AddRuntimeInfrastructure();
-        builder.AddCqrsInfrastructure();
+        builder.AddTenancyInfrastructure();
 
         if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(CachingInfrastructureRegistrationMarker)))
         {
@@ -68,9 +67,6 @@ public static class DependencyInjection
         builder.Services.TryAddScoped<ICacheInvalidationQueue>(provider => provider.GetRequiredService<CacheInvalidationQueue>());
         builder.Services.TryAddScoped<ICacheInvalidationQueueFlusher>(provider => provider.GetRequiredService<CacheInvalidationQueue>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, CachingStartupValidator>());
-        builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Scoped(typeof(ICommandPipelineBehavior<,>), typeof(CacheInvalidationCommandBehavior<,>)));
-        builder.Services.MoveCommandUnitOfWorkBehaviorToEnd();
 
         return builder;
     }

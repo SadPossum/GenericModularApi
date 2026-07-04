@@ -13,18 +13,24 @@ public static class TenantWriteGuard
         ArgumentNullException.ThrowIfNull(changeTracker);
         ArgumentNullException.ThrowIfNull(tenantContext);
 
-        string? activeTenantId = null;
-        if (tenantContext.IsEnabled)
+        EntityEntry<ITenantScoped>[] tenantScopedWrites = changeTracker
+                     .Entries<ITenantScoped>()
+                     .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
+                     .ToArray();
+
+        if (tenantScopedWrites.Length == 0)
         {
-            if (!TenantIds.TryNormalize(tenantContext.TenantId, out activeTenantId))
-            {
-                throw new TenantWriteGuardException("Tenant-aware writes require a valid active tenant id.");
-            }
+            return;
         }
 
-        foreach (EntityEntry<ITenantScoped> entry in changeTracker
-                     .Entries<ITenantScoped>()
-                     .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        string? activeTenantId = null;
+        if (tenantContext.IsEnabled &&
+            !TenantIds.TryNormalize(tenantContext.TenantId, out activeTenantId))
+        {
+            throw new TenantWriteGuardException("Tenant-aware writes require a valid active tenant id.");
+        }
+
+        foreach (EntityEntry<ITenantScoped> entry in tenantScopedWrites)
         {
             string entityName = entry.Metadata.ClrType.FullName ?? entry.Metadata.ClrType.Name;
             string tenantId = entry.Entity.TenantId;

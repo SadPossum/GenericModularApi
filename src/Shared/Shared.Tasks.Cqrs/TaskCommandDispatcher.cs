@@ -1,9 +1,8 @@
-namespace Shared.Tasks.Infrastructure;
+namespace Shared.Tasks.Cqrs;
 
 using Shared.Cqrs;
-using Shared.Tasks;
-using Shared.Tasks.Cqrs;
 using Shared.Results;
+using Shared.Tasks;
 
 internal sealed class TaskCommandDispatcher(IRequestDispatcher dispatcher) : ITaskCommandDispatcher
 {

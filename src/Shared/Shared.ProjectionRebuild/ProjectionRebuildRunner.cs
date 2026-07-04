@@ -2,13 +2,10 @@ namespace Shared.ProjectionRebuild;
 
 using System.Diagnostics;
 using Shared.Runtime.Time;
-using Shared.Tasks;
 
 public sealed class ProjectionRebuildRunner<TSnapshot>(
     IProjectionRebuildCheckpointStoreRegistry checkpointStores,
     IProjectionRebuildTransactionBoundaryRegistry transactionBoundaries,
-    ITaskRuntimeReporter reporter,
-    ITaskControlLoop controlLoop,
     ISystemClock clock,
     ProjectionRebuildMetrics metrics)
 {
@@ -17,14 +14,16 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         ProjectionRebuildRequest request,
         IProjectionRebuildSource<TSnapshot> source,
         IProjectionRebuildWriter<TSnapshot> writer,
-        TaskExecutionContext context,
+        ProjectionRebuildExecutionContext context,
         bool tenantScoped,
+        IProjectionRebuildRunObserver? observer,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(context);
+        observer ??= ProjectionRebuildRunObserver.None;
 
         if (tenantScoped && string.IsNullOrWhiteSpace(context.TenantId))
         {
@@ -53,7 +52,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await controlLoop
+            await observer
                 .PauseIfRequestedAsync(context, TimeSpan.FromSeconds(1), maxMessages: 10, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -66,7 +65,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
             {
                 ProjectionRebuildCheckpoint completed = checkpoint.Complete(clock.UtcNow);
                 await store.SaveAsync(key, completed, cancellationToken).ConfigureAwait(false);
-                await reporter.ReportProgressAsync(
+                await observer.ReportProgressAsync(
                         context,
                         CreateProgress(completed, request.DryRun, percentComplete: 100),
                         clock.UtcNow,
@@ -100,7 +99,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
             this.TryRecordBatch(moduleName, request, batch.Snapshots.Count, stopwatch.Elapsed);
 
             int percent = visibleCheckpoint.IsCompleted ? 100 : 99;
-            await reporter.ReportProgressAsync(
+            await observer.ReportProgressAsync(
                     context,
                     CreateProgress(visibleCheckpoint, request.DryRun, percent),
                     clock.UtcNow,
@@ -189,7 +188,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         return visibleCheckpoint;
     }
 
-    private static TaskProgress CreateProgress(
+    private static ProjectionRebuildProgress CreateProgress(
         ProjectionRebuildCheckpoint checkpoint,
         bool dryRun,
         int percentComplete)
@@ -198,7 +197,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         string message =
             $"{mode}; processed={checkpoint.ProcessedCount}; written={checkpoint.WrittenCount}; skipped={checkpoint.SkippedCount}; failed={checkpoint.FailedCount}; cursor={checkpoint.Cursor ?? "start"}";
 
-        return new TaskProgress(percentComplete, message);
+        return new ProjectionRebuildProgress(percentComplete, message);
     }
 
     private void TryRecordBatch(

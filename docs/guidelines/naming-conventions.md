@@ -65,6 +65,7 @@ Shared.Api.OpenApi
 Shared.Api.Serilog
 Shared.Authorization
 Shared.Caching
+Shared.Caching.Cqrs
 Shared.Caching.Infrastructure
 Shared.Caching.Redis
 Shared.Cqrs
@@ -86,6 +87,7 @@ Shared.Pagination
 Shared.Persistence.EntityFrameworkCore
 Shared.ProjectionRebuild
 Shared.ProjectionRebuild.EntityFrameworkCore
+Shared.ProjectionRebuild.Tasks
 Shared.Runtime
 Shared.Runtime.Infrastructure
 Shared.Security

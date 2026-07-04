@@ -20,6 +20,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Messaging Consumers](architecture/messaging-consumers.md)
 - [Module Descriptor Builder Refactor Notes](architecture/module-descriptor-builder-refactor-notes.md)
 - [Metadata Attributes Refactor Notes](architecture/metadata-attributes-refactor-notes.md)
+- [Shared Dependency Boundary Refactor Notes](architecture/shared-dependency-boundary-refactor-notes.md)
 - [Observability](architecture/observability.md)
 - [Caching](architecture/caching.md)
 - [Administration](architecture/administration.md)

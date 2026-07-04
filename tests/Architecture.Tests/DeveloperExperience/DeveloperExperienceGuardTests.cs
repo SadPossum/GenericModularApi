@@ -2347,7 +2347,7 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Redis_capable_hosts_compose_cache_adapter_before_cache_infrastructure()
+    public void Redis_capable_hosts_compose_cache_adapter_before_cache_cqrs_bridge()
     {
         string repositoryRoot = FindRepositoryRoot();
         string[] hostDirectories =
@@ -2370,25 +2370,30 @@ public sealed partial class DeveloperExperienceGuardTests
                     hostOffenders.Add($"{hostName} does not reference Shared.Caching.Redis");
                 }
 
+                if (!project.Contains("Shared.Caching.Cqrs", StringComparison.Ordinal))
+                {
+                    hostOffenders.Add($"{hostName} does not reference Shared.Caching.Cqrs");
+                }
+
                 int redisIndex = program.IndexOf("builder.AddRedisCaching();", StringComparison.Ordinal);
-                int cachingInfrastructureIndex = program.IndexOf("builder.AddCachingInfrastructure();", StringComparison.Ordinal);
+                int cachingBridgeIndex = program.IndexOf("builder.AddCachingCqrs();", StringComparison.Ordinal);
                 int sharedInfrastructureIndex = program.IndexOf("builder.AddSharedInfrastructure();", StringComparison.Ordinal);
                 if (redisIndex < 0)
                 {
                     hostOffenders.Add($"{hostName} does not call AddRedisCaching");
                 }
-                else if (cachingInfrastructureIndex < 0 || redisIndex > cachingInfrastructureIndex)
+                else if (cachingBridgeIndex < 0 || redisIndex > cachingBridgeIndex)
                 {
-                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddCachingInfrastructure");
+                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddCachingCqrs");
                 }
 
-                if (cachingInfrastructureIndex < 0)
+                if (cachingBridgeIndex < 0)
                 {
-                    hostOffenders.Add($"{hostName} does not call AddCachingInfrastructure");
+                    hostOffenders.Add($"{hostName} does not call AddCachingCqrs");
                 }
-                else if (sharedInfrastructureIndex < 0 || cachingInfrastructureIndex > sharedInfrastructureIndex)
+                else if (sharedInfrastructureIndex < 0 || cachingBridgeIndex > sharedInfrastructureIndex)
                 {
-                    hostOffenders.Add($"{hostName} must call AddCachingInfrastructure before AddSharedInfrastructure");
+                    hostOffenders.Add($"{hostName} must call AddCachingCqrs before AddSharedInfrastructure");
                 }
 
                 if (!appsettings.Contains("\"Redis\"", StringComparison.Ordinal) ||
@@ -2403,6 +2408,36 @@ public sealed partial class DeveloperExperienceGuardTests
             .ToArray();
 
         Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Cache_cqrs_bridge_uses_internal_invalidation_flusher_seam()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string queueSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Infrastructure",
+            "CacheInvalidationQueue.cs"));
+        string assemblyInfo = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Infrastructure",
+            "Properties",
+            "AssemblyInfo.cs"));
+        string bridgeSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Cqrs",
+            "CacheInvalidationCommandBehavior.cs"));
+
+        Assert.Contains("internal interface ICacheInvalidationQueueFlusher", queueSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("public interface ICacheInvalidationQueueFlusher", queueSource, StringComparison.Ordinal);
+        Assert.Contains("InternalsVisibleTo(\"Shared.Caching.Cqrs\")", assemblyInfo, StringComparison.Ordinal);
+        Assert.Contains("ICacheInvalidationQueueFlusher", bridgeSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -3667,10 +3702,24 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     "Microsoft.Extensions.Caching.StackExchangeRedis",
                     "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
                     "Microsoft.Extensions.Options.ConfigurationExtensions"
                 ],
                 [],
-                [@"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj"]),
+                [@"..\Shared.Caching\Shared.Caching.csproj"]),
+            new(
+                "Shared.Caching.Cqrs",
+                [
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj"
+                ]),
             new(
                 "Shared.Caching.Infrastructure",
                 [
@@ -3681,15 +3730,13 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Shared.Caching\Shared.Caching.csproj",
-                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
-                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
-                    @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj",
+                    @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
                 ]),
             new(
                 "Shared.Domain",
@@ -3812,7 +3859,14 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
-                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj"
+                ]),
+            new(
+                "Shared.ProjectionRebuild.Tasks",
+                ["Microsoft.Extensions.DependencyInjection.Abstractions"],
+                [],
+                [
+                    @"..\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj"
                 ]),
             new(
@@ -3848,10 +3902,11 @@ public sealed partial class DeveloperExperienceGuardTests
                 ]),
             new(
                 "Shared.Tasks.Cqrs",
-                [],
+                ["Microsoft.Extensions.Hosting"],
                 [],
                 [
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
                     @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj"
                 ]),
@@ -3865,14 +3920,10 @@ public sealed partial class DeveloperExperienceGuardTests
                 ],
                 [],
                 [
-                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
-                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
-                    @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
@@ -4089,6 +4140,7 @@ public sealed partial class DeveloperExperienceGuardTests
         ];
         string[] forbiddenTokens =
         [
+            "AddCachingCqrs",
             "AddCachingInfrastructure",
             "AddMessagingInfrastructure",
             "AddNats",
@@ -4188,7 +4240,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Api\Shared.Api.csproj",
                     @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
                     @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
-                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
@@ -4207,7 +4259,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj",
-                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"
@@ -4225,7 +4277,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Api\Shared.Api.csproj",
                     @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
                     @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
-                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
@@ -6217,6 +6269,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild.Tasks\Shared.ProjectionRebuild.Tasks.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),

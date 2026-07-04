@@ -30,6 +30,7 @@ using CqrsDependencyInjection = Shared.Cqrs.Infrastructure.DependencyInjection;
 using MessagingDependencyInjection = Shared.Messaging.Infrastructure.DependencyInjection;
 using NatsDependencyInjection = Shared.Messaging.Nats.DependencyInjection;
 using RuntimeDependencyInjection = Shared.Runtime.Infrastructure.DependencyInjection;
+using TaskCqrsDependencyInjection = Shared.Tasks.Cqrs.DependencyInjection;
 using TaskDependencyInjection = Shared.Tasks.Infrastructure.TaskWorkerRuntimeDependencyInjection;
 using TenancyDependencyInjection = Shared.Tenancy.Infrastructure.DependencyInjection;
 
@@ -49,6 +50,7 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.Throws<ArgumentNullException>(() => MessagingDependencyInjection.AddOutboxPublishing(null!));
         Assert.Throws<ArgumentNullException>(() => NatsDependencyInjection.AddNatsJetStreamMessaging(null!));
         Assert.Throws<ArgumentNullException>(() => NatsDependencyInjection.AddNatsJetStreamConsumers(null!));
+        Assert.Throws<ArgumentNullException>(() => TaskCqrsDependencyInjection.AddTaskCqrs(null!));
         Assert.Throws<ArgumentNullException>(() => TaskDependencyInjection.AddTaskInfrastructure(null!));
     }
 
@@ -226,7 +228,8 @@ public sealed class SharedInfrastructureRegistrationTests
     public async Task Task_command_dispatcher_delegates_to_shared_request_dispatcher()
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
-        builder.AddTaskInfrastructure();
+        builder.AddTaskCqrs();
+        builder.AddTaskCqrs();
         builder.Services.AddScoped<ICommandHandler<TestTaskCommand, Unit>, TestTaskCommandHandler>();
 
         using IHost host = builder.Build();
@@ -247,6 +250,21 @@ public sealed class SharedInfrastructureRegistrationTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public void Task_runtime_infrastructure_does_not_compose_cqrs_dispatch()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddTaskInfrastructure();
+        builder.AddTaskInfrastructure();
+
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "TaskInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "RuntimeInfrastructureRegistrationMarker");
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "CqrsInfrastructureRegistrationMarker");
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(ITaskCommandDispatcher));
     }
 
     private static Predicate<ServiceDescriptor> HasService<TService, TImplementation>() =>

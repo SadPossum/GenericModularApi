@@ -15,6 +15,7 @@ public sealed class ModuleBoundaryTests
     [
         "Shared.Api.OpenApi",
         "Shared.Api.Serilog",
+        "Shared.Caching.Cqrs",
         "Shared.Caching.Redis",
         "Shared.Infrastructure",
         "Shared.Logging.Serilog",
@@ -95,6 +96,7 @@ public sealed class ModuleBoundaryTests
         [
             "Microsoft.Extensions.Caching.Hybrid",
             "Microsoft.Extensions.Caching.StackExchangeRedis",
+            "Shared.Caching.Cqrs",
             "Shared.Caching.Redis",
             "StackExchange.Redis"
         ];

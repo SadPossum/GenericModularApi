@@ -1,11 +1,12 @@
 namespace Shared.Caching.Infrastructure;
 
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Caching;
 
 internal static class CachingCompositionGuard
 {
     private const string MissingRedisAdapterMessage =
-        "Redis caching is enabled but no distributed cache adapter is registered. Call AddRedisCaching() before AddCachingInfrastructure().";
+        "Redis caching is enabled but no distributed cache adapter is registered. Call AddRedisCaching() before AddCachingInfrastructure() or AddCachingCqrs().";
 
     public static CachingOptions EnsureValid(CachingOptions options, IServiceProvider serviceProvider)
     {

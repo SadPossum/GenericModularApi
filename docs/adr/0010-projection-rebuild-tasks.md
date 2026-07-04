@@ -12,12 +12,13 @@ The project already has an optional task runtime, explicit module metadata, prov
 
 ## Decision
 
-Projection rebuilds are explicit module task handlers backed by `Shared.ProjectionRebuild`.
+Projection rebuilds are explicit module task handlers backed by `Shared.ProjectionRebuild` plus the optional `Shared.ProjectionRebuild.Tasks` adapter when the caller is the task runtime.
 
 - The consuming module owns the rebuild task, destination projection, writer, and checkpoint table.
 - The producing module exposes source data through a public contract/export port, not through domain, application, or persistence internals.
 - Checkpoints are persisted in the consuming module schema and keyed by run id, projection name, and tenant id when tenant-scoped.
-- The shared runner owns batching, checkpoint load/save, progress reporting, cooperative task control polling, and bounded metrics.
+- The shared runner owns batching, checkpoint load/save, observer callbacks, and bounded metrics without referencing task runtime contracts.
+- The task adapter maps rebuild observer callbacks to task progress reporting and cooperative task control polling.
 - TaskRuntime owns enqueueing, leasing, retry, timeout, admin control, and tenant-context setup.
 - Hosts compose rebuild workers explicitly by registering the consumer module and the task worker group.
 

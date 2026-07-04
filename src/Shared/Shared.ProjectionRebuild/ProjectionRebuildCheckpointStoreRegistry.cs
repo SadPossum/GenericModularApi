@@ -1,6 +1,6 @@
 namespace Shared.ProjectionRebuild;
 
-using Shared.Tasks;
+using Shared.Naming;
 
 internal sealed class ProjectionRebuildCheckpointStoreRegistry : IProjectionRebuildCheckpointStoreRegistry
 {
@@ -32,7 +32,7 @@ internal sealed class ProjectionRebuildCheckpointStoreRegistry : IProjectionRebu
 
     public IProjectionRebuildCheckpointStore GetRequired(string moduleName)
     {
-        string normalized = TaskNames.NormalizeModuleName(moduleName, nameof(moduleName));
+        string normalized = SharedModuleNames.Normalize(moduleName, nameof(moduleName));
 
         return this.storesByModule.TryGetValue(normalized, out IProjectionRebuildCheckpointStore? store)
             ? store
@@ -47,7 +47,7 @@ internal sealed class ProjectionRebuildCheckpointStoreRegistry : IProjectionRebu
         try
         {
             return new(
-                TaskNames.NormalizeModuleName(store.ModuleName, nameof(IProjectionRebuildCheckpointStore.ModuleName)),
+                SharedModuleNames.Normalize(store.ModuleName, nameof(IProjectionRebuildCheckpointStore.ModuleName)),
                 store);
         }
         catch (ArgumentException exception)

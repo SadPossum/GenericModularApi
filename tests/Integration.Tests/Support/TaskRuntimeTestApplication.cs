@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Shared.Cqrs;
 using Shared.Tasks;
+using Shared.Tasks.Cqrs;
 using Shared.Tasks.Infrastructure;
 using Shared.Results;
 using Shared.Persistence.EntityFrameworkCore;
@@ -65,6 +66,7 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
 
         builder.Services.AddTaskRuntimeApplication();
         builder.AddTaskRuntimePersistence();
+        builder.AddTaskCqrs();
         builder.AddTaskWorkerRuntime();
         builder.Services.AddSingleton(this.Sink);
         builder.Services.AddSingleton<ITaskSampleReportSink>(this.Sink);

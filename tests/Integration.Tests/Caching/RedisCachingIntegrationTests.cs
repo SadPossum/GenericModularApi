@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shared.Cqrs;
 using Shared.Caching;
-using Shared.Caching.Infrastructure;
+using Shared.Caching.Cqrs;
 using Shared.Caching.Redis;
 using Shared.Results;
 using Xunit;
@@ -153,7 +153,7 @@ public sealed class RedisCachingIntegrationTests
         builder.Configuration["ConnectionStrings:redis"] = connectionString;
         builder.Configuration["Tenancy:Enabled"] = "false";
         builder.AddRedisCaching();
-        builder.AddCachingInfrastructure();
+        builder.AddCachingCqrs();
         builder.Services.AddScoped<ICommandHandler<FlushInvalidationsCommand, Unit>, FlushInvalidationsHandler>();
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }

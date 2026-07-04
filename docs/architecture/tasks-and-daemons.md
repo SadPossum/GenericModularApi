@@ -64,7 +64,7 @@ services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(Ca
 
 `AddTaskHandler<TPayload,THandler>(moduleName)` reads task-owned attributes and generic metadata contributors from the payload type. The older explicit overload remains available for unusual cases, but the attribute-backed overload is the default for module-owned tasks. Architecture tests compare registered handlers, payload attributes, and module descriptors so task docs, module metadata, and runtime registration drift together.
 
-Projection rebuilds are a task use case, not a separate scheduler. Use `Shared.ProjectionRebuild` when a task needs the generic batch/checkpoint/progress loop, and keep the source contract, writer, cursor semantics, and checkpoint persistence in the producer/consumer modules that own the data. See [Projection Rebuild Tasks](projection-rebuild-tasks.md).
+Projection rebuilds are a task use case, not a separate scheduler. Use `Shared.ProjectionRebuild` for the task-neutral batch/checkpoint loop and `Shared.ProjectionRebuild.Tasks` when a task handler needs to adapt rebuild progress/control to task runtime services. Keep the source contract, writer, cursor semantics, and checkpoint persistence in the producer/consumer modules that own the data. See [Projection Rebuild Tasks](projection-rebuild-tasks.md).
 
 ## Communication
 
@@ -81,7 +81,7 @@ System-to-runner communication uses `ITaskControlChannel`, `ITaskControlLoop`, a
 
 `TaskControlCommandNames` defines the standard control commands `tasks.cancel`, `tasks.drain`, `tasks.pause`, and `tasks.resume`. `ITaskControlLoop` is a small helper over the lower-level channel: it polls pending messages, returns a `TaskControlPollResult`, and lets payload code mark messages handled or failed after the handler has actually acted on them. `TaskControlLoopExtensions` adds reusable cooperative behavior for cancel/drain and pause-until-resume loops.
 
-Task payload code that needs to call application behavior should use `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or normal CQRS contracts. This keeps payloads independent from HTTP, CLI, scheduler APIs, and module internals.
+Task payload code that needs to call application behavior should use `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or normal CQRS contracts. Hosts compose `AddTaskCqrs()` only when at least one registered task handler needs command dispatch. This keeps payloads independent from HTTP, CLI, scheduler APIs, and module internals.
 
 ## Runtime Store Contract
 
@@ -123,6 +123,7 @@ Compose it explicitly:
 builder.AddSharedInfrastructure();
 builder.AddTaskInfrastructure();
 builder.AddTaskRuntimePersistence();
+builder.AddTaskCqrs(); // only when registered task handlers use ITaskCommandDispatcher
 builder.AddTaskWorkerRuntime();
 builder.Services.AddTaskSamplesApplication(); // or your real task-owning modules
 ```
@@ -211,7 +212,7 @@ The default remains small: persistent tasks, hosted workers, code-defined schedu
 
 - Default hosts do not start task workers.
 - Domain projects do not reference scheduler, hosting, EF, HTTP, or admin APIs.
-- Application payloads depend on `Shared.Tasks`, `Shared.Tasks.Cqrs` when they dispatch application commands, CQRS contracts, and module ports.
+- Application payloads depend on `Shared.Tasks`, `Shared.Tasks.Cqrs` when they dispatch application commands, `Shared.ProjectionRebuild.Tasks` when they adapt rebuilds to task progress/control, CQRS contracts, and module ports.
 - External scheduler packages stay in explicit adapter projects.
 - Store implementations use `ITaskRunStore` and `TaskRunStatusTransitions` instead of ad hoc status changes.
 - Task worker hosts call `AddTaskWorkerRuntime()` explicitly and must also compose a concrete `ITaskRunStore`.

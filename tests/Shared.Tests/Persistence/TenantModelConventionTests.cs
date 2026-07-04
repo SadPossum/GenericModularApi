@@ -62,6 +62,21 @@ public sealed class TenantModelConventionTests
     }
 
     [Fact]
+    public async Task Write_guard_allows_global_writes_without_active_tenant()
+    {
+        await using TestTenantDbContext dbContext = CreateDbContext(
+            Guid.NewGuid().ToString("N"),
+            enabled: true,
+            tenantId: null);
+
+        dbContext.GlobalRecords.Add(new TestGlobalRecord { Id = Guid.NewGuid(), Name = "global" });
+
+        await dbContext.SaveChangesAsync();
+
+        Assert.Equal(1, await dbContext.GlobalRecords.CountAsync());
+    }
+
+    [Fact]
     public async Task Write_guard_rejects_mismatched_tenant_writes()
     {
         await using TestTenantDbContext dbContext = CreateDbContext(

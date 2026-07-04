@@ -13,5 +13,7 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj" />
   </ItemGroup>
 </Project>

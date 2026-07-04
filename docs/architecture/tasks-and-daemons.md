@@ -66,6 +66,8 @@ services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(
 
 Architecture tests compare registered handlers with `ModuleTaskDescriptor` metadata so task docs, module metadata, and runtime registration drift together.
 
+Projection rebuilds are a task use case, not a separate scheduler. Use `Shared.ProjectionRebuild` when a task needs the generic batch/checkpoint/progress loop, and keep the source contract, writer, cursor semantics, and checkpoint persistence in the producer/consumer modules that own the data. See [Projection Rebuild Tasks](projection-rebuild-tasks.md).
+
 ## Communication
 
 Runner-to-system communication uses `ITaskRuntimeReporter`:

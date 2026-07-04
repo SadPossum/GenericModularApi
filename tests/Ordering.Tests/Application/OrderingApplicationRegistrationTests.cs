@@ -4,10 +4,12 @@ using Catalog.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Ordering.Application;
 using Ordering.Application.Commands;
+using Ordering.Application.Tasks;
 using Ordering.Application.Validation;
 using Ordering.Contracts;
 using Shared.Cqrs;
 using Shared.Messaging;
+using Shared.Tasks;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -26,10 +28,12 @@ public sealed class OrderingApplicationRegistrationTests
         Assert.Single(services, descriptor => IsProjectionHandler(descriptor, "CatalogItemCreatedProjectionHandler"));
         Assert.Single(services, descriptor => IsProjectionHandler(descriptor, "CatalogItemUpdatedProjectionHandler"));
         Assert.Single(services, descriptor => IsProjectionHandler(descriptor, "CatalogItemDiscontinuedProjectionHandler"));
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TaskHandlerRegistration));
 
         using ServiceProvider provider = services.BuildServiceProvider();
         IIntegrationEventSubscriptionRegistry registry =
             provider.GetRequiredService<IIntegrationEventSubscriptionRegistry>();
+        ITaskHandlerRegistry taskRegistry = provider.GetRequiredService<ITaskHandlerRegistry>();
 
         Assert.Contains(registry.Subscriptions, subscription =>
             subscription.EventType == typeof(CatalogItemCreatedIntegrationEvent) &&
@@ -43,6 +47,15 @@ public sealed class OrderingApplicationRegistrationTests
             subscription.EventType == typeof(CatalogItemDiscontinuedIntegrationEvent) &&
             subscription.Subject == CatalogIntegrationSubjects.ItemDiscontinued &&
             subscription.HandlerName == OrderingModuleMetadata.CatalogItemDiscontinuedProjectionHandlerName);
+        TaskHandlerRegistration task = Assert.Single(taskRegistry.Registrations);
+        Assert.Equal(OrderingModuleMetadata.Name, task.ModuleName);
+        Assert.Equal(OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName, task.TaskName);
+        Assert.Equal(OrderingModuleMetadata.ProjectionWorkerGroup, task.WorkerGroup);
+        Assert.Equal(typeof(RebuildCatalogItemProjectionPayload), task.PayloadType);
+        Assert.Equal(ModuleTaskKind.OneShot, task.Kind);
+        Assert.True(task.TenantScoped);
+        Assert.True(task.SupportsControlMessages);
+        Assert.Equal(OrderingModuleMetadata.RebuildCatalogItemProjectionsPayloadVersion, task.PayloadVersion);
     }
 
     [Fact]

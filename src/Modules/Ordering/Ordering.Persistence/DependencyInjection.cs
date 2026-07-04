@@ -1,5 +1,6 @@
 namespace Ordering.Persistence;
 
+using Catalog.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,6 +10,7 @@ using Ordering.Persistence.Repositories;
 using Shared.Messaging;
 using Shared.Cqrs.UnitOfWork;
 using Shared.Persistence.EntityFrameworkCore;
+using Shared.ProjectionRebuild;
 
 public static class DependencyInjection
 {
@@ -28,9 +30,11 @@ public static class DependencyInjection
 
         builder.Services.TryAddScoped<IOrderRepository, OrderRepository>();
         builder.Services.TryAddScoped<ICatalogItemProjectionRepository, CatalogItemProjectionRepository>();
+        builder.Services.TryAddScoped<IProjectionRebuildWriter<CatalogItemProjectionExport>, CatalogItemProjectionRebuildWriter>();
         builder.Services.TryAddEnumerable([
             ServiceDescriptor.Scoped<IUnitOfWork, OrderingUnitOfWork>(),
-            ServiceDescriptor.Scoped<IInboxStore, OrderingInboxStore>()
+            ServiceDescriptor.Scoped<IInboxStore, OrderingInboxStore>(),
+            ServiceDescriptor.Scoped<IProjectionRebuildCheckpointStore, OrderingProjectionRebuildCheckpointStore>()
         ]);
 
         return builder;

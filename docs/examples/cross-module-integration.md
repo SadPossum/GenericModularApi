@@ -21,7 +21,9 @@ Ordering.Domain -> Catalog.Domain
 OrderingDbContext -> FK to catalog.items
 ```
 
-Public contract surfaces should still belong to the module that publishes them. A consumer module can reference a producer's contracts for integration event payloads, subject constants, and subscription metadata, but it should not expose producer DTOs or enums from its own `.Contracts` or `.Admin.Contracts` API. Duplicate the scalar/read-model fields that the consumer owns instead.
+Public contract surfaces should still belong to the module that publishes them. A consumer module can reference a producer's contracts for integration event payloads, subject constants, subscription metadata, and projection export contracts, but it should not expose producer DTOs or enums from its own `.Contracts` or `.Admin.Contracts` API. Duplicate the scalar/read-model fields that the consumer owns instead.
+
+Projection rebuilds follow the same rule. A producer can expose an export contract from its `.Contracts` project, and the producer's persistence adapter can implement that source. The consumer still owns the destination table, checkpoint table, and rebuild task.
 
 ## Why Duplicate Data?
 
@@ -50,3 +52,17 @@ Producer events should change additively. Breaking payload changes require a new
 Consumers should ignore fields they do not need. They should be prepared for duplicate delivery.
 
 Consumer registrations should use producer subject constants and consumer handler-name constants from module metadata. Avoid copying raw subject or durable-handler strings into application registration.
+
+## Backfill and Repair
+
+When existing local projection data must be repaired, prefer an explicit rebuild task:
+
+```mermaid
+flowchart LR
+    A["Producer .Contracts export"] --> B["Producer persistence source adapter"]
+    B --> C["Consumer rebuild task"]
+    C --> D["Consumer projection writer"]
+    C --> E["Consumer checkpoint table"]
+```
+
+The consumer may duplicate producer data deliberately. It must not add a cross-module foreign key or reference producer EF/domain/application projects to make the rebuild easier.

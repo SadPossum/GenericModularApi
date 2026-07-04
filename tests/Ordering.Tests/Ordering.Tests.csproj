@@ -24,6 +24,8 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Naming\Shared.Naming.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Numerics\Shared.Numerics.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />
   </ItemGroup>
 </Project>

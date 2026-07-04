@@ -29,10 +29,17 @@
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Contracts\Auth.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Domain\Auth.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Auth\Auth.Persistence\Auth.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Application\Catalog.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Contracts\Catalog.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Domain\Catalog.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Persistence\Catalog.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Persistence.PostgreSqlMigrations\Catalog.Persistence.PostgreSqlMigrations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Persistence.SqlServerMigrations\Catalog.Persistence.SqlServerMigrations.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Application\Ordering.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Contracts\Ordering.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Persistence\Ordering.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Persistence.PostgreSqlMigrations\Ordering.Persistence.PostgreSqlMigrations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Persistence.SqlServerMigrations\Ordering.Persistence.SqlServerMigrations.csproj" />
     <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Persistence\TaskRuntime.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Persistence.PostgreSqlMigrations\TaskRuntime.Persistence.PostgreSqlMigrations.csproj" />
     <ProjectReference Include="..\..\src\Modules\TaskRuntime\TaskRuntime.Persistence.SqlServerMigrations\TaskRuntime.Persistence.SqlServerMigrations.csproj" />

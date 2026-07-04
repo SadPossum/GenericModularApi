@@ -31,10 +31,12 @@ Place public contract files in the standard folders:
 - `Api/` for public request/response/DTO records.
 - `Admin/` for admin-facing DTO records that remain backend-free.
 - `Events/` for integration event payloads and subject constants.
+- `Exports/` for producer-owned projection rebuild/backfill snapshots and source ports.
 - `Metadata/` for `<Module>ModuleMetadata`, `*PermissionCodes`, and `*ContractLimits`.
 - `Types/` for public enum-like or code-list types.
 
 Confirm the public contracts `.csproj` references `Shared.Modules` for module metadata, `Shared.Authorization` for permission metadata, `Shared.Messaging` for integration events/subscriptions, `Shared.Caching` for cache metadata, and `Shared.Tasks` for task metadata/contracts only when those capabilities are declared. Public contracts should avoid `Shared.Application.Composition` and `Shared.Cqrs`; keep CQRS commands/queries and paging helpers in the module application boundary. Optional producer `.Contracts` references are allowed. Keep package and framework references out.
+If the module exposes rebuild/backfill export contracts, reference `Shared.ProjectionRebuild` from `.Contracts`, keep the source interface backend-free, and implement the source in the producer persistence adapter.
 Admin permission code strings live here so `<Module>ModuleMetadata` can declare permissions without referencing admin-only framework packages.
 When the module becomes compiled code, add its contract metadata descriptor to `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`; architecture tests compare that catalog with every `<Module>ModuleMetadata.Descriptor`.
 If this module consumes another module's contracts, do not expose producer DTOs or enums from this module's public contracts. Duplicate the scalar/read-model fields owned by this module.
@@ -92,6 +94,7 @@ Confirm the domain `.csproj` has no package or framework references unless a fut
 List commands, queries, handlers, validators, domain event handlers, and integration event handlers.
 State which commands implement `ITransactionalCommand<TResponse>` and which commands intentionally remain plain `ICommand<TResponse>`.
 List task payloads and daemons, if any. State the `ModuleTaskDescriptor` name, payload version, kind, tenant scope, worker group, cancellation behavior, and whether control messages are supported. Declare task metadata through `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` so task metadata remains owned by `Shared.Tasks`.
+If the module owns a projection rebuild task, state the projection name/version, source contract, writer, checkpoint store, cursor semantics, dry-run behavior, and whether retry resumes from the same run id. Prefer `Shared.ProjectionRebuild` for the generic loop and keep projection semantics in the owning module.
 Keep one handler class per file under `<Module>.Application/Handlers`, including command handlers, query handlers, domain-event projectors, and integration-event handlers.
 Confirm the application project does not reference module adapters or front doors such as `.Persistence`, `.Infrastructure`, `.Api`, `.AdminCli`, or `.AdminApi`.
 Confirm the application `.csproj` references only needed shared abstractions such as `Shared.Cqrs`, `Shared.Application.Composition` for assembly registration, `Shared.Application.Events` for domain-event handlers, and `Shared.Pagination` for normalized paging, plus its own contracts/domain projects, optional producer `.Contracts` projects, and small Microsoft extension abstraction packages.
@@ -113,6 +116,7 @@ Describe adapters and external systems.
 
 Describe schema, DbContext, migrations, repositories, local projections, and outbox/inbox tables.
 State the module name used by `IUnitOfWork`, `IOutboxWriter`, `IOutboxStore`, and `IInboxStore`.
+If the module owns rebuildable projections, list the checkpoint table and key shape. Tenant-scoped rebuild checkpoints should include tenant id, projection name, run id, cursor, processed/written/skipped/failed counts, projection version, updated timestamp, and completion timestamp.
 For EF-backed modules that raise domain events, confirm the module UoW inherits `EfDomainEventUnitOfWork<TDbContext>` instead of duplicating domain-event dispatch/save/clear logic.
 Confirm the persistence `.csproj` stays a provider adapter: EF SQL Server/PostgreSQL plus hosting packages only, shared application/domain/infrastructure primitives, the owning contracts/application/domain projects, and optional producer `.Contracts` projects for local projections.
 If the module has a persistence project, keep both SQL Server and PostgreSQL migration projects unless a future ADR explicitly narrows provider support.

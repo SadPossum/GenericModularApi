@@ -36,6 +36,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Observability\Shared.Observability.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj" />

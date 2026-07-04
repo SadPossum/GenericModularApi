@@ -1,6 +1,7 @@
 namespace Catalog.Persistence;
 
 using Catalog.Application.Ports;
+using Catalog.Contracts;
 using Catalog.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ public static class DependencyInjection
 
         builder.Services.TryAddScoped<ICatalogItemRepository, CatalogItemRepository>();
         builder.Services.TryAddScoped<ICatalogItemReadRepository, CatalogItemReadRepository>();
+        builder.Services.TryAddScoped<ICatalogItemProjectionExportSource, CatalogItemProjectionExportSource>();
         builder.Services.TryAddEnumerable([
             ServiceDescriptor.Scoped<IUnitOfWork, CatalogUnitOfWork>(),
             ServiceDescriptor.Scoped<IOutboxWriter, CatalogOutboxWriter>(),

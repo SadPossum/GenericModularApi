@@ -84,6 +84,7 @@ Shared.Observability
 Shared.Observability.Infrastructure
 Shared.Pagination
 Shared.Persistence.EntityFrameworkCore
+Shared.ProjectionRebuild
 Shared.Runtime
 Shared.Runtime.Infrastructure
 Shared.Security

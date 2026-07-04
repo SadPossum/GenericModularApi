@@ -110,6 +110,42 @@ public sealed class CatalogIntegrationEventContractTests
         Assert.Equal("SKU-1", integrationEvent.Sku);
     }
 
+    [Fact]
+    public void Projection_export_normalizes_snapshot_data_and_maps_undefined_status_to_unknown()
+    {
+        CatalogItemProjectionExport export = new(
+            " tenant-a ",
+            ItemId,
+            " sku-1 ",
+            " Item name ",
+            10m,
+            " usd ",
+            (CatalogItemStatus)999);
+
+        Assert.Equal("tenant-a", export.TenantId);
+        Assert.Equal(ItemId, export.ItemId);
+        Assert.Equal("SKU-1", export.Sku);
+        Assert.Equal("Item name", export.Name);
+        Assert.Equal(10m, export.Price);
+        Assert.Equal("USD", export.Currency);
+        Assert.Equal(CatalogItemStatus.Unknown, export.Status);
+    }
+
+    [Fact]
+    public void Projection_export_rejects_invalid_snapshot_data()
+    {
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(tenantId: " "));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(tenantId: new string('x', TenantIds.MaxLength + 1)));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(itemId: Guid.Empty));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(sku: " "));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(sku: new string('x', CatalogContractLimits.SkuMaxLength + 1)));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(name: " "));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(name: new string('x', CatalogContractLimits.NameMaxLength + 1)));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(price: 0));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(price: 10.123m));
+        Assert.Throws<ArgumentException>(() => CreateProjectionExport(currency: "US"));
+    }
+
     private static CatalogItemCreatedIntegrationEvent CreateCreatedEvent(
         Guid? eventId = null,
         string tenantId = "tenant-a",
@@ -140,5 +176,22 @@ public sealed class CatalogIntegrationEventContractTests
             "Item name",
             10m,
             "USD",
+            status);
+
+    private static CatalogItemProjectionExport CreateProjectionExport(
+        string tenantId = "tenant-a",
+        Guid? itemId = null,
+        string sku = "SKU-1",
+        string name = "Item name",
+        decimal price = 10m,
+        string currency = "USD",
+        CatalogItemStatus status = CatalogItemStatus.Active) =>
+        new(
+            tenantId,
+            itemId ?? ItemId,
+            sku,
+            name,
+            price,
+            currency,
             status);
 }

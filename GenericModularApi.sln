@@ -119,6 +119,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{929E11CE-B
 		docs\adr\0007-shared-cqrs-validation-contracts.md = docs\adr\0007-shared-cqrs-validation-contracts.md
 		docs\adr\0008-optional-tasks-and-daemons-foundation.md = docs\adr\0008-optional-tasks-and-daemons-foundation.md
 		docs\adr\0009-configurable-application-identity.md = docs\adr\0009-configurable-application-identity.md
+		docs\adr\0010-projection-rebuild-tasks.md = docs\adr\0010-projection-rebuild-tasks.md
 		docs\architecture\administration.md = docs\architecture\administration.md
 		docs\architecture\audit-follow-up-notes.md = docs\architecture\audit-follow-up-notes.md
 		docs\architecture\audit-hardening-notes.md = docs\architecture\audit-hardening-notes.md
@@ -132,6 +133,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{929E11CE-B
 		docs\architecture\overview.md = docs\architecture\overview.md
 		docs\architecture\persistence-and-tenancy.md = docs\architecture\persistence-and-tenancy.md
 		docs\architecture\production-readiness-backlog.md = docs\architecture\production-readiness-backlog.md
+		docs\architecture\projection-rebuild-implementation-notes.md = docs\architecture\projection-rebuild-implementation-notes.md
 		docs\architecture\projection-rebuild-tasks.md = docs\architecture\projection-rebuild-tasks.md
 		docs\architecture\tasks-and-daemons.md = docs\architecture\tasks-and-daemons.md
 		docs\examples\catalog-module.md = docs\examples\catalog-module.md
@@ -326,6 +328,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.Application.Composition", "src\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj", "{C4400B3A-6BC4-4744-8545-FF1ED957E4DE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.Numerics", "src\Shared\Shared.Numerics\Shared.Numerics.csproj", "{A4013CE7-8758-4587-9756-4B10E3AEF100}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.ProjectionRebuild", "src\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj", "{B70F8EF8-26EA-4525-9380-4841541F974B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1513,6 +1517,18 @@ Global
 		{A4013CE7-8758-4587-9756-4B10E3AEF100}.Release|x64.Build.0 = Release|Any CPU
 		{A4013CE7-8758-4587-9756-4B10E3AEF100}.Release|x86.ActiveCfg = Release|Any CPU
 		{A4013CE7-8758-4587-9756-4B10E3AEF100}.Release|x86.Build.0 = Release|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Debug|x64.Build.0 = Debug|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Debug|x86.Build.0 = Debug|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Release|x64.ActiveCfg = Release|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Release|x64.Build.0 = Release|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Release|x86.ActiveCfg = Release|Any CPU
+		{B70F8EF8-26EA-4525-9380-4841541F974B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1636,5 +1652,6 @@ Global
 		{CD61FB98-A7F1-4FCD-BA01-21A4F3521006} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 		{C4400B3A-6BC4-4744-8545-FF1ED957E4DE} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 		{A4013CE7-8758-4587-9756-4B10E3AEF100} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
+		{B70F8EF8-26EA-4525-9380-4841541F974B} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 	EndGlobalSection
 EndGlobal

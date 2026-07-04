@@ -11,6 +11,7 @@ Ordering owns:
 - orders;
 - local catalog item projections used for order decisions;
 - an inbox table for idempotent event processing.
+- projection rebuild checkpoints for local projection repair/backfill.
 
 ## Projects
 
@@ -47,6 +48,36 @@ It does not reference Catalog domain, application, persistence, API, or admin pr
 - status.
 
 `Order` stores the catalog item id as a scalar external id. There is no database foreign key to Catalog.
+
+## Projection Rebuild Task
+
+Ordering declares and registers a tenant-scoped task:
+
+```text
+ordering.rebuild-catalog-item-projections
+```
+
+The task uses worker group `projection-workers`, payload version `1`, and supports control messages through the task runtime. Its payload includes projection version, batch size, dry-run, and an optional cursor override.
+
+The rebuild flow is:
+
+```text
+CatalogItemProjectionExportSource
+  -> ProjectionRebuildRunner<CatalogItemProjectionExport>
+  -> CatalogItemProjectionRebuildWriter
+  -> ordering.catalog_item_projections
+  -> ordering.projection_rebuild_checkpoints
+```
+
+Retrying the same task run resumes from `ordering.projection_rebuild_checkpoints`. A cursor override starts from the supplied cursor instead of the saved checkpoint. The writer is idempotent because it upserts by the local projection repository's stable `(TenantId, CatalogItemId)` shape.
+
+To run the example end to end, explicitly compose Catalog persistence, Ordering application/persistence, TaskRuntime application/persistence, and the task worker runtime with:
+
+```text
+Tasks:Worker:WorkerGroups:0 = projection-workers
+```
+
+Default hosts do not register Catalog, Ordering, or the projection worker group.
 
 ## Order Rule
 

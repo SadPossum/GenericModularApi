@@ -2,11 +2,20 @@
 
 Projection rebuild tasks are the production mechanism for repairing or evolving derived read models after projection schema changes, missed events, data repair, or a new consumer module. They complement normal integration-event handling; they do not replace event-driven incremental updates.
 
-## Task Text
+## Implemented V1
 
-Implement a reusable, production-safe projection rebuild task framework that lets a module rebuild or backfill one of its owned projections from an explicit source, while preserving module boundaries, tenant isolation, idempotency, observability, and operational control.
+The first implementation adds a small shared projection rebuild helper in `Shared.ProjectionRebuild` plus a compiled Catalog-to-Ordering example:
 
-The first concrete use case should be a consumer-owned projection such as `Ordering` rebuilding `catalog_item_projections` after `Catalog` adds a field needed by order decisions or order reads.
+- `ProjectionRebuildRunner<TSnapshot>` owns the generic loop, checkpoint load/save, progress reporting, cooperative task control polling, and bounded metrics.
+- `IProjectionRebuildSource<TSnapshot>` reads authoritative source batches through an explicit contract.
+- `IProjectionRebuildWriter<TSnapshot>` writes or dry-runs idempotent consumer-owned projection batches.
+- `IProjectionRebuildCheckpointStore` is resolved by consumer module and persists checkpoints in that module's schema.
+- `Catalog.Contracts/Exports` exposes `CatalogItemProjectionExport` and `ICatalogItemProjectionExportSource`.
+- `Catalog.Persistence` implements the export source from Catalog's EF model.
+- `Ordering.Application` registers `rebuild-catalog-item-projections` as an explicit tenant-scoped task.
+- `Ordering.Persistence` owns `ordering.projection_rebuild_checkpoints` and the writer for `CatalogItemProjection`.
+
+The concrete use case is `Ordering` rebuilding its local `CatalogItemProjection` from Catalog exports after a consumer is introduced, a projection changes shape, or a repair/backfill is required.
 
 ## Problem
 
@@ -37,13 +46,14 @@ Producer source data
 The shared framework should own repetitive operational behavior:
 
 - batching;
-- tenant context;
 - checkpoints;
 - cancellation;
 - progress reporting;
 - retries;
 - idempotent write orchestration;
-- metrics and structured logs.
+- metrics and task progress payloads.
+
+Tenant context remains owned by the task runtime. Tenant-scoped rebuild tasks declare tenant scope in `ModuleTaskDescriptor`; the worker sets `ITenantContextAccessor` before invoking the task handler.
 
 The owning module must still define the data semantics:
 
@@ -71,6 +81,20 @@ The owning module must still define the data semantics:
 - Do not make every projection rebuildable automatically.
 - Do not require NATS for local or one-time rebuilds.
 - Do not use projection rebuilds as a substitute for correct incremental event handlers.
+
+## Current Flow
+
+```mermaid
+flowchart LR
+    A["TaskRuntime run: ordering.rebuild-catalog-item-projections"] --> B["Ordering task handler"]
+    B --> C["ProjectionRebuildRunner<CatalogItemProjectionExport>"]
+    C --> D["Catalog export source (Catalog.Contracts port)"]
+    D --> E["Catalog.Persistence read batch"]
+    C --> F["Ordering projection writer"]
+    F --> G["ordering.catalog_item_projections"]
+    C --> H["ordering.projection_rebuild_checkpoints"]
+    C --> I["Task progress and projection metrics"]
+```
 
 ## Functional Requirements
 
@@ -114,13 +138,16 @@ A future constrained helper is acceptable only if it satisfies all of these cond
 
 The task payload must be stable and versioned.
 
-Recommended fields:
+V1 payload fields:
 
-- projection name or target version;
-- optional tenant id when tenant-scoped;
-- optional source cursor or checkpoint override;
+- projection version;
 - batch size;
 - dry-run flag;
+- optional cursor override.
+
+Recommended future fields:
+
+- optional tenant id when tenant-scoped;
 - optional force/full-rebuild flag;
 - optional source filter, such as updated-after timestamp or id range;
 - deduplication key.

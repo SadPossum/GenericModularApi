@@ -6,6 +6,7 @@ using Shared.Caching;
 using Shared.Messaging;
 using Shared.Modules;
 using Shared.Tasks;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -130,7 +131,7 @@ public sealed class ModuleDescriptorTests
                 new ModulePermissionDescriptor(" Catalog.Items.Read ", " Read catalog items. ", tenantScoped: true)
             ])
             .WithPublishedEvents([
-                new ModuleIntegrationEventDescriptor(" Item-Created ", " GMA.Catalog.Item-Created.V1 ", 1, tenantScoped: true)
+                new ModuleIntegrationEventDescriptor(" Item-Created ", " GMA.Catalog.Item-Created.V1 ", 1, [TenantScopeMetadataItem.Instance])
             ])
             .WithSubscriptions([
                 new ModuleSubscriptionDescriptor(
@@ -138,7 +139,7 @@ public sealed class ModuleDescriptorTests
                     " Item-Created ",
                     " GMA.Catalog.Item-Created.V1 ",
                     " Item-Created-Projection ",
-                    tenantScoped: true)
+                    [TenantScopeMetadataItem.Instance])
             ])
             .WithCacheEntries([
                 new ModuleCacheDescriptor(" Items ", CacheScope.Tenant, [" Products "])
@@ -148,9 +149,9 @@ public sealed class ModuleDescriptorTests
                     " Rebuild-Search ",
                     " Rebuild search index. ",
                     ModuleTaskKind.OneShot,
-                    tenantScoped: true,
                     supportsControlMessages: true,
-                    " Search-Workers ")
+                    " Search-Workers ",
+                    metadata: [TenantScopeMetadataItem.Instance])
             ])
             .Build();
 
@@ -179,23 +180,23 @@ public sealed class ModuleDescriptorTests
             .WithPermissions([
                 new ModulePermissionDescriptor("catalog.items.create", "Create catalog items.", tenantScoped: true)
             ])
-            .WithPublishedEvent(new ModuleIntegrationEventDescriptor("item-created", "gma.catalog.item-created.v1", 1, tenantScoped: true))
+            .WithPublishedEvent(new ModuleIntegrationEventDescriptor("item-created", "gma.catalog.item-created.v1", 1, [TenantScopeMetadataItem.Instance]))
             .WithPublishedEvents([
-                new ModuleIntegrationEventDescriptor("item-updated", "gma.catalog.item-updated.v1", 1, tenantScoped: true)
+                new ModuleIntegrationEventDescriptor("item-updated", "gma.catalog.item-updated.v1", 1, [TenantScopeMetadataItem.Instance])
             ])
             .WithSubscription(new ModuleSubscriptionDescriptor(
                 "catalog",
                 "item-created",
                 "gma.catalog.item-created.v1",
                 "item-created-projection",
-                tenantScoped: true))
+                [TenantScopeMetadataItem.Instance]))
             .WithSubscriptions([
                 new ModuleSubscriptionDescriptor(
                     "catalog",
                     "item-updated",
                     "gma.catalog.item-updated.v1",
                     "item-updated-projection",
-                    tenantScoped: true)
+                    [TenantScopeMetadataItem.Instance])
             ])
             .WithCacheEntry(new ModuleCacheDescriptor("item", CacheScope.Tenant, ["catalog.items"]))
             .WithCacheEntries([
@@ -205,17 +206,17 @@ public sealed class ModuleDescriptorTests
                 "rebuild-item",
                 "Rebuild one catalog item projection.",
                 ModuleTaskKind.OneShot,
-                tenantScoped: true,
                 supportsControlMessages: false,
-                "catalog-workers"))
+                "catalog-workers",
+                metadata: [TenantScopeMetadataItem.Instance]))
             .WithTasks([
                 new ModuleTaskDescriptor(
                     "rebuild-items",
                     "Rebuild catalog item projections.",
                     ModuleTaskKind.OneShot,
-                    tenantScoped: true,
                     supportsControlMessages: true,
-                    "catalog-workers")
+                    "catalog-workers",
+                    metadata: [TenantScopeMetadataItem.Instance])
             ])
             .Build();
 
@@ -225,6 +226,39 @@ public sealed class ModuleDescriptorTests
         Assert.Equal(["item-created-projection", "item-updated-projection"], descriptor.GetSubscriptions().Select(item => item.HandlerName));
         Assert.Equal(["item", "items"], descriptor.GetCacheEntries().Select(item => item.Name));
         Assert.Equal(["rebuild-item", "rebuild-items"], descriptor.GetTasks().Select(item => item.Name));
+    }
+
+    [Fact]
+    public void Module_descriptor_can_read_local_metadata_from_event_and_task_attributes()
+    {
+        ModuleDescriptor descriptor = ModuleDescriptor
+            .Create("catalog")
+            .WithPublishedEvent<AttributedIntegrationEvent>()
+            .WithSubscription<AttributedIntegrationEvent>("catalog", "item-created-projection")
+            .WithTask<AttributedTaskPayload>()
+            .Build();
+
+        ModuleIntegrationEventDescriptor publishedEvent = Assert.Single(descriptor.GetPublishedEvents());
+        Assert.Equal("catalog", publishedEvent.ModuleName);
+        Assert.Equal("item-created", publishedEvent.EventType);
+        Assert.Equal("gma.catalog.item-created.v1", publishedEvent.Subject);
+        Assert.True(publishedEvent.IsTenantScoped());
+
+        ModuleSubscriptionDescriptor subscription = Assert.Single(descriptor.GetSubscriptions());
+        Assert.Equal("catalog", subscription.ProducerModule);
+        Assert.Equal("item-created", subscription.EventType);
+        Assert.Equal("gma.catalog.item-created.v1", subscription.Subject);
+        Assert.Equal("item-created-projection", subscription.HandlerName);
+        Assert.True(subscription.IsTenantScoped());
+
+        ModuleTaskDescriptor task = Assert.Single(descriptor.GetTasks());
+        Assert.Equal("rebuild-search", task.Name);
+        Assert.Equal("Rebuild search index.", task.Description);
+        Assert.Equal(ModuleTaskKind.OneShot, task.Kind);
+        Assert.Equal("search-workers", task.WorkerGroup);
+        Assert.Equal(2, task.PayloadVersion);
+        Assert.True(task.IsTenantScoped());
+        Assert.True(task.SupportsControlMessages);
     }
 
     [Fact]
@@ -445,8 +479,8 @@ public sealed class ModuleDescriptorTests
         Assert.Throws<ArgumentException>(() => ModuleDescriptor
             .Create("catalog")
             .WithSchema("catalog")
-            .WithTask(new ModuleTaskDescriptor("rebuild-search", "Rebuild search index.", ModuleTaskKind.OneShot, tenantScoped: true, supportsControlMessages: true))
-            .WithTask(new ModuleTaskDescriptor("Rebuild-Search", "Rebuild search index.", ModuleTaskKind.Daemon, tenantScoped: true, supportsControlMessages: true)));
+            .WithTask(new ModuleTaskDescriptor("rebuild-search", "Rebuild search index.", ModuleTaskKind.OneShot, supportsControlMessages: true))
+            .WithTask(new ModuleTaskDescriptor("Rebuild-Search", "Rebuild search index.", ModuleTaskKind.Daemon, supportsControlMessages: true)));
     }
 
     [Fact]
@@ -456,7 +490,7 @@ public sealed class ModuleDescriptorTests
             .Create("catalog")
             .WithSchema("catalog")
             .WithPublishedEvents([
-                new ModuleIntegrationEventDescriptor("item-created", "gma.auth.item-created.v1", 1, tenantScoped: true)
+                new ModuleIntegrationEventDescriptor("item-created", "gma.auth.item-created.v1", 1)
             ])
             .Build());
     }
@@ -468,8 +502,7 @@ public sealed class ModuleDescriptorTests
             "catalog",
             "item-created",
             "gma.catalog.item-updated.v1",
-            "item-created-projection",
-            tenantScoped: true));
+            "item-created-projection"));
     }
 
     [Fact]
@@ -504,7 +537,6 @@ public sealed class ModuleDescriptorTests
             "rebuild-search",
             "Rebuild search index.",
             ModuleTaskKind.Unknown,
-            tenantScoped: true,
             supportsControlMessages: true));
     }
 
@@ -583,5 +615,33 @@ public sealed class ModuleDescriptorTests
             : base(key)
         {
         }
+    }
+
+    [IntegrationEventName(AttributedIntegrationEvent.EventType)]
+    [IntegrationEventVersion(AttributedIntegrationEvent.EventVersion)]
+    [TenantScoped]
+    private sealed record AttributedIntegrationEvent(
+        Guid EventId,
+        string TenantId,
+        DateTimeOffset OccurredAtUtc) : IIntegrationEvent
+    {
+        public const string EventType = "item-created";
+        public const int EventVersion = 1;
+
+        public string EventName => EventType;
+        public int Version => EventVersion;
+    }
+
+    [TaskName(AttributedTaskPayload.TaskName)]
+    [TaskPayloadVersion(AttributedTaskPayload.PayloadVersion)]
+    [TaskDescription("Rebuild search index.")]
+    [TaskKind(ModuleTaskKind.OneShot)]
+    [TaskWorkerGroup("search-workers")]
+    [SupportsTaskControl]
+    [TenantScoped]
+    private sealed record AttributedTaskPayload : ITaskPayload
+    {
+        public const string TaskName = "rebuild-search";
+        public const int PayloadVersion = 2;
     }
 }

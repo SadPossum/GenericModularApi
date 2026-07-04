@@ -112,13 +112,14 @@ Publisher failures are isolated at module-store and message granularity. If one 
 
 Broker-side publish de-duplication is a defensive layer, not a replacement for outbox state. The local outbox row remains the source of retry truth, and consumer inbox tables remain the source of handler idempotency truth.
 
-Outbox metadata limits are declared by `OutboxMessage` and consumed by module EF mappings. Subject, event type, tenant id, worker id, and bounded failure metadata should fail or truncate in shared infrastructure before a provider-specific `SaveChanges` path can fail late.
+Outbox metadata limits are declared by `OutboxMessage` and applied through `ConfigureOutboxMessage(...)` from `Shared.Messaging.Infrastructure`. Subject, event type, tenant id, worker id, and bounded failure metadata should fail or truncate in shared infrastructure before a provider-specific `SaveChanges` path can fail late.
 
 ## Inbox And Consumers
 
 NATS consumers are optional and documented in [Messaging Consumers](messaging-consumers.md).
 
 Each consuming module owns an inbox table in its schema. The shared consumer runtime acknowledges a NATS message only after the handler effect and inbox processed marker commit.
+EF-backed modules should map inbox rows through `ConfigureInboxMessage(...)` so keys, indexes, and length limits stay aligned across modules without repeating configuration blocks.
 
 ## Messaging Guidelines
 

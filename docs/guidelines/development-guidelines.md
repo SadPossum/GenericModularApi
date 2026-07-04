@@ -61,6 +61,8 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared messaging contracts | `Shared.Messaging` |
 | Shared task contracts | `Shared.Tasks` |
 | Shared task-to-CQRS bridge | `Shared.Tasks.Cqrs` |
+| Shared projection rebuild contracts/runtime | `Shared.ProjectionRebuild` |
+| Shared projection rebuild task bridge | `Shared.ProjectionRebuild.Tasks` |
 | Shared CQRS contracts | `Shared.Cqrs` |
 | Shared tenancy contracts | `Shared.Tenancy` |
 | Shared application assembly registration | `Shared.Application.Composition` |
@@ -72,6 +74,7 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared CQRS runtime | `Shared.Cqrs.Infrastructure` |
 | Shared clock/id runtime | `Shared.Runtime.Infrastructure` |
 | Shared cache runtime | `Shared.Caching.Infrastructure` |
+| Shared cache-to-CQRS bridge | `Shared.Caching.Cqrs` |
 | Shared messaging runtime | `Shared.Messaging.Infrastructure` |
 | Shared NATS messaging transport | `Shared.Messaging.Nats` |
 | Shared task runtime | `Shared.Tasks.Infrastructure` |
@@ -207,6 +210,10 @@ Before writing tenant-scoped code, answer:
 
 Use `TenantIds` in domain, application, infrastructure, and front-door code when accepting or storing a tenant id from aggregates, headers, commands, events, or configuration. Tenant ids are trimmed, case-preserving, capped at 128 characters, and reject whitespace or control characters to match persistence mappings.
 
+Tenant-owned models should make ownership visible with `TenantAggregateRoot<TId>`, `TenantEntity<TId>`, or a direct `ITenantScoped` implementation. Do not hide tenancy behind shadow EF properties or host-side reflection. Tenant-aware EF modules should inherit `TenantAwareDbContext<TContext>` and call `ApplyTenantConventions(modelBuilder)` so `TenantId` mapping, the named `TenantFilter`, and write-side tenant guards stay centralized.
+
+Infrastructure records that contain tenant ids are not automatically tenant-owned. Outbox, inbox, task runtime, audit, and projection-control tables should be classified deliberately before applying tenant filters.
+
 If yes, tests must cover tenant isolation.
 
 ## Persistence
@@ -218,6 +225,7 @@ Rules:
 - keep `Microsoft.EntityFrameworkCore.Design` and `IDesignTimeDbContextFactory<TContext>` in provider-specific migration projects, not runtime persistence projects;
 - add migrations with `eng/add-migration.ps1 -Module <Module> -Provider SqlServer|PostgreSql -Name <Name>`;
 - run `eng/check-migrations.ps1 -NoBuild` after EF mapping changes so SQL Server and PostgreSQL snapshots stay aligned with the model;
+- use `TenantAwareDbContext<TContext>` plus `ApplyTenantConventions(modelBuilder)` for tenant-scoped EF entities;
 - index tenant-scoped read paths with the tenant id first when queries filter by tenant and sort or join by another column;
 - no cross-module foreign keys;
 - do not use `EnsureCreated` in integration tests;
@@ -237,6 +245,7 @@ Rules:
 - consumers implement `IIntegrationEventHandler<TEvent>`;
 - each consuming module owns an inbox table and registers an `IInboxStore`;
 - consumer handlers update local module state or projections idempotently;
+- EF-backed modules map outbox rows through `ConfigureOutboxMessage(...)` and inbox rows through `ConfigureInboxMessage(...)` instead of repeating message keys, indexes, and length limits;
 - shared envelope/outbox/inbox record constructors validate event ids, subject shape, event versions, tenant ids, and handler/event names; do not bypass them with ad hoc anonymous transport payloads;
 - custom inbox stores return `InboxProcessResult` through its factories and never hand-build processing outcomes;
 - NATS stays behind infrastructure.
@@ -247,9 +256,9 @@ Do not inject a bare `IOutboxWriter` into application code. Multiple modules can
 
 Rules:
 
-- declare owned task and daemon metadata through `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` and `ModuleTaskDescriptor`;
-- keep task payloads in the owning module application layer;
-- register task handlers explicitly through `AddTaskHandler<TPayload,THandler>()` from the owning module application registration, matching descriptor kind, tenant scope, payload version, worker group, and control-message support;
+- declare owned task and daemon metadata with split task attributes on the serialized payload contract, then reference it through `ModuleDescriptor.Create(...).WithTask<TPayload>().Build()`;
+- keep task payloads that are module metadata or externally enqueueable in the owning module `.Contracts` project;
+- register task handlers explicitly through the attribute-backed `AddTaskHandler<TPayload,THandler>(moduleName)` overload from the owning module application registration;
 - keep payload code independent from scheduler packages, HTTP, CLI, and other module internals;
 - use `TaskExecutionContext` for run identity, tenant, node, worker id, worker group, attempt, correlation, and cancellation intent;
 - use explicit task payload versions when changing payload shape; keep old handlers registered until old queued work is drained;
@@ -258,7 +267,8 @@ Rules:
 - expose or accept task run statuses through `TaskRunStatusNames` wire names such as `retry-scheduled`; keep enum names as compatibility input only;
 - report heartbeat and progress through `ITaskRuntimeReporter`;
 - read system-to-runner control messages through `ITaskControlLoop` or `TaskControlLoopExtensions`;
-- dispatch normal application commands from payload code through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or CQRS contracts;
+- dispatch normal application commands from payload code through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or CQRS contracts, and compose `AddTaskCqrs()` only in hosts whose task handlers need it;
+- adapt projection rebuilds to task progress/control through `TaskProjectionRebuildRunner<TSnapshot>` from `Shared.ProjectionRebuild.Tasks`;
 - keep runtime stores behind `ITaskRunStore` and use `TaskRunStatusTransitions` for claim, retry, cancellation, and terminal-state rules;
 - persist requester metadata from `TaskRunRequest.RequestedBy` when the runtime owns a durable store;
 - compose `AddTaskRuntimePersistence()` and `AddTaskWorkerRuntime()` only in hosts that should run tasks;
@@ -321,7 +331,7 @@ Rules:
 - Prefer small, explicit classes.
 - Keep application-layer DI registration host-agnostic. Use `IServiceCollection`; pass `IConfiguration` only for application-owned options.
 - Use `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` from module application registration for CQRS handlers, validators, and domain-event handlers. This is the project's only default reflection-based application registration convention.
-- Keep integration-event subscriptions explicit with `AddIntegrationEventHandler<TEvent,THandler>(...)`; subjects and durable handler names are public cross-module contracts.
+- Keep integration-event subscriptions explicit with `AddIntegrationEventHandler<TEvent,THandler>(consumerModule, producerModule)`; put event identity/version on the event contract through `EventType`/`EventVersion` constants plus `IntegrationEventNameAttribute` and `IntegrationEventVersionAttribute`, durable handler identity on the handler through `IntegrationEventHandlerAttribute`, and tenant behavior through `[TenantScoped]` from `Shared.Tenancy` when needed.
 - Keep one application handler class per file under `<Module>.Application/Handlers`.
 - Keep one public contract type per file under `<Module>.Contracts`.
 - Add comments only when they explain non-obvious decisions.

@@ -5,7 +5,7 @@ using Shared.Administration.Api;
 using Shared.Api.OpenApi;
 using Shared.Api.Security;
 using Shared.Api.Serilog;
-using Shared.Caching.Infrastructure;
+using Shared.Caching.Cqrs;
 using Shared.Caching.Redis;
 using Shared.Infrastructure;
 using Shared.Logging.Serilog;
@@ -18,7 +18,7 @@ builder.Host.UseConfiguredSerilog();
 
 builder.Services.AddSharedAdministrationApi(builder.Configuration);
 builder.AddRedisCaching();
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging();

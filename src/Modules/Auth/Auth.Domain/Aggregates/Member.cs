@@ -6,11 +6,10 @@ using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.ValueObjects;
-using Shared.Domain;
 using Shared.Domain.Models;
 using Shared.Results;
 
-public sealed class Member : AggregateRoot<MemberId>, ITenantScoped
+public sealed class Member : TenantAggregateRoot<MemberId>
 {
     public const int PasswordHashMaxLength = 512;
     public const int DisabledReasonMaxLength = 512;
@@ -21,14 +20,12 @@ public sealed class Member : AggregateRoot<MemberId>, ITenantScoped
     private Member() { }
 
     private Member(MemberId id, string tenantId, string passwordHash)
-        : base(id)
+        : base(id, tenantId)
     {
-        this.TenantId = tenantId;
         this.PasswordHash = passwordHash;
         this.Status = MemberStatus.Active;
     }
 
-    public string TenantId { get; private set; } = string.Empty;
     public string PasswordHash { get; private set; } = string.Empty;
     public MemberStatus Status { get; private set; } = MemberStatus.Active;
     public DateTimeOffset RegisteredAtUtc { get; private set; }

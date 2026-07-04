@@ -142,7 +142,7 @@ public sealed class CatalogItemProjectionModelTests
         Assert.Throws<ArgumentException>(() => OrderingProjectionRebuildCheckpoint.Create(
             key,
             new ProjectionRebuildCheckpoint(
-                new string('x', OrderingProjectionRebuildCheckpoint.CursorMaxLength + 1),
+                new string('x', ProjectionRebuildCheckpointState.CursorMaxLength + 1),
                 0,
                 0,
                 0,

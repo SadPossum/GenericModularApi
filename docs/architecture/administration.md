@@ -110,7 +110,7 @@ It explicitly composes admin modules:
 ```csharp
 builder.AddSharedAdministrationCli();
 builder.AddRedisCaching(); // no-op unless Redis caching is enabled
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure(); // outbox writer registry without hosted publishers
 builder.AddAdminModule<AdministrationAdminCliModule>();

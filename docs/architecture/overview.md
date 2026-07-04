@@ -34,6 +34,7 @@ src/
     Shared.Application.Events.Infrastructure/
     Shared.Authorization/
     Shared.Caching/
+    Shared.Caching.Cqrs/
     Shared.Caching.Infrastructure/
     Shared.Caching.Redis/
     Shared.Cqrs/
@@ -54,6 +55,8 @@ src/
     Shared.Pagination/
     Shared.Persistence.EntityFrameworkCore/
     Shared.ProjectionRebuild/
+    Shared.ProjectionRebuild.EntityFrameworkCore/
+    Shared.ProjectionRebuild.Tasks/
     Shared.Runtime/
     Shared.Runtime.Infrastructure/
     Shared.Security/
@@ -143,7 +146,7 @@ Current host registration:
 
 ```csharp
 builder.AddRedisCaching(); // no-op unless Redis caching is enabled
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging(); // no-op unless NATS publishing is enabled
@@ -160,7 +163,7 @@ app.MapModules();
 ```csharp
 builder.AddSharedAdministrationCli();
 builder.AddRedisCaching(); // no-op unless Redis caching is enabled
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure(); // outbox writer registry without hosted publishers
 builder.AddAdminModule<AdministrationAdminCliModule>();
@@ -174,7 +177,7 @@ It does not map public API endpoints.
 ```csharp
 builder.Services.AddSharedAdministrationApi(builder.Configuration);
 builder.AddRedisCaching(); // no-op unless Redis caching is enabled
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddAdminApiModule<AdministrationAdminApiModule>();
@@ -259,20 +262,25 @@ Shared.Caching
   -> Shared.Modules
   -> Shared.Naming
 
-Shared.Caching.Infrastructure
+Shared.Caching.Redis
   -> Shared.Caching
+
+Shared.Caching.Cqrs
+  -> Shared.Caching.Infrastructure
   -> Shared.Cqrs
   -> Shared.Cqrs.Infrastructure
+  -> Shared.Observability.Infrastructure
+  -> Shared.Results
+
+Shared.Caching.Infrastructure
+  -> Shared.Caching
   -> Shared.Naming
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
-  -> Shared.Results
   -> Shared.Runtime
   -> Shared.Runtime.Infrastructure
   -> Shared.Tenancy
-
-Shared.Caching.Redis
-  -> Shared.Caching.Infrastructure
+  -> Shared.Tenancy.Infrastructure
 
 Shared.Cqrs
   -> Shared.Results
@@ -355,7 +363,14 @@ Shared.ProjectionRebuild
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
   -> Shared.Runtime
+
+Shared.ProjectionRebuild.Tasks
+  -> Shared.ProjectionRebuild
   -> Shared.Tasks
+
+Shared.ProjectionRebuild.EntityFrameworkCore
+  -> Shared.Naming
+  -> Shared.ProjectionRebuild
 
 Shared.Results
   -> no project references
@@ -376,22 +391,20 @@ Shared.Tasks
 
 Shared.Tasks.Cqrs
   -> Shared.Cqrs
+  -> Shared.Cqrs.Infrastructure
   -> Shared.Results
   -> Shared.Tasks
 
 Shared.Tasks.Infrastructure
-  -> Shared.Cqrs
-  -> Shared.Cqrs.Infrastructure
-  -> Shared.Results
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
   -> Shared.Runtime
   -> Shared.Runtime.Infrastructure
-  -> Shared.Tasks.Cqrs
   -> Shared.Tasks
   -> Shared.Tenancy
 
 Shared.Tenancy
+  -> Shared.Modules
   -> Shared.Results
 
 Shared.Tenancy.Infrastructure

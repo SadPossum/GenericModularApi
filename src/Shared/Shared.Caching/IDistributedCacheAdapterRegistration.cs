@@ -1,3 +1,3 @@
-namespace Shared.Caching.Infrastructure;
+namespace Shared.Caching;
 
 public interface IDistributedCacheAdapterRegistration;

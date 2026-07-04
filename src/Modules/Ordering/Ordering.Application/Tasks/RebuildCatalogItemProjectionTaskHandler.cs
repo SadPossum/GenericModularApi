@@ -3,12 +3,13 @@ namespace Ordering.Application.Tasks;
 using Catalog.Contracts;
 using Ordering.Contracts;
 using Shared.ProjectionRebuild;
+using Shared.ProjectionRebuild.Tasks;
 using Shared.Tasks;
 
 internal sealed class RebuildCatalogItemProjectionTaskHandler(
     ICatalogItemProjectionExportSource source,
     IProjectionRebuildWriter<CatalogItemProjectionExport> writer,
-    ProjectionRebuildRunner<CatalogItemProjectionExport> runner)
+    TaskProjectionRebuildRunner<CatalogItemProjectionExport> runner)
     : ITaskHandler<RebuildCatalogItemProjectionPayload>
 {
     public async Task HandleAsync(

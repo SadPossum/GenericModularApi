@@ -1,4 +1,4 @@
-namespace Shared.Caching.Infrastructure;
+namespace Shared.Caching;
 
 public sealed class CachingOptions
 {

@@ -5,11 +5,10 @@ using System.Text.RegularExpressions;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.ValueObjects;
-using Shared.Domain;
 using Shared.Domain.Models;
 using Shared.Results;
 
-public sealed partial class MemberUsername : Entity<MemberUsernameId>, ITenantScoped
+public sealed partial class MemberUsername : TenantEntity<MemberUsernameId>
 {
     public const int ValueMaxLength = 256;
     public const int NormalizedValueMaxLength = ValueMaxLength;
@@ -22,12 +21,11 @@ public sealed partial class MemberUsername : Entity<MemberUsernameId>, ITenantSc
         string tenantId,
         string value,
         MemberUsernameType usernameType)
-        : base(id)
+        : base(id, tenantId)
     {
         string normalizedValue = Normalize(value);
 
         this.MemberId = memberId;
-        this.TenantId = TenantIds.Normalize(tenantId);
         this.Value = value.Trim();
         this.NormalizedValue = normalizedValue;
         this.UsernameType = usernameType;
@@ -35,7 +33,6 @@ public sealed partial class MemberUsername : Entity<MemberUsernameId>, ITenantSc
     }
 
     public MemberId MemberId { get; private set; }
-    public string TenantId { get; private set; } = string.Empty;
     public string Value { get; private set; } = string.Empty;
     public string NormalizedValue { get; private set; } = string.Empty;
     public MemberUsernameType UsernameType { get; private set; }

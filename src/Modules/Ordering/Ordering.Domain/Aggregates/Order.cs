@@ -2,12 +2,11 @@ namespace Ordering.Domain.Aggregates;
 
 using Shared.Naming;
 using Ordering.Domain.Errors;
-using Shared.Domain;
 using Shared.Domain.Models;
 using Shared.Numerics;
 using Shared.Results;
 
-public sealed class Order : AggregateRoot<Guid>, ITenantScoped
+public sealed class Order : TenantAggregateRoot<Guid>
 {
     public const int CatalogSkuMaxLength = 64;
     public const int CatalogItemNameMaxLength = 256;
@@ -18,9 +17,10 @@ public sealed class Order : AggregateRoot<Guid>, ITenantScoped
     private Order() { }
 
     private Order(Guid id, string tenantId)
-        : base(id) => this.TenantId = tenantId;
+        : base(id, tenantId)
+    {
+    }
 
-    public string TenantId { get; private set; } = string.Empty;
     public Guid CatalogItemId { get; private set; }
     public string CatalogSku { get; private set; } = string.Empty;
     public string CatalogItemName { get; private set; } = string.Empty;

@@ -12,6 +12,7 @@ using Shared.Caching;
 using Shared.Messaging;
 using Shared.Modules;
 using Shared.Tasks;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Architecture")]
@@ -112,6 +113,63 @@ public sealed partial class ModuleMetadataTests
             .ToArray();
 
         Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Base_messaging_and_task_metadata_packages_do_not_reference_tenancy()
+    {
+        Assembly[] baseMetadataAssemblies =
+        [
+            typeof(IntegrationEventNameAttribute).Assembly,
+            typeof(TaskNameAttribute).Assembly
+        ];
+
+        string[] offenders = baseMetadataAssemblies
+            .Where(assembly => assembly
+                .GetReferencedAssemblies()
+                .Any(reference => string.Equals(reference.Name, "Shared.Tenancy", StringComparison.Ordinal)))
+            .Select(assembly => $"{assembly.GetName().Name} references Shared.Tenancy.")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Attribute_backed_metadata_keeps_local_package_ownership()
+    {
+        (Type AttributeType, string[] ForbiddenMembers)[] expectations =
+        [
+            new(typeof(IntegrationEventNameAttribute), ["ModuleName", "Subject", "SubjectPrefix", "TenantScoped", "Version"]),
+            new(typeof(IntegrationEventVersionAttribute), ["ModuleName", "Subject", "SubjectPrefix", "TenantScoped", "EventName"]),
+            new(typeof(IntegrationEventHandlerAttribute), ["ConsumerModule", "ModuleName", "TenantScoped"]),
+            new(typeof(TaskNameAttribute), ["ModuleName", "TenantScoped", "WorkerGroup", "Kind", "SupportsControlMessages", "PayloadVersion"]),
+            new(typeof(TaskPayloadVersionAttribute), ["ModuleName", "TenantScoped", "WorkerGroup", "Kind", "SupportsControlMessages", "TaskName"]),
+            new(typeof(TaskDescriptionAttribute), ["ModuleName", "TenantScoped"]),
+            new(typeof(TaskKindAttribute), ["ModuleName", "TenantScoped"]),
+            new(typeof(TaskWorkerGroupAttribute), ["ModuleName", "TenantScoped"]),
+            new(typeof(SupportsTaskControlAttribute), ["ModuleName", "TenantScoped"]),
+        ];
+
+        string[] offenders = expectations
+            .SelectMany(expectation =>
+            {
+                string[] memberNames = expectation.AttributeType
+                    .GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    .Where(member => member.MemberType is MemberTypes.Property or MemberTypes.Field)
+                    .Select(member => member.Name)
+                    .ToArray();
+
+                return expectation.ForbiddenMembers
+                    .Where(forbidden => memberNames.Contains(forbidden, StringComparer.Ordinal))
+                    .Select(forbidden => $"{expectation.AttributeType.FullName}.{forbidden}");
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+        Assert.Equal("Shared.Tenancy", typeof(TenantScopedAttribute).Assembly.GetName().Name);
+        Assert.True(typeof(IModuleMetadataContributor).IsAssignableFrom(typeof(TenantScopedAttribute)));
     }
 
     [Fact]
@@ -384,7 +442,7 @@ public sealed partial class ModuleMetadataTests
                 !producer.GetPublishedEvents().Any(producerEvent =>
                     string.Equals(producerEvent.EventType, item.Subscription.EventType, StringComparison.Ordinal) &&
                     string.Equals(producerEvent.Subject, item.Subscription.Subject, StringComparison.Ordinal) &&
-                    producerEvent.TenantScoped == item.Subscription.TenantScoped))
+                    producerEvent.Metadata == item.Subscription.Metadata))
             .Select(item => $"{item.Consumer}:{item.Subscription.HandlerName}->{item.Subscription.Subject}")
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -485,6 +543,86 @@ public sealed partial class ModuleMetadataTests
     }
 
     [Fact]
+    public void Module_task_contracts_declare_payload_metadata_attributes()
+    {
+        Dictionary<string, ModuleDescriptor> descriptors = ArchitectureCatalog.ModuleDescriptors
+            .ToDictionary(descriptor => descriptor.Name, StringComparer.Ordinal);
+        string[] offenders = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind == ModuleProjectKind.Contracts)
+            .SelectMany(project => project.Assembly
+                .GetTypes()
+                .Where(type => !type.IsAbstract && typeof(ITaskPayload).IsAssignableFrom(type))
+                .Select(type => new
+                {
+                    ModuleName = ToModuleName(project.ModulePrefix),
+                    PayloadType = type,
+                    TaskName = type.GetCustomAttributes(typeof(TaskNameAttribute), inherit: false)
+                        .OfType<TaskNameAttribute>()
+                        .SingleOrDefault(),
+                    PayloadVersion = type.GetCustomAttributes(typeof(TaskPayloadVersionAttribute), inherit: false)
+                        .OfType<TaskPayloadVersionAttribute>()
+                        .SingleOrDefault(),
+                    Description = type.GetCustomAttributes(typeof(TaskDescriptionAttribute), inherit: false)
+                        .OfType<TaskDescriptionAttribute>()
+                        .SingleOrDefault(),
+                    Kind = type.GetCustomAttributes(typeof(TaskKindAttribute), inherit: false)
+                        .OfType<TaskKindAttribute>()
+                        .SingleOrDefault(),
+                    WorkerGroup = type.GetCustomAttributes(typeof(TaskWorkerGroupAttribute), inherit: false)
+                        .OfType<TaskWorkerGroupAttribute>()
+                        .SingleOrDefault(),
+                    SupportsControlMessages = type.IsDefined(typeof(SupportsTaskControlAttribute), inherit: false),
+                    Metadata = ModuleMetadataAttributeReader.Read(type),
+                }))
+            .SelectMany(item =>
+            {
+                List<string> taskOffenders = [];
+                if (item.TaskName is null)
+                {
+                    taskOffenders.Add($"{item.PayloadType.FullName}:missing {nameof(TaskNameAttribute)}.");
+                    return taskOffenders;
+                }
+
+                if (item.PayloadVersion is null)
+                {
+                    taskOffenders.Add($"{item.PayloadType.FullName}:missing {nameof(TaskPayloadVersionAttribute)}.");
+                    return taskOffenders;
+                }
+
+                if (item.Description is null)
+                {
+                    taskOffenders.Add($"{item.PayloadType.FullName}:missing {nameof(TaskDescriptionAttribute)}.");
+                    return taskOffenders;
+                }
+
+                if (item.Kind is null)
+                {
+                    taskOffenders.Add($"{item.PayloadType.FullName}:missing {nameof(TaskKindAttribute)}.");
+                    return taskOffenders;
+                }
+
+                if (!descriptors.TryGetValue(item.ModuleName, out ModuleDescriptor? descriptor) ||
+                    !descriptor.GetTasks().Any(task =>
+                        string.Equals(task.Name, item.TaskName.TaskName, StringComparison.Ordinal) &&
+                        task.PayloadVersion == item.PayloadVersion.PayloadVersion &&
+                        string.Equals(task.Description, item.Description.Description, StringComparison.Ordinal) &&
+                        string.Equals(task.WorkerGroup, item.WorkerGroup?.WorkerGroup ?? TaskWorkerGroups.Default, StringComparison.Ordinal) &&
+                        task.Kind == item.Kind.Kind &&
+                        task.Metadata == item.Metadata &&
+                        task.SupportsControlMessages == item.SupportsControlMessages))
+                {
+                    taskOffenders.Add($"{item.PayloadType.FullName}:attribute metadata is missing from module descriptor.");
+                }
+
+                return taskOffenders;
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Module_published_event_metadata_matches_integration_event_contracts()
     {
         Dictionary<string, ModuleDescriptor> descriptors = ArchitectureCatalog.ModuleDescriptors
@@ -525,6 +663,130 @@ public sealed partial class ModuleMetadataTests
         Assert.Empty(missingMetadata
             .Concat(missingContracts)
             .Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Module_published_event_contracts_declare_local_metadata_attributes()
+    {
+        string[] offenders = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind == ModuleProjectKind.Contracts)
+            .SelectMany(project => project.Assembly
+                .GetTypes()
+                .Where(type => !type.IsAbstract && typeof(IIntegrationEvent).IsAssignableFrom(type))
+                .Select(type => new
+                {
+                    ModuleName = ToModuleName(project.ModulePrefix),
+                    EventType = type,
+                    Event = CreateIntegrationEvent(type),
+                    Name = type.GetCustomAttributes(typeof(IntegrationEventNameAttribute), inherit: false)
+                        .OfType<IntegrationEventNameAttribute>()
+                        .SingleOrDefault(),
+                    Version = type.GetCustomAttributes(typeof(IntegrationEventVersionAttribute), inherit: false)
+                        .OfType<IntegrationEventVersionAttribute>()
+                        .SingleOrDefault(),
+                    EventTypeConstant = type.GetField("EventType", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy),
+                    EventVersionConstant = type.GetField("EventVersion", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy),
+                }))
+            .SelectMany(item =>
+            {
+                List<string> eventOffenders = [];
+                if (item.Name is null)
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:missing {nameof(IntegrationEventNameAttribute)}.");
+                    return eventOffenders;
+                }
+
+                if (item.Version is null)
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:missing {nameof(IntegrationEventVersionAttribute)}.");
+                    return eventOffenders;
+                }
+
+                if (item.EventTypeConstant is not { IsLiteral: true, FieldType: { } fieldType } ||
+                    fieldType != typeof(string) ||
+                    item.EventTypeConstant.GetRawConstantValue() is not string eventType)
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:missing public const string EventType.");
+                    return eventOffenders;
+                }
+
+                if (item.EventVersionConstant is not { IsLiteral: true, FieldType: { } versionFieldType } ||
+                    versionFieldType != typeof(int) ||
+                    item.EventVersionConstant.GetRawConstantValue() is not int eventVersion)
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:missing public const int EventVersion.");
+                    return eventOffenders;
+                }
+
+                if (!string.Equals(item.Name.EventName, eventType, StringComparison.Ordinal))
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:attribute event={item.Name.EventName}, constant is {eventType}.");
+                }
+
+                if (item.Version.Version != eventVersion)
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:attribute version={item.Version.Version}, constant is {eventVersion}.");
+                }
+
+                if (!string.Equals(item.Name.EventName, item.Event.EventName, StringComparison.Ordinal))
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:event={item.Name.EventName}, constructor emits {item.Event.EventName}.");
+                }
+
+                if (item.Version.Version != item.Event.Version)
+                {
+                    eventOffenders.Add($"{item.EventType.FullName}:version={item.Version.Version}, constructor emits {item.Event.Version}.");
+                }
+
+                return eventOffenders;
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_integration_event_handlers_declare_local_subscription_metadata()
+    {
+        Dictionary<string, ModuleDescriptor> descriptors = ArchitectureCatalog.ModuleDescriptors
+            .ToDictionary(descriptor => descriptor.Name, StringComparer.Ordinal);
+        string[] offenders = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind == ModuleProjectKind.Application)
+            .SelectMany(project => project.Assembly
+                .GetTypes()
+                .Where(type => type is { IsAbstract: false, IsInterface: false } &&
+                               type.GetInterfaces().Any(IsIntegrationEventHandlerInterface))
+                .Select(type => new
+                {
+                    ModuleName = ToModuleName(project.ModulePrefix),
+                    HandlerType = type,
+                    Attribute = type.GetCustomAttributes(typeof(IntegrationEventHandlerAttribute), inherit: false)
+                        .OfType<IntegrationEventHandlerAttribute>()
+                        .SingleOrDefault(),
+                }))
+            .SelectMany(item =>
+            {
+                List<string> handlerOffenders = [];
+                if (item.Attribute is null)
+                {
+                    handlerOffenders.Add($"{item.HandlerType.FullName}:missing {nameof(IntegrationEventHandlerAttribute)}.");
+                    return handlerOffenders;
+                }
+
+                if (!descriptors.TryGetValue(item.ModuleName, out ModuleDescriptor? descriptor) ||
+                    !descriptor.GetSubscriptions().Any(subscription =>
+                        string.Equals(subscription.HandlerName, item.Attribute.HandlerName, StringComparison.Ordinal)))
+                {
+                    handlerOffenders.Add($"{item.HandlerType.FullName}:handler metadata is missing from module descriptor.");
+                }
+
+                return handlerOffenders;
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]
@@ -638,7 +900,7 @@ public sealed partial class ModuleMetadataTests
                string.Equals(declared.Subscription.Subject, registered.Subject, StringComparison.Ordinal) &&
                string.Equals(declared.Subscription.HandlerName, registered.HandlerName, StringComparison.Ordinal) &&
                string.Equals(declared.Subscription.EventType, registeredEvent.EventName, StringComparison.Ordinal) &&
-               declared.Subscription.TenantScoped == registered.TenantScoped;
+               declared.Subscription.Metadata == registered.Metadata;
     }
 
     private static bool TaskMatchesRegistration(
@@ -649,8 +911,12 @@ public sealed partial class ModuleMetadataTests
         string.Equals(declared.Task.WorkerGroup, registered.WorkerGroup, StringComparison.Ordinal) &&
         declared.Task.PayloadVersion == registered.PayloadVersion &&
         declared.Task.Kind == registered.Kind &&
-        declared.Task.TenantScoped == registered.TenantScoped &&
-        declared.Task.SupportsControlMessages == registered.SupportsControlMessages;
+        declared.Task.SupportsControlMessages == registered.SupportsControlMessages &&
+        declared.Task.Metadata == registered.Metadata;
+
+    private static bool IsIntegrationEventHandlerInterface(Type type) =>
+        type.IsGenericType &&
+        type.GetGenericTypeDefinition() == typeof(IIntegrationEventHandler<>);
 
     private static IIntegrationEvent CreateIntegrationEvent(Type eventType)
     {

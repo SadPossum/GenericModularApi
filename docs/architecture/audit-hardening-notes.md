@@ -32,6 +32,8 @@ Allowed production reflection is currently limited to:
 - `DomainEventDispatcher`, which compiles cached typed delegates for runtime domain-event instances.
 - `IntegrationEventHandlerInvoker`, which compiles cached typed delegates for integration-event consumers.
 - `TaskHandlerInvoker`, which deserializes registered task payloads and compiles cached typed delegates for task handlers.
+- `ModuleMetadataAttributeReader`, which reads attributes from explicitly supplied generic event/task/payload types and collects optional package-owned metadata contributors.
+- `TenantEntityTypeBuilderExtensions`, which applies tenant query filters and tenant/global markers during EF model building.
 - EF `ApplyConfigurationsFromAssembly` inside module-owned `DbContext` classes.
 - host assembly marker classes used by test hosts and architecture tests.
 - observability module-name inference from assembly names.

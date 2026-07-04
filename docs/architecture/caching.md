@@ -12,6 +12,8 @@ Modules may depend on the contracts in `Shared.Caching`:
 - `CacheTag`
 - `CacheEntryPolicy`
 
+Hosts and cache adapters also use `CachingOptions`, `CacheProvider`, and the distributed adapter registration marker from `Shared.Caching`. Those types are kept with cache contracts so provider adapters do not depend on the full HybridCache runtime package.
+
 Modules must not reference HybridCache, StackExchange.Redis, or `Shared.Caching.Redis`. The host selects the implementation.
 
 Do not cache authorization decisions, refresh tokens, tenant resolution, or other security-sensitive state. Prefer immutable read models and data that can safely be reconstructed from its source.
@@ -66,6 +68,8 @@ invalidationQueue.RemoveByTag(CacheTag.Tenant("catalog", "products"));
 
 The cache invalidation command behavior wraps the unit-of-work behavior. It flushes only after all unit-of-work commits succeed. Failed commands and failed commits leave the cache untouched.
 
+That behavior lives in the optional `Shared.Caching.Cqrs` bridge. Hosts that use CQRS command handlers should compose the bridge; hosts that only need explicit cache-aside reads can compose `Shared.Caching.Infrastructure` without the CQRS bridge.
+
 Tag invalidation is logical. In Redis mode it is shared through L2, but existing nodes can retain L1 data briefly. TTL remains the final stale-data bound.
 
 ## Failure Behavior
@@ -97,12 +101,12 @@ Memory mode uses HybridCache L1 and its in-process stampede protection. It is su
 
 ### Redis
 
-Redis mode adds Redis as HybridCache L2 through the separate `Shared.Caching.Redis` adapter. Compose Redis before caching infrastructure:
+Redis mode adds Redis as HybridCache L2 through the separate `Shared.Caching.Redis` adapter. The adapter depends only on `Shared.Caching` plus Redis packages, so it can be referenced without pulling in the HybridCache runtime package directly. Compose Redis before cache infrastructure or the cache/CQRS bridge:
 
 ```csharp
 builder.AddRedisCaching();
-builder.AddCachingInfrastructure();
+builder.AddCachingCqrs(); // includes AddCachingInfrastructure()
 ```
 
-The adapter is a no-op unless caching is enabled and the provider is `Redis`.
+Use `builder.AddCachingInfrastructure()` instead of `AddCachingCqrs()` only when the host intentionally wants cache-aside runtime without CQRS command invalidation. The Redis adapter is a no-op unless caching is enabled and the provider is `Redis`.
 When Redis mode is enabled, `Caching:Redis:ConnectionName`, optional `Caching:Redis:InstanceName`, and the matching `ConnectionStrings:<name>` value are validated at startup. `InstanceName` adds a Redis-provider prefix before the central physical key, so leave it empty unless the Redis database itself needs an extra partition.

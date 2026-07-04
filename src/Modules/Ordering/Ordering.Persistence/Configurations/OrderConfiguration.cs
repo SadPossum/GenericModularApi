@@ -1,6 +1,5 @@
 namespace Ordering.Persistence.Configurations;
 
-using Shared.Naming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Ordering.Domain.Aggregates;
@@ -11,7 +10,6 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
     {
         builder.ToTable("orders");
         builder.HasKey(order => order.Id);
-        builder.Property(order => order.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
         builder.Property(order => order.CatalogSku).HasMaxLength(Order.CatalogSkuMaxLength).IsRequired();
         builder.Property(order => order.CatalogItemName).HasMaxLength(Order.CatalogItemNameMaxLength).IsRequired();
         builder.Property(order => order.UnitPrice).HasPrecision(Order.AmountPrecision, Order.AmountScale).IsRequired();

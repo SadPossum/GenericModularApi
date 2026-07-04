@@ -1,6 +1,5 @@
 namespace Ordering.Persistence.Configurations;
 
-using Shared.Naming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Ordering.Domain.Aggregates;
@@ -11,7 +10,6 @@ internal sealed class CatalogItemProjectionConfiguration : IEntityTypeConfigurat
     {
         builder.ToTable("catalog_item_projections");
         builder.HasKey(item => item.Id);
-        builder.Property(item => item.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
         builder.Property(item => item.Sku).HasMaxLength(Order.CatalogSkuMaxLength).IsRequired();
         builder.Property(item => item.Name).HasMaxLength(Order.CatalogItemNameMaxLength).IsRequired();
         builder.Property(item => item.Price).HasPrecision(Order.AmountPrecision, Order.AmountScale).IsRequired();

@@ -1,0 +1,18 @@
+namespace Shared.Messaging;
+
+using Shared.Modules;
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+public sealed class IntegrationEventHandlerAttribute(string handlerName) : Attribute
+{
+    public string HandlerName { get; } = IntegrationEventNaming.NormalizeHandlerName(handlerName, nameof(handlerName));
+
+    public static IntegrationEventHandlerAttribute GetRequired(Type handlerType)
+    {
+        ArgumentNullException.ThrowIfNull(handlerType);
+
+        return ModuleMetadataAttributeReader.GetRequired<IntegrationEventHandlerAttribute>(
+            handlerType,
+            "Integration event handler");
+    }
+}

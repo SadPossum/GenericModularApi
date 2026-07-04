@@ -7,7 +7,7 @@ using Ordering.Application.Tasks;
 using Ordering.Contracts;
 using Shared.Application.Composition;
 using Shared.Messaging;
-using Shared.ProjectionRebuild;
+using Shared.ProjectionRebuild.Tasks;
 using Shared.Tasks;
 
 public static class DependencyInjection
@@ -17,27 +17,17 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
-        services.AddProjectionRebuild();
+        services.AddProjectionRebuildTasks();
         services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
             OrderingModuleMetadata.Name,
-            CatalogIntegrationSubjects.ItemCreated,
-            OrderingModuleMetadata.CatalogItemCreatedProjectionHandlerName);
+            CatalogModuleMetadata.Name);
         services.AddIntegrationEventHandler<CatalogItemUpdatedIntegrationEvent, CatalogItemUpdatedProjectionHandler>(
             OrderingModuleMetadata.Name,
-            CatalogIntegrationSubjects.ItemUpdated,
-            OrderingModuleMetadata.CatalogItemUpdatedProjectionHandlerName);
+            CatalogModuleMetadata.Name);
         services.AddIntegrationEventHandler<CatalogItemDiscontinuedIntegrationEvent, CatalogItemDiscontinuedProjectionHandler>(
             OrderingModuleMetadata.Name,
-            CatalogIntegrationSubjects.ItemDiscontinued,
-            OrderingModuleMetadata.CatalogItemDiscontinuedProjectionHandlerName);
-        services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTaskHandler>(
-            OrderingModuleMetadata.Name,
-            OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName,
-            OrderingModuleMetadata.ProjectionWorkerGroup,
-            tenantScoped: true,
-            payloadVersion: OrderingModuleMetadata.RebuildCatalogItemProjectionsPayloadVersion,
-            kind: ModuleTaskKind.OneShot,
-            supportsControlMessages: true);
+            CatalogModuleMetadata.Name);
+        services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTaskHandler>(OrderingModuleMetadata.Name);
 
         return services;
     }

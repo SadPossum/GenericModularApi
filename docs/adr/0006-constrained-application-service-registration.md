@@ -33,13 +33,10 @@ Do not use a general-purpose scanning package for this slice. `Scrutor` is a goo
 Integration-event consumers stay explicit:
 
 ```csharp
-services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
-    OrderingModuleMetadata.Name,
-    CatalogIntegrationSubjects.ItemCreated,
-    OrderingModuleMetadata.CatalogItemCreatedProjectionHandlerName);
+services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>();
 ```
 
-Subscription metadata includes public subject names, consumer module identity, stable handler names, and tenant-scope behavior. Those are contracts, not mechanical DI.
+Published event metadata lives on the event contract, and consumer module/handler identity lives on the handler type. Subscription registration is still an explicit composition call, not automatic assembly scanning.
 
 ## Consequences
 

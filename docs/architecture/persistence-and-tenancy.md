@@ -89,6 +89,31 @@ Tenant-scoped tables should index the tenant id together with the next selective
 
 Do not add cross-module foreign keys to optimize reads. Use local projections, duplicated identifiers, or module-owned indexes instead.
 
+## Tenant Model Conventions
+
+Tenant ownership is explicit in the model and conventional in EF plumbing.
+
+Tenant-owned domain models should inherit one of the shared base types from `Shared.Domain.Models`:
+
+- `TenantAggregateRoot<TId>` for tenant-owned aggregate roots;
+- `TenantEntity<TId>` for tenant-owned child entities or local projections.
+
+Both base types implement `ITenantScoped`, normalize tenant ids through `TenantIds`, and keep tenant ids immutable to business operations. A type may also implement `ITenantScoped` directly when it already has a different base type.
+
+Tenant-aware EF contexts should inherit `TenantAwareDbContext<TContext>` and call:
+
+```csharp
+this.ApplyTenantConventions(modelBuilder);
+```
+
+The shared convention configures `TenantId` as required with `TenantIds.MaxLength` and applies the named EF Core filter `TenantFilter` to every mapped `ITenantScoped` type in that context. The only reflection here is bounded to the current EF model; hosts must not scan assemblies to discover modules or tenant behavior.
+
+Do not add shadow `TenantId` properties to arbitrary models. Tenant id is authoritative data used by aggregates, events, outbox/inbox records, cache keys, task requests, projection checkpoints, auth tokens, and admin audit.
+
+Infrastructure records are classified deliberately. Outbox/inbox rows are tenant-associated runtime records, but they are not tenant-filtered by default because publishers and consumers need module-owned cross-tenant runtime visibility.
+
+`TenantAwareDbContext<TContext>` also validates added and modified `ITenantScoped` entities before `SaveChanges`: tenant ids must be valid, normalized, and, when tenancy is enabled, equal to the active tenant context.
+
 ## Unit of Work
 
 EF Core `DbContext` is the practical unit of work. A module unit of work wraps:
@@ -103,9 +128,9 @@ EF Core `DbContext` is the practical unit of work. A module unit of work wraps:
 
 V1 tenancy uses a shared database:
 
-- tenant-scoped entities include `TenantId`;
+- tenant-scoped entities implement `ITenantScoped`, usually via `TenantAggregateRoot<TId>` or `TenantEntity<TId>`;
 - tenant-scoped endpoints require `X-Tenant-Id` when tenancy is enabled;
-- tenant-aware EF filters isolate reads and writes;
+- tenant-aware EF conventions isolate reads and write guards reject mismatches;
 - local development can use the `default` tenant.
 
 Tenancy configuration is validated at startup. `Tenancy:HeaderName` must be a valid HTTP header name and `Tenancy:LocalDefaultTenantId` must be non-empty, no longer than 128 characters, and free of whitespace or control characters, because the default/null tenant context also uses it when the optional Tenancy module is omitted.
@@ -131,6 +156,7 @@ For tenant-scoped behavior:
 
 - endpoint calls `.RequireTenant()`;
 - command includes tenant context implicitly or explicitly;
-- aggregate stores `TenantId`;
-- repository queries preserve tenant filters;
+- aggregate inherits `TenantAggregateRoot<TId>` or otherwise implements `ITenantScoped`;
+- DbContext inherits `TenantAwareDbContext<TContext>` and calls `ApplyTenantConventions(modelBuilder)`;
+- repository queries rely on the named `TenantFilter` unless a documented module-owned runtime path intentionally bypasses filters;
 - tests prove tenant isolation.

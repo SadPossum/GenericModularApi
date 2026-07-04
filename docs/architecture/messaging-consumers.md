@@ -60,7 +60,7 @@ Consumer runtime values are validated at startup. A configured `DurablePrefix` m
 
 ## Inbox
 
-Each module maps `InboxMessage` into its own schema. The shared `EfInboxStore<TDbContext>` handles the common idempotency flow, but the table belongs to the module.
+Each module maps `InboxMessage` into its own schema. EF-backed modules should use `ConfigureInboxMessage(...)` from `Shared.Messaging.Infrastructure`; the shared `EfInboxStore<TDbContext>` handles the common idempotency flow, but the table belongs to the module.
 On success, handler effects and the inbox processed marker commit in the same transaction.
 On failure, handler effects are rolled back before failure metadata is recorded.
 Handler timeout cancellation is treated as a failed attempt and is negatively acknowledged for retry.

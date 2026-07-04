@@ -3,12 +3,11 @@ namespace Catalog.Domain.Aggregates;
 using Shared.Naming;
 using Catalog.Domain.Errors;
 using Catalog.Domain.Events;
-using Shared.Domain;
 using Shared.Domain.Models;
 using Shared.Numerics;
 using Shared.Results;
 
-public sealed class CatalogItem : AggregateRoot<Guid>, ITenantScoped
+public sealed class CatalogItem : TenantAggregateRoot<Guid>
 {
     public const int SkuMaxLength = 64;
     public const int NameMaxLength = 256;
@@ -19,9 +18,10 @@ public sealed class CatalogItem : AggregateRoot<Guid>, ITenantScoped
     private CatalogItem() { }
 
     private CatalogItem(Guid id, string tenantId)
-        : base(id) => this.TenantId = tenantId;
+        : base(id, tenantId)
+    {
+    }
 
-    public string TenantId { get; private set; } = string.Empty;
     public string Sku { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;
     public decimal Price { get; private set; }

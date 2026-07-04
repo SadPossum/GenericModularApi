@@ -29,13 +29,13 @@ The first foundation includes:
 - `TaskProgress` for bounded progress reporting;
 - `TaskControlMessage`, `ITaskControlChannel`, `ITaskControlLoop`, `TaskControlCommandNames`, and `TaskControlLoopExtensions` for system-to-runner control messages;
 - `ITaskRuntimeReporter` for runner-to-system heartbeat/progress reporting;
-- `ITaskCommandDispatcher` in `Shared.Tasks.Cqrs` for dispatching normal CQRS commands from task payload code with task-run context;
+- `ITaskCommandDispatcher` in `Shared.Tasks.Cqrs` for dispatching normal CQRS commands from task payload code with task-run context; hosts compose `AddTaskCqrs()` only when registered task handlers need it;
 - `TaskRunRequest`, `TaskWorkerClaim`, `TaskRunLease`, `ITaskRunStore`, `TaskRunStats`, `TaskRunStatusTransitions`, and `TaskRunStatusNames` for scheduler-neutral run persistence, requester provenance, leasing, stats, cancellation, status rules, and stable status wire names;
 - payload versioning and active-run deduplication on `TaskRunRequest`;
-- `TaskHandlerRegistration`, `ITaskHandlerRegistry`, and explicit `AddTaskHandler<TPayload,THandler>()` registration;
+- `TaskHandlerRegistration`, `ITaskHandlerRegistry`, and explicit attribute-backed `AddTaskHandler<TPayload,THandler>(moduleName)` registration;
 - `ITaskScheduleProvider`, `ScheduledTaskDefinition`, and `AddTaskRunScheduling()` for optional code-defined schedules that enqueue task requests only;
 - `TaskRunStatus` and `TaskControlMessageStatus` enums;
-- `ModuleTaskDescriptor`, `ModuleTaskKind`, `WithTask(...)`, and `WithTasks(...)` so modules can declare owned tasks and daemons without adding task-specific properties to the root module descriptor.
+- split task attributes, `ModuleTaskDescriptor`, `ModuleTaskKind`, `WithTask<TPayload>()`, `WithTask(...)`, and `WithTasks(...)` so modules can declare owned tasks and daemons without adding task-specific properties to the root module descriptor.
 
 The first runtime implementation adds:
 
@@ -63,7 +63,7 @@ Tasks are executable when a host explicitly composes the runtime store, worker r
 
 - Domain and application modules should not reference scheduler packages directly.
 - Modules declare task metadata in public contracts, but hosts still opt into task runtime composition explicitly.
-- Task control messages are commands at the contract boundary; payload code should poll them through `ITaskControlLoop` or `TaskControlLoopExtensions` and call application commands through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or `IRequestDispatcher`, not through HTTP or module internals.
+- Task control messages are commands at the contract boundary; payload code should poll them through `ITaskControlLoop` or `TaskControlLoopExtensions` and call application commands through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or `IRequestDispatcher`, not through HTTP or module internals. CQRS dispatch is an explicit bridge, not part of baseline task worker infrastructure.
 - Task store implementations should use `TaskRunStatusTransitions` for lease, retry, and terminal-state rules.
 - Cancellation is persisted and lease-aware: unstarted work can terminate immediately, heartbeat/progress renews owned leases, and abandoned cancellation-requested leases can be reclaimed and marked canceled without running payload code.
 - Default hosts must not call `AddTaskWorkerRuntime()` or register task example modules.

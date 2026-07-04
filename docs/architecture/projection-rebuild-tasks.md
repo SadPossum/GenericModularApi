@@ -4,12 +4,15 @@ Projection rebuild tasks are the production mechanism for repairing or evolving 
 
 ## Implemented V1
 
-The first implementation adds a small shared projection rebuild helper in `Shared.ProjectionRebuild` plus a compiled Catalog-to-Ordering example:
+The first implementation adds a small shared projection rebuild helper in `Shared.ProjectionRebuild`, an optional task adapter in `Shared.ProjectionRebuild.Tasks`, an optional EF adapter in `Shared.ProjectionRebuild.EntityFrameworkCore`, and a compiled Catalog-to-Ordering example:
 
-- `ProjectionRebuildRunner<TSnapshot>` owns the generic loop, checkpoint load/save, progress reporting, cooperative task control polling, and bounded metrics.
+- `ProjectionRebuildRunner<TSnapshot>` owns the generic task-neutral loop, checkpoint load/save, observer callbacks, and bounded metrics.
+- `TaskProjectionRebuildRunner<TSnapshot>` in `Shared.ProjectionRebuild.Tasks` adapts the generic loop to task progress reporting and cooperative task control polling.
 - `IProjectionRebuildSource<TSnapshot>` reads authoritative source batches through an explicit contract.
 - `IProjectionRebuildWriter<TSnapshot>` writes or dry-runs idempotent consumer-owned projection batches.
 - `IProjectionRebuildCheckpointStore` is resolved by consumer module and persists checkpoints in that module's schema.
+- `ProjectionRebuildCheckpointState` and `EfProjectionRebuildCheckpointStore<TDbContext,TState>` remove repeated EF checkpoint boilerplate while preserving module-owned tables and migrations.
+- `IProjectionRebuildTransactionBoundary` is optional and module-qualified; EF-backed modules can register `EfProjectionRebuildTransactionBoundary<TDbContext>` when writer effects and checkpoint saves share the same module DbContext.
 - `Catalog.Contracts/Exports` exposes `CatalogItemProjectionExport` and `ICatalogItemProjectionExportSource`.
 - `Catalog.Persistence` implements the export source from Catalog's EF model.
 - `Ordering.Application` registers `rebuild-catalog-item-projections` as an explicit tenant-scoped task.
@@ -48,12 +51,15 @@ The shared framework should own repetitive operational behavior:
 - batching;
 - checkpoints;
 - cancellation;
-- progress reporting;
+- progress reporting through a small observer abstraction;
 - retries;
 - idempotent write orchestration;
 - metrics and task progress payloads.
 
-Tenant context remains owned by the task runtime. Tenant-scoped rebuild tasks declare tenant scope in `ModuleTaskDescriptor`; the worker sets `ITenantContextAccessor` before invoking the task handler.
+For EF-backed modules, `Shared.ProjectionRebuild.EntityFrameworkCore` owns the repeated checkpoint entity/store mapping shape. The module still provides a concrete checkpoint state type, maps it into its own schema, includes provider-specific migrations, and registers the store explicitly.
+When a projection writer and checkpoint store use the same DbContext, the module may register an EF transaction boundary so each write batch and its checkpoint save commit or roll back together. Modules that write through separate stores or external systems should leave the boundary unregistered and keep the writer idempotent.
+
+Tenant context remains owned by the caller. Tenant-scoped rebuild tasks declare tenant scope in `ModuleTaskDescriptor`; the worker sets `ITenantContextAccessor` before invoking the task handler, then the task handler calls `TaskProjectionRebuildRunner<TSnapshot>`.
 
 The owning module must still define the data semantics:
 
@@ -70,6 +76,8 @@ The owning module must still define the data semantics:
 - A rebuild task must not write another module's source tables.
 - Source modules expose data through contracts, export ports, event replay adapters, or read-only reporting adapters.
 - The default production path must be resumable and idempotent.
+- EF checkpoint helpers are optional adapter conveniences, not runtime discovery.
+- Transaction boundaries are explicit module registrations, not global behavior.
 - Reflection may reduce local registration boilerplate only when bounded to an explicitly supplied module assembly and guarded by metadata tests.
 - Host composition remains explicit. No default host starts rebuild workers implicitly.
 
@@ -87,12 +95,13 @@ The owning module must still define the data semantics:
 ```mermaid
 flowchart LR
     A["TaskRuntime run: ordering.rebuild-catalog-item-projections"] --> B["Ordering task handler"]
-    B --> C["ProjectionRebuildRunner<CatalogItemProjectionExport>"]
+    B --> C["TaskProjectionRebuildRunner<CatalogItemProjectionExport>"]
+    C --> C1["ProjectionRebuildRunner<CatalogItemProjectionExport>"]
     C --> D["Catalog export source (Catalog.Contracts port)"]
     D --> E["Catalog.Persistence read batch"]
-    C --> F["Ordering projection writer"]
+    C1 --> F["Ordering projection writer"]
     F --> G["ordering.catalog_item_projections"]
-    C --> H["ordering.projection_rebuild_checkpoints"]
+    C1 --> H["ordering.projection_rebuild_checkpoints"]
     C --> I["Task progress and projection metrics"]
 ```
 
@@ -100,9 +109,9 @@ flowchart LR
 
 ### Task Declaration
 
-Each rebuild task must be declared in module metadata with `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` and `ModuleTaskDescriptor`.
+Each rebuild task payload must declare split task attributes and be listed in module metadata with `ModuleDescriptor.Create(...).WithTask<TPayload>().Build()`.
 
-The descriptor must state:
+The task payload should expose task identity constants and carry `TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, optional routing/control attributes, and `[TenantScoped]` when tenant context is required. The descriptor should reference it with `WithTask<TPayload>()`. The attributes must state:
 
 - task name, for example `rebuild-catalog-item-projections`;
 - task kind, normally `OneShot`;
@@ -115,22 +124,17 @@ The descriptor must state:
 
 Task handlers must be registered explicitly from the owning module application registration:
 
+The preferred registration is the parameterless generic overload:
+
 ```csharp
-services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTask>(
-    OrderingModuleMetadata.Name,
-    OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName,
-    OrderingModuleMetadata.ProjectionWorkerGroup,
-    tenantScoped: true,
-    payloadVersion: 1,
-    kind: ModuleTaskKind.OneShot,
-    supportsControlMessages: true);
+services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTask>();
 ```
 
-A future constrained helper is acceptable only if it satisfies all of these conditions:
+A future constrained helper or source generator is acceptable only if it satisfies all of these conditions:
 
 - it scans one explicitly supplied module application assembly;
 - it registers only `ITaskHandler<TPayload>` implementations;
-- it verifies task name, worker group, kind, tenant scope, payload version, and control-message support against `ModuleTaskDescriptor`;
+- it verifies task name, worker group, kind, tenant scope metadata, payload version, and control-message support against the payload attributes and `ModuleTaskDescriptor`;
 - architecture tests fail on metadata or registration drift;
 - hosts still explicitly compose the module and task worker runtime.
 

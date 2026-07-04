@@ -63,6 +63,7 @@ The rebuild flow is:
 
 ```text
 CatalogItemProjectionExportSource
+  -> TaskProjectionRebuildRunner<CatalogItemProjectionExport>
   -> ProjectionRebuildRunner<CatalogItemProjectionExport>
   -> CatalogItemProjectionRebuildWriter
   -> ordering.catalog_item_projections
@@ -89,10 +90,13 @@ Ordering validates duplicated projection data before creating an order: SKU and 
 Ordering registers handlers with:
 
 ```csharp
+[IntegrationEventHandler(OrderingModuleMetadata.CatalogItemCreatedProjectionHandlerName)]
+internal sealed class CatalogItemCreatedProjectionHandler
+    : IIntegrationEventHandler<CatalogItemCreatedIntegrationEvent>;
+
 builder.Services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
     OrderingModuleMetadata.Name,
-    CatalogIntegrationSubjects.ItemCreated,
-    OrderingModuleMetadata.CatalogItemCreatedProjectionHandlerName);
+    CatalogModuleMetadata.Name);
 ```
 
-The real application registration uses `OrderingModuleMetadata` handler constants for all three Catalog subscriptions. The NATS runtime invokes the handler. `OrderingInboxStore` records processing in the `ordering` schema.
+Catalog event contracts carry `IntegrationEventNameAttribute`, `IntegrationEventVersionAttribute`, and `[TenantScoped]`, so Ordering metadata uses `WithSubscription<CatalogItemCreatedIntegrationEvent>(CatalogModuleMetadata.Name, ...)` while the application registration passes explicit consumer and producer module names. The NATS runtime invokes the handler. `OrderingInboxStore` records processing in the `ordering` schema.

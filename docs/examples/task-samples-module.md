@@ -4,8 +4,8 @@
 
 ## Projects
 
-- `TaskSamples.Contracts` owns module metadata and declares `generate-report` v1/v2, `flaky-report`, and `slow-report` through `ModuleDescriptor.Create(...).WithTask(...).Build()` and `ModuleTaskDescriptor`.
-- `TaskSamples.Application` owns payloads, handlers, a schedule provider, command, command handler, and output port.
+- `TaskSamples.Contracts` owns module metadata and serialized task payload contracts. Payloads declare `generate-report` v1/v2, `flaky-report`, and `slow-report` through split task attributes, and module metadata references them with `ModuleDescriptor.Create(...).WithTask<TPayload>().Build()`.
+- `TaskSamples.Application` owns handlers, a schedule provider, command, command handler, and output port.
 
 The module is intentionally not registered in `Host.Api`, `Host.AdminCli`, or `Host.AdminApi`.
 
@@ -21,8 +21,8 @@ The module is intentionally not registered in `Host.Api`, `Host.AdminCli`, or `H
 
 ## Rules Demonstrated
 
-- Task metadata and task-handler registration must match, including task kind, tenant scope, payload version, worker group, and control-message support.
-- Task payloads live in the owning module application layer.
+- Task payload attributes, descriptors, and task-handler registration must match, including task kind, tenant scope, payload version, worker group, and control-message support.
+- Serialized task payloads that appear in module metadata live in the owning module contracts layer.
 - Task payload versions are explicit: v1 and v2 handlers share the same logical task name but use different `payloadVersion` metadata.
 - `FlakyReportTaskHandler` demonstrates retry behavior by failing until a configured attempt.
 - `SlowReportTaskHandler` demonstrates heartbeat/progress reporting plus cooperative pause/resume/cancel/drain handling through `ITaskControlLoop`.

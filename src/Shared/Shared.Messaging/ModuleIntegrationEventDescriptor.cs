@@ -1,8 +1,14 @@
 namespace Shared.Messaging;
 
-public sealed record ModuleIntegrationEventDescriptor
+using Shared.Modules;
+
+public sealed record ModuleIntegrationEventDescriptor : IModuleMetadataProvider
 {
-    public ModuleIntegrationEventDescriptor(string eventType, string subject, int version, bool tenantScoped)
+    public ModuleIntegrationEventDescriptor(
+        string eventType,
+        string subject,
+        int version,
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
     {
         this.EventType = IntegrationEventNaming.NormalizeEventName(eventType, nameof(eventType));
         ArgumentOutOfRangeException.ThrowIfLessThan(version, 1);
@@ -11,7 +17,7 @@ public sealed record ModuleIntegrationEventDescriptor
         this.ModuleName = parsedSubject.ModuleName;
         this.Subject = parsedSubject.CreateSubject();
         this.Version = version;
-        this.TenantScoped = tenantScoped;
+        this.Metadata = ModuleMetadataItems.Create(metadata);
     }
 
     public string EventType { get; }
@@ -19,7 +25,7 @@ public sealed record ModuleIntegrationEventDescriptor
     public string ModuleName { get; }
     public string Subject { get; }
     public int Version { get; }
-    public bool TenantScoped { get; }
+    public ModuleMetadataItems Metadata { get; }
 
     public string CreateSubject(string subjectPrefix) =>
         IntegrationEventNaming.CreateSubject(subjectPrefix, this.ModuleName, this.EventType, this.Version);

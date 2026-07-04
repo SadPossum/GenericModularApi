@@ -1,11 +1,11 @@
 namespace Ordering.Persistence;
 
-using Shared.Naming;
 using Catalog.Contracts;
 using Ordering.Domain.Aggregates;
+using Shared.Domain.Models;
 using Shared.Results;
 
-public sealed class CatalogItemProjection
+public sealed class CatalogItemProjection : TenantEntity<Guid>
 {
     private CatalogItemProjection() { }
 
@@ -18,9 +18,8 @@ public sealed class CatalogItemProjection
         decimal price,
         string currency,
         CatalogItemStatus status)
+        : base(id, tenantId)
     {
-        this.Id = id;
-        this.TenantId = TenantIds.Normalize(tenantId);
         this.CatalogItemId = catalogItemId;
         this.Apply(sku, name, price, currency, status);
     }
@@ -29,9 +28,8 @@ public sealed class CatalogItemProjection
         Guid id,
         string tenantId,
         Guid catalogItemId)
+        : base(id, tenantId)
     {
-        this.Id = id;
-        this.TenantId = TenantIds.Normalize(tenantId);
         this.CatalogItemId = catalogItemId;
         this.Sku = string.Empty;
         this.Name = string.Empty;
@@ -40,8 +38,6 @@ public sealed class CatalogItemProjection
         this.Status = CatalogItemStatus.Discontinued;
     }
 
-    public Guid Id { get; private set; }
-    public string TenantId { get; private set; } = string.Empty;
     public Guid CatalogItemId { get; private set; }
     public string Sku { get; private set; } = string.Empty;
     public string Name { get; private set; } = string.Empty;

@@ -17,7 +17,7 @@ When Tenancy is enabled:
 - tenant id is resolved from `X-Tenant-Id`;
 - tenant-scoped endpoints require a tenant id;
 - tenant context is available through `ITenantContext`;
-- tenant-scoped entities should include `TenantId`.
+- tenant-owned models implement `ITenantScoped`, usually through `TenantAggregateRoot<TId>` or `TenantEntity<TId>`.
 
 When Tenancy is not registered:
 
@@ -68,10 +68,13 @@ This applies the tenant endpoint filter from `Shared.Api`.
 
 Tenant-scoped entities should implement tenant-scoped behavior consistently:
 
-- store a `TenantId`;
-- use tenant-aware query filters;
+- store a normalized `TenantId` through `TenantAggregateRoot<TId>`, `TenantEntity<TId>`, or an explicit `ITenantScoped` implementation;
+- use `TenantAwareDbContext<TContext>` and `ApplyTenantConventions(modelBuilder)` for EF tenant property configuration and the named `TenantFilter`;
+- rely on the shared write guard to reject invalid, unnormalized, or mismatched tenant ids before `SaveChanges`;
 - avoid bypassing filters without a specific reason;
 - include tenant id in unique indexes where uniqueness is tenant-local.
+
+Do not add runtime shadow `TenantId` properties to arbitrary EF models. The allowed convention/magic is limited to shared EF helpers inspecting the current `ModelBuilder`; modules still declare tenant ownership explicitly.
 
 ## Testing
 

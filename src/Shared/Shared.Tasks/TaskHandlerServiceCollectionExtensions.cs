@@ -2,18 +2,37 @@ namespace Shared.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shared.Modules;
 
 public static class TaskHandlerServiceCollectionExtensions
 {
     public static IServiceCollection AddTaskHandler<TPayload, THandler>(
         this IServiceCollection services,
+        string moduleName)
+        where TPayload : ITaskPayload
+        where THandler : class, ITaskHandler<TPayload>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
+
+        TaskHandlerRegistration registration = TaskHandlerRegistration.Create<TPayload, THandler>(moduleName);
+
+        services.TryAddSingleton<ITaskHandlerRegistry, TaskHandlerRegistry>();
+        services.TryAddScoped<THandler>();
+        AddRegistration(services, registration);
+
+        return services;
+    }
+
+    public static IServiceCollection AddTaskHandler<TPayload, THandler>(
+        this IServiceCollection services,
         string moduleName,
         string taskName,
         string workerGroup = TaskWorkerGroups.Default,
-        bool tenantScoped = true,
         int payloadVersion = 1,
         ModuleTaskKind kind = ModuleTaskKind.OneShot,
-        bool supportsControlMessages = false)
+        bool supportsControlMessages = false,
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
         where TPayload : ITaskPayload
         where THandler : class, ITaskHandler<TPayload>
     {
@@ -23,10 +42,10 @@ public static class TaskHandlerServiceCollectionExtensions
             moduleName,
             taskName,
             workerGroup,
-            tenantScoped,
             payloadVersion,
             kind,
-            supportsControlMessages);
+            supportsControlMessages,
+            metadata);
 
         services.TryAddSingleton<ITaskHandlerRegistry, TaskHandlerRegistry>();
         services.TryAddScoped<THandler>();
@@ -68,7 +87,7 @@ public static class TaskHandlerServiceCollectionExtensions
         existing.PayloadType == registration.PayloadType &&
         existing.HandlerType == registration.HandlerType &&
         existing.Kind == registration.Kind &&
-        existing.TenantScoped == registration.TenantScoped &&
         existing.PayloadVersion == registration.PayloadVersion &&
-        existing.SupportsControlMessages == registration.SupportsControlMessages;
+        existing.SupportsControlMessages == registration.SupportsControlMessages &&
+        existing.Metadata == registration.Metadata;
 }

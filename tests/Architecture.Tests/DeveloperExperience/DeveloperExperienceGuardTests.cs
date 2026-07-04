@@ -1,5 +1,11 @@
 namespace Architecture.Tests;
 
+using Auth.Persistence;
+using Catalog.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Ordering.Persistence;
+using Shared.Domain;
 using Shared.Naming;
 using System.Reflection;
 using System.Text.Json;
@@ -10,6 +16,7 @@ using Shared.Cqrs;
 using Shared.Observability;
 using Shared.Results;
 using Shared.Messaging.Infrastructure;
+using Shared.Persistence.EntityFrameworkCore;
 using Xunit;
 
 [Trait("Category", "Architecture")]
@@ -749,8 +756,10 @@ public sealed partial class DeveloperExperienceGuardTests
             "DomainEventDispatcher",
             "IntegrationEventHandlerInvoker",
             "TaskHandlerInvoker",
+            "ModuleMetadataAttributeReader",
             "ApplicationServiceCollectionExtensions",
             "ApplyConfigurationsFromAssembly",
+            "TenantEntityTypeBuilderExtensions",
             "host assembly marker classes",
             "observability module-name inference",
             "Do not use reflection or attributes to auto-register modules"
@@ -760,8 +769,10 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(Path.Combine("src", "Shared", "Shared.Application.Composition", "ApplicationServiceCollectionExtensions.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Cqrs.Infrastructure", "RequestDispatcher.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Application.Events.Infrastructure", "DomainEventDispatcher.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Modules", "ModuleMetadataAttributeReader.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Messaging.Infrastructure", "IntegrationEventHandlerInvoker.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Tasks.Infrastructure", "TaskHandlerInvoker.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Persistence.EntityFrameworkCore", "TenantEntityTypeBuilderExtensions.cs")),
             NormalizePath(Path.Combine("src", "Host.Api", "ApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminApi", "AdminApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminCli", "AdminCliAssemblyReference.cs")),
@@ -2336,7 +2347,7 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Redis_capable_hosts_compose_cache_adapter_before_cache_infrastructure()
+    public void Redis_capable_hosts_compose_cache_adapter_before_cache_cqrs_bridge()
     {
         string repositoryRoot = FindRepositoryRoot();
         string[] hostDirectories =
@@ -2359,25 +2370,30 @@ public sealed partial class DeveloperExperienceGuardTests
                     hostOffenders.Add($"{hostName} does not reference Shared.Caching.Redis");
                 }
 
+                if (!project.Contains("Shared.Caching.Cqrs", StringComparison.Ordinal))
+                {
+                    hostOffenders.Add($"{hostName} does not reference Shared.Caching.Cqrs");
+                }
+
                 int redisIndex = program.IndexOf("builder.AddRedisCaching();", StringComparison.Ordinal);
-                int cachingInfrastructureIndex = program.IndexOf("builder.AddCachingInfrastructure();", StringComparison.Ordinal);
+                int cachingBridgeIndex = program.IndexOf("builder.AddCachingCqrs();", StringComparison.Ordinal);
                 int sharedInfrastructureIndex = program.IndexOf("builder.AddSharedInfrastructure();", StringComparison.Ordinal);
                 if (redisIndex < 0)
                 {
                     hostOffenders.Add($"{hostName} does not call AddRedisCaching");
                 }
-                else if (cachingInfrastructureIndex < 0 || redisIndex > cachingInfrastructureIndex)
+                else if (cachingBridgeIndex < 0 || redisIndex > cachingBridgeIndex)
                 {
-                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddCachingInfrastructure");
+                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddCachingCqrs");
                 }
 
-                if (cachingInfrastructureIndex < 0)
+                if (cachingBridgeIndex < 0)
                 {
-                    hostOffenders.Add($"{hostName} does not call AddCachingInfrastructure");
+                    hostOffenders.Add($"{hostName} does not call AddCachingCqrs");
                 }
-                else if (sharedInfrastructureIndex < 0 || cachingInfrastructureIndex > sharedInfrastructureIndex)
+                else if (sharedInfrastructureIndex < 0 || cachingBridgeIndex > sharedInfrastructureIndex)
                 {
-                    hostOffenders.Add($"{hostName} must call AddCachingInfrastructure before AddSharedInfrastructure");
+                    hostOffenders.Add($"{hostName} must call AddCachingCqrs before AddSharedInfrastructure");
                 }
 
                 if (!appsettings.Contains("\"Redis\"", StringComparison.Ordinal) ||
@@ -2392,6 +2408,36 @@ public sealed partial class DeveloperExperienceGuardTests
             .ToArray();
 
         Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Cache_cqrs_bridge_uses_internal_invalidation_flusher_seam()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string queueSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Infrastructure",
+            "CacheInvalidationQueue.cs"));
+        string assemblyInfo = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Infrastructure",
+            "Properties",
+            "AssemblyInfo.cs"));
+        string bridgeSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Cqrs",
+            "CacheInvalidationCommandBehavior.cs"));
+
+        Assert.Contains("internal interface ICacheInvalidationQueueFlusher", queueSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("public interface ICacheInvalidationQueueFlusher", queueSource, StringComparison.Ordinal);
+        Assert.Contains("InternalsVisibleTo(\"Shared.Caching.Cqrs\")", assemblyInfo, StringComparison.Ordinal);
+        Assert.Contains("ICacheInvalidationQueueFlusher", bridgeSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2465,19 +2511,16 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             [Path.Combine("Configurations", "MemberConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "Member.PasswordHashMaxLength",
                 "Member.DisabledReasonMaxLength",
                 "HasIndex(member => new { member.TenantId, member.RegisteredAtUtc })"
             ],
             [Path.Combine("Configurations", "MemberSessionConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "MemberSession.RefreshTokenHashMaxLength"
             ],
             [Path.Combine("Configurations", "MemberUsernameConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "MemberUsername.ValueMaxLength",
                 "MemberUsername.NormalizedValueMaxLength"
             ]
@@ -3058,50 +3101,52 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Module_inbox_outbox_persistence_uses_shared_message_length_constants()
+    public void Module_inbox_outbox_persistence_uses_shared_message_configuration_helpers()
     {
         string repositoryRoot = FindRepositoryRoot();
         string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
-        Dictionary<string, string[]> expectedTokensByFileName = new()
+        Dictionary<string, string> expectedCallsByFileName = new()
         {
-            ["InboxMessageConfiguration.cs"] =
-            [
-                "InboxMessage.HandlerMaxLength",
-                "InboxMessage.SubjectMaxLength",
-                "InboxMessage.EventTypeMaxLength",
-                "TenantIds.MaxLength",
-                "InboxMessage.LockedByMaxLength",
-                "InboxMessage.LastErrorMaxLength"
-            ],
-            ["OutboxMessageConfiguration.cs"] =
-            [
-                "OutboxMessage.SubjectMaxLength",
-                "OutboxMessage.EventTypeMaxLength",
-                "TenantIds.MaxLength",
-                "OutboxMessage.LockedByMaxLength"
-            ]
+            ["InboxMessageConfiguration.cs"] = "ConfigureInboxMessage()",
+            ["OutboxMessageConfiguration.cs"] = "ConfigureOutboxMessage()"
         };
+        string[] repeatedMappingTokens =
+        [
+            "InboxMessage.HandlerMaxLength",
+            "InboxMessage.SubjectMaxLength",
+            "InboxMessage.EventTypeMaxLength",
+            "InboxMessage.LockedByMaxLength",
+            "InboxMessage.LastErrorMaxLength",
+            "OutboxMessage.SubjectMaxLength",
+            "OutboxMessage.EventTypeMaxLength",
+            "OutboxMessage.LockedByMaxLength"
+        ];
 
         string[] offenders = EnumerateSourceFiles(modulesRoot)
-            .Where(path => expectedTokensByFileName.ContainsKey(Path.GetFileName(path)))
+            .Where(path => expectedCallsByFileName.ContainsKey(Path.GetFileName(path)))
             .Where(path => !IsGeneratedMigrationSource(path))
             .SelectMany(path =>
             {
                 string source = File.ReadAllText(path);
+                string expectedCall = expectedCallsByFileName[Path.GetFileName(path)];
 
-                return expectedTokensByFileName[Path.GetFileName(path)]
-                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
-                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
+                return (source.Contains(expectedCall, StringComparison.Ordinal)
+                        ? Array.Empty<string>()
+                        : [$"{Path.GetRelativePath(repositoryRoot, path)} missing {expectedCall}"])
+                    .Concat(repeatedMappingTokens
+                        .Where(token => source.Contains(token, StringComparison.Ordinal))
+                        .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} repeats {token} instead of using shared messaging configuration helpers"));
             })
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        string[] scaffoldOffenders = expectedTokensByFileName
+        string[] scaffoldOffenders = expectedCallsByFileName
             .Values
-            .SelectMany(tokens => tokens)
-            .Distinct(StringComparer.Ordinal)
-            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
-            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Where(call => !scaffolder.Contains(call, StringComparison.Ordinal))
+            .Select(call => $"eng/new-module.ps1 missing {call}")
+            .Concat(repeatedMappingTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 repeats {token} instead of using shared messaging configuration helpers"))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -3116,7 +3161,6 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             [Path.Combine("Catalog", "Catalog.Persistence", "Configurations", "CatalogItemConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "CatalogItem.SkuMaxLength",
                 "CatalogItem.NameMaxLength",
                 "CatalogItem.CurrencyLength",
@@ -3125,7 +3169,6 @@ public sealed partial class DeveloperExperienceGuardTests
             ],
             [Path.Combine("Ordering", "Ordering.Persistence", "Configurations", "OrderConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "Order.CatalogSkuMaxLength",
                 "Order.CatalogItemNameMaxLength",
                 "Order.CurrencyLength",
@@ -3134,7 +3177,6 @@ public sealed partial class DeveloperExperienceGuardTests
             ],
             [Path.Combine("Ordering", "Ordering.Persistence", "Configurations", "CatalogItemProjectionConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "Order.CatalogSkuMaxLength",
                 "Order.CatalogItemNameMaxLength",
                 "Order.CurrencyLength",
@@ -3154,6 +3196,132 @@ public sealed partial class DeveloperExperienceGuardTests
                     .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
             })
             .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Tenant_aware_module_dbcontexts_use_shared_tenant_conventions()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        Dictionary<string, string[]> expectedTokensByPath = new()
+        {
+            [Path.Combine("Auth", "Auth.Persistence", "AuthDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<AuthDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
+            ],
+            [Path.Combine("Catalog", "Catalog.Persistence", "CatalogDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<CatalogDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
+            ],
+            [Path.Combine("Ordering", "Ordering.Persistence", "OrderingDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<OrderingDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
+            ]
+        };
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = expectedTokensByPath
+            .SelectMany(item =>
+            {
+                string path = Path.Combine(modulesRoot, item.Key);
+                string source = File.ReadAllText(path);
+
+                return item.Value
+                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}")
+                    .Concat(source.Contains(".HasQueryFilter(\"TenantFilter\"", StringComparison.Ordinal)
+                        ? [$"{Path.GetRelativePath(repositoryRoot, path)} still declares tenant filters manually"]
+                        : Array.Empty<string>());
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] scaffoldRequiredTokens =
+        [
+            "using Shared.Persistence.EntityFrameworkCore;",
+            "using Shared.Tenancy;",
+            @"Shared\Shared.Tenancy\Shared.Tenancy.csproj",
+            "ITenantContext tenantContext",
+            ": TenantAwareDbContext<${Name}DbContext>(options, tenantContext)",
+            "this.ApplyTenantConventions(modelBuilder);",
+            "new DesignTimeTenantContext()"
+        ];
+        string[] scaffoldOffenders = scaffoldRequiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders.Concat(scaffoldOffenders));
+    }
+
+    [Fact]
+    public void Tenant_scoped_module_entities_have_convention_filters_and_tenant_length()
+    {
+        IEntityType[] entityTypes = CreateTenantConventionModelEntityTypes();
+        string[] offenders = entityTypes
+            .Where(type => typeof(ITenantScoped).IsAssignableFrom(type.ClrType))
+            .SelectMany(type =>
+            {
+                List<string> failures = [];
+                if (type.FindProperty(nameof(ITenantScoped.TenantId))?.GetMaxLength() != TenantIds.MaxLength)
+                {
+                    failures.Add($"{type.ClrType.FullName} TenantId is not configured with TenantIds.MaxLength");
+                }
+
+                if (!type.GetDeclaredQueryFilters().Any(filter =>
+                        string.Equals(filter.Key, TenantFilterNames.TenantFilter, StringComparison.Ordinal)))
+                {
+                    failures.Add($"{type.ClrType.FullName} is missing named {TenantFilterNames.TenantFilter}");
+                }
+
+                return failures;
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Persisted_tenant_convention_entities_are_classified_or_documented_infrastructure_exceptions()
+    {
+        HashSet<Type> allowedInfrastructureExceptions =
+        [
+            typeof(InboxMessage),
+            typeof(OutboxMessage)
+        ];
+        string[] offenders = CreateTenantConventionModelEntityTypes()
+            .Where(type => !typeof(ITenantScoped).IsAssignableFrom(type.ClrType))
+            .Where(type => type.ClrType.GetCustomAttribute<GlobalEntityAttribute>() is null)
+            .Where(type => type.ClrType.GetCustomAttribute<DisableTenantFilterAttribute>() is null)
+            .Where(type => !allowedInfrastructureExceptions.Contains(type.ClrType))
+            .Select(type => $"{type.ClrType.FullName} is not tenant-scoped, global, tenant-filter-disabled, or an allowed infrastructure exception")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Tenant_filter_disable_attributes_have_reasons()
+    {
+        string[] offenders = ArchitectureCatalog.ModuleBoundaryAssemblies
+            .Append(typeof(TenantFilterNames).Assembly)
+            .Append(typeof(ITenantScoped).Assembly)
+            .SelectMany(assembly => assembly.GetTypes())
+            .Select(type => new
+            {
+                Type = type,
+                Attribute = type.GetCustomAttribute<DisableTenantFilterAttribute>()
+            })
+            .Where(item => item.Attribute is not null && string.IsNullOrWhiteSpace(item.Attribute.Reason))
+            .Select(item => item.Type.FullName ?? item.Type.Name)
+            .Order(StringComparer.Ordinal)
             .ToArray();
 
         Assert.Empty(offenders);
@@ -3534,10 +3702,24 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     "Microsoft.Extensions.Caching.StackExchangeRedis",
                     "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
                     "Microsoft.Extensions.Options.ConfigurationExtensions"
                 ],
                 [],
-                [@"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj"]),
+                [@"..\Shared.Caching\Shared.Caching.csproj"]),
+            new(
+                "Shared.Caching.Cqrs",
+                [
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj"
+                ]),
             new(
                 "Shared.Caching.Infrastructure",
                 [
@@ -3548,15 +3730,13 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Shared.Caching\Shared.Caching.csproj",
-                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
-                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
-                    @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj",
+                    @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
                 ]),
             new(
                 "Shared.Domain",
@@ -3679,8 +3859,26 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
-                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj"
+                ]),
+            new(
+                "Shared.ProjectionRebuild.Tasks",
+                ["Microsoft.Extensions.DependencyInjection.Abstractions"],
+                [],
+                [
+                    @"..\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj"
+                ]),
+            new(
+                "Shared.ProjectionRebuild.EntityFrameworkCore",
+                [
+                    "Microsoft.EntityFrameworkCore",
+                    "Microsoft.EntityFrameworkCore.Relational"
+                ],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"
                 ]),
             new(
                 "Shared.Runtime.Infrastructure",
@@ -3704,10 +3902,11 @@ public sealed partial class DeveloperExperienceGuardTests
                 ]),
             new(
                 "Shared.Tasks.Cqrs",
-                [],
+                ["Microsoft.Extensions.Hosting"],
                 [],
                 [
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
                     @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj"
                 ]),
@@ -3721,14 +3920,10 @@ public sealed partial class DeveloperExperienceGuardTests
                 ],
                 [],
                 [
-                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
-                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
-                    @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
@@ -3743,6 +3938,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [],
                 [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Results\Shared.Results.csproj"
                 ]),
             new(
@@ -3944,6 +4140,7 @@ public sealed partial class DeveloperExperienceGuardTests
         ];
         string[] forbiddenTokens =
         [
+            "AddCachingCqrs",
             "AddCachingInfrastructure",
             "AddMessagingInfrastructure",
             "AddNats",
@@ -4043,7 +4240,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Api\Shared.Api.csproj",
                     @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
                     @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
-                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
@@ -4062,7 +4259,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj",
-                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"
@@ -4080,7 +4277,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Api\Shared.Api.csproj",
                     @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
                     @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
-                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
@@ -5078,8 +5275,11 @@ public sealed partial class DeveloperExperienceGuardTests
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
         string[] requiredTokens =
         [
+            "using Microsoft.Extensions.Options;",
+            "using Shared.Runtime;",
             "using Shared.Runtime.Time;",
-            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);"
+            "IOptions<ApplicationIdentityOptions> applicationIdentity",
+            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, applicationIdentity, ${Name}Migrations.Schema);"
         ];
         string[] forbiddenTokens =
         [
@@ -5104,12 +5304,16 @@ public sealed partial class DeveloperExperienceGuardTests
     {
         string repositoryRoot = FindRepositoryRoot();
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
-        string[] requiredTokens =
+        List<string> requiredTokens =
         [
             @"Shared\Shared.Naming\Shared.Naming.csproj",
-            "using Shared.Naming;",
-            "TenantIds.MaxLength"
+            "using Shared.Naming;"
         ];
+        if (scaffolder.Contains("TenantId", StringComparison.Ordinal))
+        {
+            requiredTokens.Add("TenantIds.MaxLength");
+        }
+
         string[] forbiddenTokens =
         [
             "using Shared.Domain;"
@@ -5137,7 +5341,7 @@ public sealed partial class DeveloperExperienceGuardTests
             "using $Name.Contracts;",
             "public const string Schema = ${Name}ModuleMetadata.Schema;",
             ": EfDomainEventUnitOfWork<${Name}DbContext>(${Name}Migrations.Schema, dbContext, domainEventDispatcher)",
-            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);",
+            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, applicationIdentity, ${Name}Migrations.Schema);",
             ": EfOutboxStore<${Name}DbContext>(dbContext, options, ${Name}Migrations.Schema);",
             ": EfInboxStore<${Name}DbContext>(dbContext, clock, idGenerator, ${Name}Migrations.Schema)"
         ];
@@ -6065,6 +6269,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild.Tasks\Shared.ProjectionRebuild.Tasks.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
@@ -6137,6 +6342,32 @@ public sealed partial class DeveloperExperienceGuardTests
                    StringComparison.OrdinalIgnoreCase);
     }
 
+    private static IEntityType[] CreateTenantConventionModelEntityTypes()
+    {
+        using AuthDbContext auth = new(
+            CreateTenantConventionOptions<AuthDbContext>(),
+            new DesignTimeTenantContext());
+        using CatalogDbContext catalog = new(
+            CreateTenantConventionOptions<CatalogDbContext>(),
+            new DesignTimeTenantContext());
+        using OrderingDbContext ordering = new(
+            CreateTenantConventionOptions<OrderingDbContext>(),
+            new DesignTimeTenantContext());
+
+        return auth.Model.GetEntityTypes()
+            .Concat(catalog.Model.GetEntityTypes())
+            .Concat(ordering.Model.GetEntityTypes())
+            .Where(entityType => !entityType.IsOwned())
+            .ToArray();
+    }
+
+    private static DbContextOptions<TContext> CreateTenantConventionOptions<TContext>()
+        where TContext : DbContext =>
+        new DbContextOptionsBuilder<TContext>()
+            .UseSqlServer(
+                "Server=(localdb)\\mssqllocaldb;Database=TenantConventionArchitectureTests;Trusted_Connection=True;TrustServerCertificate=True")
+            .Options;
+
     private static bool IsAllowedAdminCliProjectReference(string moduleName, string referencePath)
     {
         string normalizedReference = NormalizePath(referencePath);
@@ -6206,6 +6437,10 @@ public sealed partial class DeveloperExperienceGuardTests
                    normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
                IsOtherModuleContractsReference(moduleName, normalizedReference);
     }
 
@@ -6236,6 +6471,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild.EntityFrameworkCore\Shared.ProjectionRebuild.EntityFrameworkCore.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
@@ -6575,6 +6811,11 @@ public sealed partial class DeveloperExperienceGuardTests
             fileName.EndsWith("ExportSource.cs", StringComparison.Ordinal))
         {
             return "Exports";
+        }
+
+        if (source.Contains(": ITaskPayload", StringComparison.Ordinal))
+        {
+            return "Tasks";
         }
 
         if (fileName.EndsWith("ModuleMetadata.cs", StringComparison.Ordinal) ||

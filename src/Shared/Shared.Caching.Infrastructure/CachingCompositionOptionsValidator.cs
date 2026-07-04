@@ -1,6 +1,7 @@
 namespace Shared.Caching.Infrastructure;
 
 using Microsoft.Extensions.Options;
+using Shared.Caching;
 
 internal sealed class CachingCompositionOptionsValidator(IServiceProvider serviceProvider)
     : IValidateOptions<CachingOptions>

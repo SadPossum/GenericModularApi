@@ -22,11 +22,9 @@ public static class CatalogModuleMetadata
             new ModulePermissionDescriptor(CatalogAdminPermissionCodes.ItemsUpdate, "Update catalog items.", tenantScoped: true),
             new ModulePermissionDescriptor(CatalogAdminPermissionCodes.ItemsDiscontinue, "Discontinue catalog items.", tenantScoped: true),
         ])
-        .WithPublishedEvents([
-            new ModuleIntegrationEventDescriptor("item-created", CatalogIntegrationSubjects.ItemCreated, 1, tenantScoped: true),
-            new ModuleIntegrationEventDescriptor("item-updated", CatalogIntegrationSubjects.ItemUpdated, 1, tenantScoped: true),
-            new ModuleIntegrationEventDescriptor("item-discontinued", CatalogIntegrationSubjects.ItemDiscontinued, 1, tenantScoped: true),
-        ])
+        .WithPublishedEvent<CatalogItemCreatedIntegrationEvent>()
+        .WithPublishedEvent<CatalogItemUpdatedIntegrationEvent>()
+        .WithPublishedEvent<CatalogItemDiscontinuedIntegrationEvent>()
         .WithCacheEntries([
             new ModuleCacheDescriptor(ItemsCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
             new ModuleCacheDescriptor(ItemCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),

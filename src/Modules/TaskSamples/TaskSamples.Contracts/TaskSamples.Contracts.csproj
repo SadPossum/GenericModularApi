@@ -2,5 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\Shared.Modules\Shared.Modules.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
   </ItemGroup>
 </Project>

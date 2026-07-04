@@ -16,7 +16,7 @@ The skeleton needs reusable caching without making cache availability part of do
 
 Use explicit cache-aside reads through `IApplicationCache` in `Shared.Caching`.
 
-Use .NET HybridCache in `Shared.Caching.Infrastructure` for memory caching, serialization, and stampede protection. Keep Redis in the separately referenced `Shared.Caching.Redis` adapter. Caching is disabled by default, Redis is host opt-in, and runtime backend failures fail open.
+Use .NET HybridCache in `Shared.Caching.Infrastructure` for memory caching, serialization, and stampede protection. Keep Redis in the separately referenced `Shared.Caching.Redis` adapter, and keep CQRS post-commit invalidation wiring in `Shared.Caching.Cqrs`. Caching is disabled by default, Redis is host opt-in, and runtime backend failures fail open.
 
 Commands enqueue key or tag invalidations. A command pipeline behavior flushes them only after the unit-of-work behavior commits successfully.
 

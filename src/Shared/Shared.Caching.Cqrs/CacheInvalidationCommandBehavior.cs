@@ -1,6 +1,7 @@
-namespace Shared.Caching.Infrastructure;
+namespace Shared.Caching.Cqrs;
 
 using Microsoft.Extensions.Logging;
+using Shared.Caching.Infrastructure;
 using Shared.Cqrs;
 using Shared.Observability.Infrastructure;
 using Shared.Results;

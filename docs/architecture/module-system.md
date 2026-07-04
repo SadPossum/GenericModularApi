@@ -30,10 +30,12 @@ The shared core is intentionally small:
 - `Shared.Domain` owns aggregate/domain-event primitives and depends only on `Shared.Naming` for shared identifier syntax such as tenant ids and `Shared.Numerics` for reusable numeric validation.
 - `Shared.Modules` owns module metadata primitives and references only `Shared.Naming`.
 - `Shared.Authorization` owns permission metadata descriptor extensions and references only `Shared.Modules` and `Shared.Naming`.
-- `Shared.Caching` owns cache contracts and cache descriptor metadata and references only `Shared.Modules` plus `Shared.Naming` for module-name alignment.
+- `Shared.Caching` owns cache contracts, provider/options seams, adapter markers, and cache descriptor metadata, and references only `Shared.Modules` plus `Shared.Naming` for module-name alignment.
 - `Shared.Messaging` owns integration event, outbox/inbox, subscription, and messaging descriptor contracts and references only shared primitives plus DI abstractions.
 - `Shared.Tasks` owns task contracts and task descriptor metadata and does not reference CQRS or runtime adapters.
+- `Shared.Caching.Cqrs` owns the optional bridge for flushing deferred cache invalidations after successful CQRS unit-of-work commits.
 - `Shared.Tasks.Cqrs` owns the optional bridge for dispatching application commands from task payload handlers.
+- `Shared.ProjectionRebuild` owns the task-neutral rebuild loop, checkpoint contracts, source/writer contracts, and metrics; `Shared.ProjectionRebuild.Tasks` adapts that loop to task progress and control messages.
 - `Shared.Runtime` owns clock/id abstractions and dependency-free runtime naming helpers.
 - `Shared.Tenancy` owns tenant context contracts, tenant options, and tenant errors.
 - `Shared.Security` owns dependency-free claim/security constants shared by HTTP adapters and token issuers.
@@ -41,7 +43,7 @@ The shared core is intentionally small:
 - `Shared.Application.Events` owns domain-event handler and dispatcher contracts. It references `Shared.Domain` only.
 - `Shared.Pagination` owns normalized paging request helpers and remains dependency-free.
 - `Shared.Application.Composition` owns constrained application assembly registration only. It may reference `Shared.Application.Events`, `Shared.Cqrs`, and small dependency-injection abstractions, but not domain models directly, HTTP, EF, messaging transports, cache backends, logging backends, hosting, or provider packages.
-- Adapter projects such as `Shared.Infrastructure`, `Shared.Application.Events.Infrastructure`, `Shared.Cqrs.Infrastructure`, `Shared.Runtime.Infrastructure`, `Shared.Tenancy.Infrastructure`, `Shared.Caching.Infrastructure`, `Shared.Messaging.Infrastructure`, `Shared.Messaging.Nats`, `Shared.Tasks.Infrastructure`, `Shared.Persistence.EntityFrameworkCore`, `Shared.Api.*`, `Shared.Caching.Redis`, `Shared.Messaging.Nats.Aspire`, and `Shared.Logging.Serilog` own concrete runtime packages.
+- Adapter projects such as `Shared.Infrastructure`, `Shared.Application.Events.Infrastructure`, `Shared.Cqrs.Infrastructure`, `Shared.Runtime.Infrastructure`, `Shared.Tenancy.Infrastructure`, `Shared.Caching.Infrastructure`, `Shared.Caching.Cqrs`, `Shared.Messaging.Infrastructure`, `Shared.Messaging.Nats`, `Shared.Tasks.Infrastructure`, `Shared.ProjectionRebuild.Tasks`, `Shared.Persistence.EntityFrameworkCore`, `Shared.Api.*`, `Shared.Caching.Redis`, `Shared.Messaging.Nats.Aspire`, and `Shared.Logging.Serilog` own concrete runtime packages.
 
 This keeps every module free to depend on shared contracts and primitives without inheriting optional infrastructure choices.
 
@@ -52,10 +54,14 @@ Shared project ownership quick reference:
 - `Shared.Cqrs.Infrastructure`: request dispatcher, CQRS pipeline behaviors, command unit-of-work behavior, and CQRS runtime registration.
 - `Shared.Runtime.Infrastructure`: default clock and id generator implementations.
 - `Shared.Tenancy.Infrastructure`: default/null tenant context, tenant option validation, and baseline tenancy service wiring.
-- `Shared.Caching.Infrastructure`: HybridCache-backed cache-aside runtime, cache invalidation queue, cache metrics, cache options, and command invalidation pipeline behavior.
+- `Shared.Caching.Infrastructure`: HybridCache-backed cache-aside runtime, cache invalidation queue, cache metrics, and cache option validation.
+- `Shared.Caching.Cqrs`: optional command pipeline bridge that flushes deferred cache invalidations after successful CQRS unit-of-work commits.
 - `Shared.Messaging.Infrastructure`: EF outbox/inbox base helpers, outbox publisher, outbox options, a null event bus, and messaging metrics.
 - `Shared.Messaging.Nats`: NATS JetStream publisher/consumer runtime, NATS options, and low-level NATS composition hooks.
-- `Shared.Tasks.Infrastructure`: EF task-run store base, task worker/scheduler hosted services, task control loop, task command dispatcher implementation, task options, and task metrics.
+- `Shared.Tasks.Infrastructure`: EF task-run store base, task worker/scheduler hosted services, task control loop, task options, and task metrics.
+- `Shared.Tasks.Cqrs`: optional task-to-CQRS command dispatcher contract and runtime registration. Hosts compose `AddTaskCqrs()` only when task payload handlers dispatch application commands.
+- `Shared.ProjectionRebuild`: task-neutral rebuild runner, source/writer contracts, checkpoint contracts, bounded metrics, and default no-op observer.
+- `Shared.ProjectionRebuild.Tasks`: optional task adapter that maps rebuild progress/control polling to `ITaskRuntimeReporter` and `ITaskControlLoop`.
 - `Shared.Persistence.EntityFrameworkCore`: EF provider selection, design-time DbContext options, persistence options, and domain-event unit-of-work base.
 - `Shared.Observability.Infrastructure`: shared CQRS metric implementations, module-name resolution, and bounded tag normalization. Capability metrics live beside their owning runtime adapters.
 - `Shared.Modules`: module descriptor, descriptor builder, descriptor feature base, generic metadata naming/guard helpers, and custom metadata feature support.
@@ -72,16 +78,17 @@ Shared project ownership quick reference:
 - `Shared.Runtime`: shared runtime abstractions and dependency-free runtime helpers such as clock/id generator contracts and worker-id normalization.
 - `Shared.Runtime.Infrastructure`: default runtime implementations for clock and id generator contracts.
 - `Shared.Security`: shared claim/security constants.
-- `Shared.Caching`: cache-aside contracts, cache key/tag primitives, and cache descriptor metadata.
+- `Shared.Caching`: cache-aside contracts, cache key/tag primitives, provider/options contracts, distributed adapter registration marker, and cache descriptor metadata.
+- `Shared.Caching.Cqrs`: optional cache-to-CQRS invalidation bridge.
 - `Shared.Messaging`: integration event contracts, outbox/inbox contracts, subscription registry contracts, and messaging descriptor metadata.
 - `Shared.Tasks`: task payload, handler, control, schedule, run-store, and task descriptor contracts.
-- `Shared.Tasks.Cqrs`: optional task-to-CQRS command dispatcher contract.
+- `Shared.Tasks.Cqrs`: optional task-to-CQRS command dispatcher contract and bridge.
 - `Shared.Tenancy`: tenant context contracts, tenant options, and tenant errors.
 - `Shared.Api`: ASP.NET Core-neutral API primitives and endpoint helpers.
 - `Shared.Api.OpenApi`: Swagger/OpenAPI package ownership.
 - `Shared.Api.Serilog`: HTTP request logging enrichment package ownership.
 - `Shared.Logging.Serilog`: host logging configuration package ownership.
-- `Shared.Caching.Redis`: Redis cache adapter package ownership.
+- `Shared.Caching.Redis`: Redis cache adapter package ownership. It depends only on `Shared.Caching` contracts plus Redis packages, not the HybridCache runtime package.
 - `Shared.Messaging.Nats.Aspire`: Aspire/NATS client composition package ownership.
 - `Shared.Administration`: backend-agnostic administration contracts and RBAC/audit abstractions.
 - `Shared.Administration.Cli`: System.CommandLine administration front-door helpers.
@@ -154,7 +161,7 @@ public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
     .Create(Name)
     .WithSchema(Schema)
     .WithPermission(new ModulePermissionDescriptor("catalog.items.read", "Read catalog items.", tenantScoped: true))
-    .WithPublishedEvent(new ModuleIntegrationEventDescriptor("item-created", CatalogIntegrationSubjects.ItemCreated, 1, tenantScoped: true))
+    .WithPublishedEvent<CatalogItemCreatedIntegrationEvent>()
     .WithCacheEntries([
         new ModuleCacheDescriptor(ItemsCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
         new ModuleCacheDescriptor(ItemCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
@@ -164,14 +171,25 @@ public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
 
 Prefer the single-item helpers (`WithPermission`, `WithPublishedEvent`, `WithSubscription`, `WithCacheEntry`, `WithTask`) when metadata naturally belongs near one resource or feature. Use the bulk helpers (`WithPermissions`, `WithPublishedEvents`, `WithSubscriptions`, `WithCacheEntries`, `WithTasks`) when a compact list is clearer. Repeated calls merge within the owning capability feature; duplicate metadata still fails through the capability descriptor.
 
+For metadata that belongs to one local type, prefer the attribute-backed helpers:
+
+- put `IntegrationEventNameAttribute` and `IntegrationEventVersionAttribute` on integration event contract types and use `WithPublishedEvent<TEvent>()`;
+- put `IntegrationEventHandlerAttribute` on consumer handler types and register them with `AddIntegrationEventHandler<TEvent,THandler>(consumerModule, producerModule)`;
+- put split task attributes such as `TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, and optional `TaskWorkerGroupAttribute`/`SupportsTaskControlAttribute` on serialized task payload contract types and use `WithTask<TPayload>()` plus `AddTaskHandler<TPayload,THandler>(moduleName)`;
+- put `[TenantScoped]` from `Shared.Tenancy` on event or task payload contracts that need tenant context.
+
+These helpers read attributes from known generic types only. They do not scan assemblies, discover modules, register endpoints, start consumers, or compose workers. Keep permissions and cache metadata descriptor-authored until a single local owner type exists for that metadata.
+
 The root descriptor owns only identity and polymorphic capability features. Capability-specific metadata and extensions live beside the capability:
 
 - `Shared.Modules` owns the root descriptor, builder, and custom feature base.
 - `Shared.Authorization` owns permission metadata plus `WithPermission(...)`, `WithPermissions(...)`, and `GetPermissions()`.
 - `Shared.Naming` owns low-level kebab-case segment, module-name, and tenant-id normalization shared by domain events, API/admin composition, CLI command ownership, modules, messaging, caching, and task metadata.
-- `Shared.Messaging` owns published-event and subscription metadata plus `WithPublishedEvent(...)`, `WithPublishedEvents(...)`, `WithSubscription(...)`, `WithSubscriptions(...)`, `GetPublishedEvents()`, and `GetSubscriptions()`.
+- `Shared.Messaging` owns published-event and subscription metadata plus `IntegrationEventNameAttribute`, `IntegrationEventVersionAttribute`, `IntegrationEventHandlerAttribute`, `WithPublishedEvent(...)`, `WithPublishedEvent<TEvent>()`, `WithPublishedEvents(...)`, `WithSubscription(...)`, `WithSubscription<TEvent>(producerModule, handlerName)`, `WithSubscriptions(...)`, `GetPublishedEvents()`, and `GetSubscriptions()`.
 - `Shared.Caching` owns cache metadata plus `WithCacheEntry(...)`, `WithCacheEntries(...)`, and `GetCacheEntries()`.
-- `Shared.Tasks` owns task metadata plus `WithTask(...)`, `WithTasks(...)`, and `GetTasks()`.
+- `Shared.Caching.Cqrs` owns the optional command pipeline behavior that flushes deferred invalidations after successful CQRS unit-of-work commits.
+- `Shared.Tasks` owns task metadata plus `TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, `TaskWorkerGroupAttribute`, `SupportsTaskControlAttribute`, `WithTask(...)`, `WithTask<TPayload>()`, `WithTasks(...)`, and `GetTasks()`.
+- `Shared.Tenancy` owns `[TenantScoped]` and tenancy metadata readers. Base messaging/task packages do not reference tenancy.
 
 This is an intentional extension seam. The root `ModuleDescriptor` is sealed so its identity surface stays stable; new optional shared capabilities should add a `ModuleDescriptorFeature` subtype and builder/read extensions in their own namespace rather than adding another root property or subclassing the root descriptor.
 Feature keys are stable and capability-prefixed, for example `authorization.permissions`, `messaging.published-events`, `caching.entries`, and `tasks.handlers`. Custom feature keys should follow the same `<capability>.<entry>` shape to avoid collisions across optional packages.

@@ -14,33 +14,10 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
-        services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(
-            TaskSamplesModuleMetadata.Name,
-            TaskSamplesModuleMetadata.GenerateReportTaskName,
-            TaskSamplesModuleMetadata.WorkerGroup,
-            tenantScoped: true,
-            payloadVersion: TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion,
-            kind: ModuleTaskKind.OneShot);
-        services.AddTaskHandler<GenerateReportTaskPayloadV2, GenerateReportTaskV2Handler>(
-            TaskSamplesModuleMetadata.Name,
-            TaskSamplesModuleMetadata.GenerateReportTaskName,
-            TaskSamplesModuleMetadata.WorkerGroup,
-            tenantScoped: true,
-            payloadVersion: TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion2,
-            kind: ModuleTaskKind.OneShot);
-        services.AddTaskHandler<FlakyReportTaskPayload, FlakyReportTaskHandler>(
-            TaskSamplesModuleMetadata.Name,
-            TaskSamplesModuleMetadata.FlakyReportTaskName,
-            TaskSamplesModuleMetadata.WorkerGroup,
-            tenantScoped: true,
-            kind: ModuleTaskKind.OneShot);
-        services.AddTaskHandler<SlowReportTaskPayload, SlowReportTaskHandler>(
-            TaskSamplesModuleMetadata.Name,
-            TaskSamplesModuleMetadata.SlowReportTaskName,
-            TaskSamplesModuleMetadata.WorkerGroup,
-            tenantScoped: true,
-            kind: ModuleTaskKind.OneShot,
-            supportsControlMessages: true);
+        services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(TaskSamplesModuleMetadata.Name);
+        services.AddTaskHandler<GenerateReportTaskPayloadV2, GenerateReportTaskV2Handler>(TaskSamplesModuleMetadata.Name);
+        services.AddTaskHandler<FlakyReportTaskPayload, FlakyReportTaskHandler>(TaskSamplesModuleMetadata.Name);
+        services.AddTaskHandler<SlowReportTaskPayload, SlowReportTaskHandler>(TaskSamplesModuleMetadata.Name);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITaskScheduleProvider, TaskSamplesScheduleProvider>());
         services.TryAddSingleton<ITaskSampleReportSink, NullTaskSampleReportSink>();
 

@@ -3,6 +3,7 @@ namespace Shared.Caching.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Shared.Caching;
 
 internal sealed class HybridCacheMetricsLoggerProvider(
     CacheMetrics metrics,

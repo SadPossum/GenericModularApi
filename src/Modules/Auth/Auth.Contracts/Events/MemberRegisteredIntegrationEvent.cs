@@ -1,16 +1,23 @@
 namespace Auth.Contracts;
 
 using Shared.Messaging;
+using Shared.Tenancy;
 
+[IntegrationEventName(MemberRegisteredIntegrationEvent.EventType)]
+[IntegrationEventVersion(MemberRegisteredIntegrationEvent.EventVersion)]
+[TenantScoped]
 public sealed record MemberRegisteredIntegrationEvent : IntegrationEvent
 {
+    public const string EventType = "member-registered";
+    public const int EventVersion = 1;
+
     public MemberRegisteredIntegrationEvent(
         Guid eventId,
         string tenantId,
         DateTimeOffset occurredAtUtc,
         Guid memberId,
         string username)
-        : base(eventId, tenantId, occurredAtUtc, "member-registered", version: 1)
+        : base(eventId, tenantId, occurredAtUtc, EventType, EventVersion)
     {
         this.MemberId = IntegrationEventContractGuards.RequireId(memberId, nameof(memberId));
         this.Username = IntegrationEventContractGuards.NormalizeRequiredText(

@@ -2,8 +2,10 @@ namespace Ordering.Application.Handlers;
 
 using Catalog.Contracts;
 using Ordering.Application.Ports;
+using Ordering.Contracts;
 using Shared.Messaging;
 
+[IntegrationEventHandler(OrderingModuleMetadata.CatalogItemDiscontinuedProjectionHandlerName)]
 internal sealed class CatalogItemDiscontinuedProjectionHandler(ICatalogItemProjectionRepository repository)
     : IIntegrationEventHandler<CatalogItemDiscontinuedIntegrationEvent>
 {

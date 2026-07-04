@@ -3,8 +3,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared.Caching\Shared.Caching.csproj" />
   </ItemGroup>
 </Project>

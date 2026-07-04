@@ -3,11 +3,10 @@ namespace Auth.Domain.Entities;
 using Shared.Naming;
 using Auth.Domain.Errors;
 using Auth.Domain.ValueObjects;
-using Shared.Domain;
 using Shared.Domain.Models;
 using Shared.Results;
 
-public sealed class MemberSession : Entity<MemberSessionId>, ITenantScoped
+public sealed class MemberSession : TenantEntity<MemberSessionId>
 {
     public const int RefreshTokenHashMaxLength = 512;
 
@@ -20,10 +19,9 @@ public sealed class MemberSession : Entity<MemberSessionId>, ITenantScoped
         string refreshTokenHash,
         DateTimeOffset refreshTokenExpiresAtUtc,
         DateTimeOffset loginDateTimeUtc)
-        : base(id)
+        : base(id, tenantId)
     {
         this.MemberId = memberId;
-        this.TenantId = TenantIds.Normalize(tenantId);
         this.RefreshTokenHash = NormalizeRefreshTokenHash(refreshTokenHash);
         this.RefreshTokenExpiresAtUtc = refreshTokenExpiresAtUtc;
         this.LoginDateTimeUtc = loginDateTimeUtc;
@@ -31,7 +29,6 @@ public sealed class MemberSession : Entity<MemberSessionId>, ITenantScoped
     }
 
     public MemberId MemberId { get; private set; }
-    public string TenantId { get; private set; } = string.Empty;
     public string RefreshTokenHash { get; private set; } = string.Empty;
     public DateTimeOffset RefreshTokenExpiresAtUtc { get; private set; }
     public DateTimeOffset LoginDateTimeUtc { get; private set; }

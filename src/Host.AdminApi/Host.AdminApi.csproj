@@ -11,7 +11,7 @@
     <ProjectReference Include="..\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj" />
     <ProjectReference Include="..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj" />
-    <ProjectReference Include="..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj" />
     <ProjectReference Include="..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
     <ProjectReference Include="..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj" />

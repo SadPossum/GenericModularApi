@@ -315,7 +315,11 @@ if ($Persistence) {
         $dbSets += '    public DbSet<InboxMessage> InboxMessages => this.Set<InboxMessage>();'
     }
 
-    $dbContextUsings = @('using Microsoft.EntityFrameworkCore;')
+    $dbContextUsings = @(
+        'using Microsoft.EntityFrameworkCore;',
+        'using Shared.Persistence.EntityFrameworkCore;',
+        'using Shared.Tenancy;'
+    )
     if ($Outbox -or $Inbox) {
         $dbContextUsings += 'using Shared.Messaging.Infrastructure;'
     }
@@ -326,7 +330,8 @@ if ($Persistence) {
         "    <ProjectReference Include=`"..\$Name.Domain\$Name.Domain.csproj`" />",
         '    <ProjectReference Include="..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj" />',
         '    <ProjectReference Include="..\..\..\Shared\Shared.Domain\Shared.Domain.csproj" />',
-        '    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />'
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />',
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />'
     )
     if ($Outbox -or $Inbox) {
         $persistenceProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />'
@@ -351,7 +356,8 @@ $($persistenceProjectReferences -join "`r`n")
     Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}DbContext.cs") @"
 namespace $Name.Persistence;
 
-$($dbContextUsings | Sort-Object | Get-Unique | Out-String)public sealed class ${Name}DbContext(DbContextOptions<${Name}DbContext> options) : DbContext(options)
+$($dbContextUsings | Sort-Object | Get-Unique | Out-String)public sealed class ${Name}DbContext(DbContextOptions<${Name}DbContext> options, ITenantContext tenantContext)
+    : TenantAwareDbContext<${Name}DbContext>(options, tenantContext)
 {
 $($dbSets -join "`r`n")
 
@@ -359,6 +365,7 @@ $($dbSets -join "`r`n")
     {
         modelBuilder.HasDefaultSchema(${Name}Migrations.Schema);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(${Name}DbContext).Assembly);
+        this.ApplyTenantConventions(modelBuilder);
     }
 }
 "@
@@ -442,11 +449,16 @@ $($persistenceServices -join "`r`n")
         Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}OutboxWriter.cs") @"
 namespace $Name.Persistence;
 
+using Microsoft.Extensions.Options;
 using Shared.Messaging.Infrastructure;
+using Shared.Runtime;
 using Shared.Runtime.Time;
 
-internal sealed class ${Name}OutboxWriter(${Name}DbContext dbContext, ISystemClock clock)
-    : EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);
+internal sealed class ${Name}OutboxWriter(
+    ${Name}DbContext dbContext,
+    ISystemClock clock,
+    IOptions<ApplicationIdentityOptions> applicationIdentity)
+    : EfOutboxWriter<${Name}DbContext>(dbContext, clock, applicationIdentity, ${Name}Migrations.Schema);
 "@
 
         Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}OutboxStore.cs") @"
@@ -470,22 +482,7 @@ using Shared.Naming;
 internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> builder)
-    {
-        builder.ToTable("outbox_messages");
-        builder.HasKey(message => message.Id);
-        builder.Property(message => message.Subject).HasMaxLength(OutboxMessage.SubjectMaxLength).IsRequired();
-        builder.Property(message => message.EventType).HasMaxLength(OutboxMessage.EventTypeMaxLength).IsRequired();
-        builder.Property(message => message.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
-        builder.Property(message => message.LockedBy).HasMaxLength(OutboxMessage.LockedByMaxLength);
-        builder.Property(message => message.Payload).IsRequired();
-        builder.HasIndex(message => new
-        {
-            message.ProcessedAtUtc,
-            message.NextAttemptAtUtc,
-            message.LockedUntilUtc,
-            message.CreatedAtUtc
-        });
-    }
+        => builder.ConfigureOutboxMessage();
 }
 "@
     }
@@ -513,18 +510,7 @@ using Shared.Naming;
 internal sealed class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
 {
     public void Configure(EntityTypeBuilder<InboxMessage> builder)
-    {
-        builder.ToTable("inbox_messages");
-        builder.HasKey(message => new { message.Id, message.Handler });
-        builder.Property(message => message.Handler).HasMaxLength(InboxMessage.HandlerMaxLength).IsRequired();
-        builder.Property(message => message.Subject).HasMaxLength(InboxMessage.SubjectMaxLength).IsRequired();
-        builder.Property(message => message.EventType).HasMaxLength(InboxMessage.EventTypeMaxLength).IsRequired();
-        builder.Property(message => message.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
-        builder.Property(message => message.Status).HasConversion<int>().IsRequired();
-        builder.Property(message => message.LockedBy).HasMaxLength(InboxMessage.LockedByMaxLength);
-        builder.Property(message => message.LastError).HasMaxLength(InboxMessage.LastErrorMaxLength);
-        builder.HasIndex(message => new { message.Handler, message.Status });
-    }
+        => builder.ConfigureInboxMessage();
 }
 "@
     }
@@ -565,7 +551,8 @@ public sealed class ${Name}SqlServerDesignTimeDbContextFactory : IDesignTimeDbCo
                 args,
                 ${Name}Migrations.SqlServerAssembly,
                 ${Name}Migrations.Schema,
-                ${Name}Migrations.HistoryTable));
+                ${Name}Migrations.HistoryTable),
+            new DesignTimeTenantContext());
     }
 }
 "@
@@ -606,7 +593,8 @@ public sealed class ${Name}PostgreSqlDesignTimeDbContextFactory : IDesignTimeDbC
                 args,
                 ${Name}Migrations.PostgreSqlAssembly,
                 ${Name}Migrations.Schema,
-                ${Name}Migrations.HistoryTable));
+                ${Name}Migrations.HistoryTable),
+            new DesignTimeTenantContext());
     }
 }
 "@

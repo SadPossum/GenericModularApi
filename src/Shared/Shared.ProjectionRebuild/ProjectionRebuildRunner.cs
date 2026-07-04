@@ -2,12 +2,10 @@ namespace Shared.ProjectionRebuild;
 
 using System.Diagnostics;
 using Shared.Runtime.Time;
-using Shared.Tasks;
 
 public sealed class ProjectionRebuildRunner<TSnapshot>(
     IProjectionRebuildCheckpointStoreRegistry checkpointStores,
-    ITaskRuntimeReporter reporter,
-    ITaskControlLoop controlLoop,
+    IProjectionRebuildTransactionBoundaryRegistry transactionBoundaries,
     ISystemClock clock,
     ProjectionRebuildMetrics metrics)
 {
@@ -16,14 +14,16 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         ProjectionRebuildRequest request,
         IProjectionRebuildSource<TSnapshot> source,
         IProjectionRebuildWriter<TSnapshot> writer,
-        TaskExecutionContext context,
+        ProjectionRebuildExecutionContext context,
         bool tenantScoped,
+        IProjectionRebuildRunObserver? observer,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(context);
+        observer ??= ProjectionRebuildRunObserver.None;
 
         if (tenantScoped && string.IsNullOrWhiteSpace(context.TenantId))
         {
@@ -32,6 +32,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         }
 
         IProjectionRebuildCheckpointStore store = checkpointStores.GetRequired(moduleName);
+        IProjectionRebuildTransactionBoundary? transactionBoundary = transactionBoundaries.GetOptional(moduleName);
         ProjectionRebuildCheckpointKey key = new(
             moduleName,
             context.RunId,
@@ -51,7 +52,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await controlLoop
+            await observer
                 .PauseIfRequestedAsync(context, TimeSpan.FromSeconds(1), maxMessages: 10, cancellationToken)
                 .ConfigureAwait(false);
 
@@ -64,7 +65,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
             {
                 ProjectionRebuildCheckpoint completed = checkpoint.Complete(clock.UtcNow);
                 await store.SaveAsync(key, completed, cancellationToken).ConfigureAwait(false);
-                await reporter.ReportProgressAsync(
+                await observer.ReportProgressAsync(
                         context,
                         CreateProgress(completed, request.DryRun, percentComplete: 100),
                         clock.UtcNow,
@@ -74,11 +75,19 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
                 return new ProjectionRebuildSummary(moduleName, request.ProjectionName, key.TenantId, request.DryRun, completed);
             }
 
-            ProjectionWriteResult writeResult;
+            ProjectionRebuildCheckpoint visibleCheckpoint;
             try
             {
-                writeResult = await writer
-                    .WriteAsync(request, batch.Snapshots, cancellationToken)
+                visibleCheckpoint = await this.WriteAndSaveCheckpointAsync(
+                        transactionBoundary,
+                        writer,
+                        store,
+                        key,
+                        request,
+                        checkpoint,
+                        batch,
+                        cursor,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
             catch
@@ -87,27 +96,10 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
                 throw;
             }
 
-            if (writeResult.FailedCount > 0)
-            {
-                this.TryRecordFailure(moduleName, request);
-                throw new InvalidOperationException(
-                    $"Projection rebuild writer reported {writeResult.FailedCount} failed rows for '{moduleName}.{request.ProjectionName}'.");
-            }
-
-            ProjectionRebuildCheckpoint advanced = checkpoint.Advance(
-                batch.NextCursor ?? cursor,
-                batch.Snapshots.Count,
-                writeResult,
-                clock.UtcNow);
-            ProjectionRebuildCheckpoint visibleCheckpoint = batch.HasMore
-                ? advanced
-                : advanced.Complete(clock.UtcNow);
-
-            await store.SaveAsync(key, visibleCheckpoint, cancellationToken).ConfigureAwait(false);
             this.TryRecordBatch(moduleName, request, batch.Snapshots.Count, stopwatch.Elapsed);
 
             int percent = visibleCheckpoint.IsCompleted ? 100 : 99;
-            await reporter.ReportProgressAsync(
+            await observer.ReportProgressAsync(
                     context,
                     CreateProgress(visibleCheckpoint, request.DryRun, percent),
                     clock.UtcNow,
@@ -129,7 +121,74 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         }
     }
 
-    private static TaskProgress CreateProgress(
+    private Task<ProjectionRebuildCheckpoint> WriteAndSaveCheckpointAsync(
+        IProjectionRebuildTransactionBoundary? transactionBoundary,
+        IProjectionRebuildWriter<TSnapshot> writer,
+        IProjectionRebuildCheckpointStore store,
+        ProjectionRebuildCheckpointKey key,
+        ProjectionRebuildRequest request,
+        ProjectionRebuildCheckpoint checkpoint,
+        ProjectionReadBatch<TSnapshot> batch,
+        string? cursor,
+        CancellationToken cancellationToken)
+    {
+        return transactionBoundary is null
+            ? this.WriteAndSaveCoreAsync(
+                writer,
+                store,
+                key,
+                request,
+                checkpoint,
+                batch,
+                cursor,
+                cancellationToken)
+            : transactionBoundary.ExecuteAsync(
+                token => this.WriteAndSaveCoreAsync(
+                    writer,
+                    store,
+                    key,
+                    request,
+                    checkpoint,
+                    batch,
+                    cursor,
+                    token),
+                cancellationToken);
+    }
+
+    private async Task<ProjectionRebuildCheckpoint> WriteAndSaveCoreAsync(
+        IProjectionRebuildWriter<TSnapshot> writer,
+        IProjectionRebuildCheckpointStore store,
+        ProjectionRebuildCheckpointKey key,
+        ProjectionRebuildRequest request,
+        ProjectionRebuildCheckpoint checkpoint,
+        ProjectionReadBatch<TSnapshot> batch,
+        string? cursor,
+        CancellationToken cancellationToken)
+    {
+        ProjectionWriteResult writeResult = await writer
+            .WriteAsync(request, batch.Snapshots, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (writeResult.FailedCount > 0)
+        {
+            throw new InvalidOperationException(
+                $"Projection rebuild writer reported {writeResult.FailedCount} failed rows for '{key.ModuleName}.{request.ProjectionName}'.");
+        }
+
+        ProjectionRebuildCheckpoint advanced = checkpoint.Advance(
+            batch.NextCursor ?? cursor,
+            batch.Snapshots.Count,
+            writeResult,
+            clock.UtcNow);
+        ProjectionRebuildCheckpoint visibleCheckpoint = batch.HasMore
+            ? advanced
+            : advanced.Complete(clock.UtcNow);
+
+        await store.SaveAsync(key, visibleCheckpoint, cancellationToken).ConfigureAwait(false);
+        return visibleCheckpoint;
+    }
+
+    private static ProjectionRebuildProgress CreateProgress(
         ProjectionRebuildCheckpoint checkpoint,
         bool dryRun,
         int percentComplete)
@@ -138,7 +197,7 @@ public sealed class ProjectionRebuildRunner<TSnapshot>(
         string message =
             $"{mode}; processed={checkpoint.ProcessedCount}; written={checkpoint.WrittenCount}; skipped={checkpoint.SkippedCount}; failed={checkpoint.FailedCount}; cursor={checkpoint.Cursor ?? "start"}";
 
-        return new TaskProgress(percentComplete, message);
+        return new ProjectionRebuildProgress(percentComplete, message);
     }
 
     private void TryRecordBatch(

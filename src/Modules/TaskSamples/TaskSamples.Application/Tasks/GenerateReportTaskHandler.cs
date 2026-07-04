@@ -4,6 +4,7 @@ using Shared.Cqrs;
 using Shared.Results;
 using Shared.Tasks;
 using Shared.Tasks.Cqrs;
+using TaskSamples.Contracts;
 
 internal sealed class GenerateReportTaskHandler(ITaskCommandDispatcher dispatcher)
     : ITaskHandler<GenerateReportTaskPayload>

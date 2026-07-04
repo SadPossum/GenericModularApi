@@ -14,12 +14,12 @@ internal sealed class TaskSamplesScheduleProvider : ITaskScheduleProvider
             new ScheduledTaskDefinition(
                 "scheduled-report",
                 TaskSamplesModuleMetadata.Name,
-                TaskSamplesModuleMetadata.GenerateReportTaskName,
+                GenerateReportTaskPayload.TaskName,
                 PayloadJson,
                 TimeSpan.FromMinutes(5),
                 TaskSamplesModuleMetadata.WorkerGroup,
                 tenantId: "default",
                 maxAttempts: 3,
-                payloadVersion: TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion)
+                payloadVersion: GenerateReportTaskPayload.PayloadVersion)
         ]);
 }

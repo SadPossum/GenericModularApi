@@ -10,6 +10,7 @@ public static class ProjectionRebuildServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddScoped<IProjectionRebuildCheckpointStoreRegistry, ProjectionRebuildCheckpointStoreRegistry>();
+        services.TryAddScoped<IProjectionRebuildTransactionBoundaryRegistry, ProjectionRebuildTransactionBoundaryRegistry>();
         services.TryAddScoped(typeof(ProjectionRebuildRunner<>));
         services.TryAddSingleton<ProjectionRebuildMetrics>();
 

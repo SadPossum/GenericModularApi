@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Authorization\Shared.Authorization.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching\Shared.Caching.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Domain\Shared.Domain.csproj" />
@@ -36,6 +37,8 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Observability\Shared.Observability.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ProjectionRebuild.EntityFrameworkCore\Shared.ProjectionRebuild.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ProjectionRebuild.Tasks\Shared.ProjectionRebuild.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />

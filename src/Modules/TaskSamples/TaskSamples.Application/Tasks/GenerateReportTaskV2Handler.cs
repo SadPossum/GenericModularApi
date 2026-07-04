@@ -1,9 +1,10 @@
 namespace TaskSamples.Application.Tasks;
 
 using Shared.Cqrs;
+using Shared.Results;
 using Shared.Tasks;
 using Shared.Tasks.Cqrs;
-using Shared.Results;
+using TaskSamples.Contracts;
 
 internal sealed class GenerateReportTaskV2Handler(ITaskCommandDispatcher dispatcher)
     : ITaskHandler<GenerateReportTaskPayloadV2>

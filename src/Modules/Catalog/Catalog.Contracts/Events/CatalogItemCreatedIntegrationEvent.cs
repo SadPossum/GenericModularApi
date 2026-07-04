@@ -1,9 +1,16 @@
 namespace Catalog.Contracts;
 
 using Shared.Messaging;
+using Shared.Tenancy;
 
+[IntegrationEventName(CatalogItemCreatedIntegrationEvent.EventType)]
+[IntegrationEventVersion(CatalogItemCreatedIntegrationEvent.EventVersion)]
+[TenantScoped]
 public sealed record CatalogItemCreatedIntegrationEvent : IntegrationEvent
 {
+    public const string EventType = "item-created";
+    public const int EventVersion = 1;
+
     public CatalogItemCreatedIntegrationEvent(
         Guid eventId,
         string tenantId,
@@ -13,7 +20,7 @@ public sealed record CatalogItemCreatedIntegrationEvent : IntegrationEvent
         string name,
         decimal price,
         string currency)
-        : base(eventId, tenantId, occurredAtUtc, "item-created", version: 1)
+        : base(eventId, tenantId, occurredAtUtc, EventType, EventVersion)
     {
         this.ItemId = IntegrationEventContractGuards.RequireId(itemId, nameof(itemId));
         this.Sku = NormalizeSku(sku);

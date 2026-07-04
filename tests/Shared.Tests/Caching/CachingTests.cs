@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Cqrs;
 using Shared.Caching;
+using Shared.Caching.Cqrs;
 using Shared.Observability;
 using Shared.Tenancy;
 using Shared.Cqrs.UnitOfWork;
@@ -429,7 +430,7 @@ public sealed class CachingTests
     }
 
     [Fact]
-    public async Task Shared_infrastructure_registers_command_behaviors_in_expected_order()
+    public async Task Caching_cqrs_bridge_registers_invalidation_before_unit_of_work()
     {
         await using ServiceProvider provider = BuildProvider();
         using IServiceScope scope = provider.CreateScope();
@@ -447,6 +448,18 @@ public sealed class CachingTests
                 typeof(CommandUnitOfWorkBehavior<TestCommand, Unit>)
             ],
             behaviorTypes);
+    }
+
+    [Fact]
+    public async Task Caching_infrastructure_does_not_register_cqrs_pipeline_behavior()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["Caching:Enabled"] = "false";
+        builder.Configuration["Tenancy:Enabled"] = "false";
+        builder.AddCachingInfrastructure();
+        await using ServiceProvider provider = builder.Services.BuildServiceProvider();
+
+        Assert.Empty(provider.GetServices<ICommandPipelineBehavior<TestCommand, Unit>>());
     }
 
     [Fact]
@@ -624,7 +637,7 @@ public sealed class CachingTests
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
         builder.Configuration["Caching:Enabled"] = "true";
         builder.Configuration["Caching:Provider"] = "Redis";
-        builder.AddCachingInfrastructure();
+        builder.AddCachingCqrs();
 
         using ServiceProvider provider = builder.Services.BuildServiceProvider();
 
@@ -767,7 +780,7 @@ public sealed class CachingTests
         }
 
         configureServices?.Invoke(builder.Services);
-        builder.AddCachingInfrastructure();
+        builder.AddCachingCqrs();
 
         if (tenantContext is not null)
         {

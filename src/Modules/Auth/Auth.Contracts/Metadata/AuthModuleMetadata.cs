@@ -20,11 +20,9 @@ public static class AuthModuleMetadata
             new ModulePermissionDescriptor(AuthAdminPermissionCodes.MembersResetPassword, "Reset Auth member passwords.", tenantScoped: true),
             new ModulePermissionDescriptor(AuthAdminPermissionCodes.MembersRevokeSessions, "Revoke Auth member sessions.", tenantScoped: true),
         ])
-        .WithPublishedEvents([
-            new ModuleIntegrationEventDescriptor("member-registered", AuthIntegrationSubjects.MemberRegistered, 1, tenantScoped: true),
-            new ModuleIntegrationEventDescriptor("member-disabled", AuthIntegrationSubjects.MemberDisabled, 1, tenantScoped: true),
-            new ModuleIntegrationEventDescriptor("member-enabled", AuthIntegrationSubjects.MemberEnabled, 1, tenantScoped: true),
-            new ModuleIntegrationEventDescriptor("member-sessions-revoked", AuthIntegrationSubjects.MemberSessionsRevoked, 1, tenantScoped: true),
-        ])
+        .WithPublishedEvent<MemberRegisteredIntegrationEvent>()
+        .WithPublishedEvent<MemberDisabledIntegrationEvent>()
+        .WithPublishedEvent<MemberEnabledIntegrationEvent>()
+        .WithPublishedEvent<MemberSessionsRevokedIntegrationEvent>()
         .Build();
 }

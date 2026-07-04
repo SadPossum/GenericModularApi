@@ -4,5 +4,7 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Caching\Shared.Caching.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Modules\Shared.Modules.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />
   </ItemGroup>
 </Project>

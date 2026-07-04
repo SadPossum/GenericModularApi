@@ -13,6 +13,8 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
 
     public DbSet<Order> Orders => this.Set<Order>();
     public DbSet<CatalogItemProjection> CatalogItemProjections => this.Set<CatalogItemProjection>();
+    public DbSet<OrderingProjectionRebuildCheckpoint> ProjectionRebuildCheckpoints =>
+        this.Set<OrderingProjectionRebuildCheckpoint>();
     public DbSet<InboxMessage> InboxMessages => this.Set<InboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -24,5 +26,7 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
             .HasQueryFilter("TenantFilter", order => !this.tenantFilteringEnabled || order.TenantId == this.tenantId);
         modelBuilder.Entity<CatalogItemProjection>()
             .HasQueryFilter("TenantFilter", item => !this.tenantFilteringEnabled || item.TenantId == this.tenantId);
+        modelBuilder.Entity<OrderingProjectionRebuildCheckpoint>()
+            .HasQueryFilter("TenantFilter", checkpoint => !this.tenantFilteringEnabled || checkpoint.TenantId == this.tenantId);
     }
 }

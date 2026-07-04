@@ -53,6 +53,7 @@ src/
     Shared.Observability.Infrastructure/
     Shared.Pagination/
     Shared.Persistence.EntityFrameworkCore/
+    Shared.ProjectionRebuild/
     Shared.Runtime/
     Shared.Runtime.Infrastructure/
     Shared.Security/
@@ -348,6 +349,13 @@ Shared.Persistence.EntityFrameworkCore
   -> Shared.Domain
   -> Shared.Naming
   -> Shared.Tenancy
+
+Shared.ProjectionRebuild
+  -> Shared.Naming
+  -> Shared.Observability
+  -> Shared.Observability.Infrastructure
+  -> Shared.Runtime
+  -> Shared.Tasks
 
 Shared.Results
   -> no project references

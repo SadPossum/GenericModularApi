@@ -3,5 +3,6 @@
     <ProjectReference Include="..\..\Catalog\Catalog.Contracts\Catalog.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Modules\Shared.Modules.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj" />
   </ItemGroup>
 </Project>

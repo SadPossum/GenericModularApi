@@ -21,7 +21,7 @@ Catalog.AdminCli
 Catalog.AdminApi
 ```
 
-`Catalog.Contracts` follows the standard contract folders: `Api/` for item DTO/list contracts, `Events/` for item integration events and subjects, `Metadata/` for module metadata, limits, and permission code strings, and `Types/` for `CatalogItemStatus`.
+`Catalog.Contracts` follows the standard contract folders: `Api/` for item DTO/list contracts, `Events/` for item integration events and subjects, `Exports/` for projection rebuild/export contracts, `Metadata/` for module metadata, limits, and permission code strings, and `Types/` for `CatalogItemStatus`.
 
 ## Domain
 
@@ -78,6 +78,16 @@ catalog.items.discontinue
 | `CatalogItemDiscontinuedIntegrationEvent` | `{application-namespace}.catalog.item-discontinued.v1` |
 
 Events are written by domain-event handlers through the module outbox. The local default namespace is `gma`; `CatalogIntegrationSubjects` can render the same logical events under a configured application namespace.
+
+## Projection Export
+
+Catalog exposes a producer-owned export contract for rebuild/backfill scenarios:
+
+- `CatalogItemProjectionExport` is the stable snapshot consumed by Ordering rebuilds.
+- `ICatalogItemProjectionExportSource` is the contract-facing source port.
+- `Catalog.Persistence` implements the port against Catalog's EF model.
+
+Consumers reference `Catalog.Contracts` only. They do not reference Catalog domain, application, persistence, API, or admin projects for rebuilds.
 
 ## Compose Explicitly
 

@@ -3669,6 +3669,20 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
+                "Shared.ProjectionRebuild",
+                [
+                    "Microsoft.Extensions.DependencyInjection.Abstractions",
+                    "Microsoft.Extensions.Options"
+                ],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Tasks\Shared.Tasks.csproj"
+                ]),
+            new(
                 "Shared.Runtime.Infrastructure",
                 [
                     "Microsoft.Extensions.Configuration.Binder",
@@ -6050,6 +6064,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
@@ -6181,6 +6196,14 @@ public sealed partial class DeveloperExperienceGuardTests
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(
                    normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
                IsOtherModuleContractsReference(moduleName, normalizedReference);
@@ -6213,6 +6236,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
@@ -6545,6 +6569,12 @@ public sealed partial class DeveloperExperienceGuardTests
             fileName.EndsWith("IntegrationSubjects.cs", StringComparison.Ordinal))
         {
             return "Events";
+        }
+
+        if (fileName.EndsWith("ProjectionExport.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("ExportSource.cs", StringComparison.Ordinal))
+        {
+            return "Exports";
         }
 
         if (fileName.EndsWith("ModuleMetadata.cs", StringComparison.Ordinal) ||

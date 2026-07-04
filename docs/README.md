@@ -23,6 +23,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Administration](architecture/administration.md)
 - [Tasks and Daemons](architecture/tasks-and-daemons.md)
 - [Projection Rebuild Tasks](architecture/projection-rebuild-tasks.md)
+- [Projection Rebuild Implementation Notes](architecture/projection-rebuild-implementation-notes.md)
 - [Production Readiness Backlog](architecture/production-readiness-backlog.md)
 - [Architecture Hardening Notes](architecture/audit-hardening-notes.md)
 - [Architecture Audit Follow-Up Notes](architecture/audit-follow-up-notes.md)
@@ -66,6 +67,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [0007 Shared CQRS Validation Contracts](adr/0007-shared-cqrs-validation-contracts.md)
 - [0008 Optional Tasks and Daemons Foundation](adr/0008-optional-tasks-and-daemons-foundation.md)
 - [0009 Configurable Application Identity](adr/0009-configurable-application-identity.md)
+- [0010 Projection Rebuild Tasks](adr/0010-projection-rebuild-tasks.md)
 
 ## Documentation Rules
 

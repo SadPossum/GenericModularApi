@@ -6,6 +6,28 @@ Preserve the skeleton goal: modules should stay separate, optional, replaceable,
 
 Prefer explicit, boring code over framework cleverness.
 
+## Branching And Versioning
+
+Use `dev` as the normal development branch.
+
+Branch roles:
+
+- `main` is the versioned release baseline. It should receive validated version commits, narrowly scoped docs hotfixes, or emergency repairs.
+- `dev` is the integration branch for normal feature work. It can contain focused feature commits, cleanup commits, and staged refactor commits without version markers.
+- Short-lived topic branches are optional for risky or parallel work. Create them from `dev`, then merge or squash them back into `dev` when the slice is ready.
+
+Release flow:
+
+1. Finish the slice on `dev`.
+2. Run the validation path appropriate to the touched area. Run the full suite and Docker-backed tests before a version commit when persistence, messaging, tasks, Docker infrastructure, or cross-module behavior changed.
+3. Switch to `main`, update it from `origin/main`, and squash `dev` into one version commit such as `v0.6.0: add billing module`.
+4. Push `main`.
+5. Switch back to `dev`, merge `main` into `dev`, and push `dev`.
+
+Merging `main` back into `dev` after each version commit keeps the release commit in `dev` history while preserving the individual development commits that led to it. Avoid resetting or force-pushing shared `dev` unless the branch itself is being repaired intentionally.
+
+If a hotfix lands directly on `main`, merge `main` back into `dev` before continuing feature work.
+
 ## Where Things Go
 
 | Thing | Location |

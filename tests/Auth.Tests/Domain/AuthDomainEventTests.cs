@@ -1,5 +1,6 @@
 namespace Auth.Tests;
 
+using Shared.Naming;
 using Auth.Domain.Aggregates;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;

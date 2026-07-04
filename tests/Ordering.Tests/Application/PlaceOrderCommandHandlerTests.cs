@@ -1,5 +1,6 @@
 namespace Ordering.Tests;
 
+using Shared.Naming;
 using Catalog.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,12 +10,13 @@ using Ordering.Application.Ports;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Domain.Errors;
-using Shared.Application.Cqrs;
-using Shared.Application.Messaging;
-using Shared.Application.Tenancy;
-using Shared.Domain;
-using Shared.ErrorHandling;
-using Shared.Infrastructure;
+using Shared.Cqrs;
+using Shared.Messaging;
+using Shared.Tenancy;
+using Shared.Numerics;
+using Shared.Results;
+using Shared.Cqrs.Infrastructure;
+using Shared.Runtime.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -181,7 +183,8 @@ public sealed class PlaceOrderCommandHandlerTests
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
         TestTenantContext tenantContext = new("tenant-a");
 
-        builder.AddSharedInfrastructure();
+        builder.AddRuntimeInfrastructure();
+        builder.AddCqrsInfrastructure();
         builder.Services.AddOrderingApplication();
         builder.Services.AddSingleton<ITenantContext>(tenantContext);
         builder.Services.AddSingleton<ITenantContextAccessor>(tenantContext);

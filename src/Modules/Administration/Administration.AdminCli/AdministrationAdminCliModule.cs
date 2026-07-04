@@ -10,11 +10,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shared.Administration;
 using Shared.Administration.Cli;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Identity;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Identity;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 public sealed class AdministrationAdminCliModule : IAdminCliModule
 {

@@ -1,7 +1,7 @@
 namespace Shared.Administration.Api;
 
 using System.Security.Claims;
-using Shared.Application.Security;
+using Shared.Security;
 
 public sealed class AdminApiOptions
 {

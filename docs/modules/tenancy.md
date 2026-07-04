@@ -8,7 +8,7 @@ The Tenancy module enables tenant resolution for projects that need tenant isola
 Tenancy.Api
 ```
 
-The module is intentionally small. Shared tenancy abstractions live in `Shared.Application` and default/null implementations live in `Shared.Infrastructure`.
+The module is intentionally small. Shared tenancy abstractions live in `Shared.Tenancy` and default/null implementations live in `Shared.Tenancy.Infrastructure`, which the core shared infrastructure composes by default.
 
 ## Runtime Behavior
 

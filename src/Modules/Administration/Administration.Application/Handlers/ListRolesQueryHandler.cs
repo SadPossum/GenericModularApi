@@ -2,8 +2,8 @@ namespace Administration.Application.Handlers;
 
 using Administration.Application.Ports;
 using Administration.Application.Queries;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Results;
 
 internal sealed class ListRolesQueryHandler(IAdminRbacRepository repository)
     : IQueryHandler<ListRolesQuery, IReadOnlyList<AdminRoleDetails>>

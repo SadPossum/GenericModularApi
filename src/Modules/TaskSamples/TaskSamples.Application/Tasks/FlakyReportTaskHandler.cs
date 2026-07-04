@@ -1,8 +1,9 @@
 namespace TaskSamples.Application.Tasks;
 
-using Shared.Application;
-using Shared.Application.Tasks;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Tasks;
+using Shared.Tasks.Cqrs;
+using Shared.Results;
 
 internal sealed class FlakyReportTaskHandler(ITaskCommandDispatcher dispatcher)
     : ITaskHandler<FlakyReportTaskPayload>

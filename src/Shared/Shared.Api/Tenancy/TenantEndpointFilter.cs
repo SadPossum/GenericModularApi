@@ -1,11 +1,11 @@
 namespace Shared.Api.Tenancy;
 
+using Shared.Naming;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-using Shared.Application.Tenancy;
-using Shared.Domain;
+using Shared.Tenancy;
 
 internal sealed class TenantEndpointFilter : IEndpointFilter
 {

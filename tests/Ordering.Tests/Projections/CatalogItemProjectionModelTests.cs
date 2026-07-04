@@ -1,11 +1,11 @@
 namespace Ordering.Tests;
 
+using Shared.Naming;
 using Catalog.Contracts;
 using Ordering.Application.Ports;
 using Ordering.Domain.Aggregates;
 using Ordering.Domain.Errors;
 using Ordering.Persistence;
-using Shared.Domain;
 using Xunit;
 
 [Trait("Category", "Unit")]

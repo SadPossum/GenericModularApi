@@ -26,15 +26,57 @@ public interface IModule
 
 The shared core is intentionally small:
 
-- `Shared.Domain` and `Shared.ErrorHandling` stay dependency-free.
-- `Shared.Application` may reference `Shared.Domain`, `Shared.ErrorHandling`, and small dependency-injection abstractions, but not HTTP, EF, messaging, cache backends, logging backends, hosting, or provider packages.
-- Adapter projects such as `Shared.Infrastructure`, `Shared.Api.*`, `Shared.Caching.Redis`, `Shared.Messaging.Nats.Aspire`, and `Shared.Logging.Serilog` own concrete runtime packages.
+- `Shared.Naming`, `Shared.Numerics`, `Shared.Observability`, and `Shared.Results` stay dependency-free.
+- `Shared.Domain` owns aggregate/domain-event primitives and depends only on `Shared.Naming` for shared identifier syntax such as tenant ids and `Shared.Numerics` for reusable numeric validation.
+- `Shared.Modules` owns module metadata primitives and references only `Shared.Naming`.
+- `Shared.Authorization` owns permission metadata descriptor extensions and references only `Shared.Modules` and `Shared.Naming`.
+- `Shared.Caching` owns cache contracts and cache descriptor metadata and references only `Shared.Modules` plus `Shared.Naming` for module-name alignment.
+- `Shared.Messaging` owns integration event, outbox/inbox, subscription, and messaging descriptor contracts and references only shared primitives plus DI abstractions.
+- `Shared.Tasks` owns task contracts and task descriptor metadata and does not reference CQRS or runtime adapters.
+- `Shared.Tasks.Cqrs` owns the optional bridge for dispatching application commands from task payload handlers.
+- `Shared.Runtime` owns clock/id abstractions and dependency-free runtime naming helpers.
+- `Shared.Tenancy` owns tenant context contracts, tenant options, and tenant errors.
+- `Shared.Security` owns dependency-free claim/security constants shared by HTTP adapters and token issuers.
+- `Shared.Cqrs` owns command/query contracts, validators, dispatcher contracts, `Unit`, and transactional unit-of-work contracts.
+- `Shared.Application.Events` owns domain-event handler and dispatcher contracts. It references `Shared.Domain` only.
+- `Shared.Pagination` owns normalized paging request helpers and remains dependency-free.
+- `Shared.Application.Composition` owns constrained application assembly registration only. It may reference `Shared.Application.Events`, `Shared.Cqrs`, and small dependency-injection abstractions, but not domain models directly, HTTP, EF, messaging transports, cache backends, logging backends, hosting, or provider packages.
+- Adapter projects such as `Shared.Infrastructure`, `Shared.Application.Events.Infrastructure`, `Shared.Cqrs.Infrastructure`, `Shared.Runtime.Infrastructure`, `Shared.Tenancy.Infrastructure`, `Shared.Caching.Infrastructure`, `Shared.Messaging.Infrastructure`, `Shared.Messaging.Nats`, `Shared.Tasks.Infrastructure`, `Shared.Persistence.EntityFrameworkCore`, `Shared.Api.*`, `Shared.Caching.Redis`, `Shared.Messaging.Nats.Aspire`, and `Shared.Logging.Serilog` own concrete runtime packages.
 
 This keeps every module free to depend on shared contracts and primitives without inheriting optional infrastructure choices.
 
-Shared adapter ownership:
+Shared project ownership quick reference:
 
-- `Shared.Infrastructure`: generic runtime adapters for EF provider selection, HybridCache, CQRS pipeline wiring, outbox/inbox helpers, NATS publish/consumer runtime abstractions, clocks, IDs, and hosted background loops.
+- `Shared.Infrastructure`: host-level facade that composes the baseline runtime adapters below.
+- `Shared.Application.Events.Infrastructure`: domain-event dispatcher implementation.
+- `Shared.Cqrs.Infrastructure`: request dispatcher, CQRS pipeline behaviors, command unit-of-work behavior, and CQRS runtime registration.
+- `Shared.Runtime.Infrastructure`: default clock and id generator implementations.
+- `Shared.Tenancy.Infrastructure`: default/null tenant context, tenant option validation, and baseline tenancy service wiring.
+- `Shared.Caching.Infrastructure`: HybridCache-backed cache-aside runtime, cache invalidation queue, cache metrics, cache options, and command invalidation pipeline behavior.
+- `Shared.Messaging.Infrastructure`: EF outbox/inbox base helpers, outbox publisher, outbox options, a null event bus, and messaging metrics.
+- `Shared.Messaging.Nats`: NATS JetStream publisher/consumer runtime, NATS options, and low-level NATS composition hooks.
+- `Shared.Tasks.Infrastructure`: EF task-run store base, task worker/scheduler hosted services, task control loop, task command dispatcher implementation, task options, and task metrics.
+- `Shared.Persistence.EntityFrameworkCore`: EF provider selection, design-time DbContext options, persistence options, and domain-event unit-of-work base.
+- `Shared.Observability.Infrastructure`: shared CQRS metric implementations, module-name resolution, and bounded tag normalization. Capability metrics live beside their owning runtime adapters.
+- `Shared.Modules`: module descriptor, descriptor builder, descriptor feature base, generic metadata naming/guard helpers, and custom metadata feature support.
+- `Shared.Authorization`: permission metadata and `WithPermission(...)` / `WithPermissions(...)` / `GetPermissions()` descriptor extensions.
+- `Shared.Cqrs`: command/query contracts, validators, dispatcher contracts, `Unit`, and transactional unit-of-work contracts.
+- `Shared.Cqrs.Infrastructure`: CQRS dispatcher and pipeline behavior implementations.
+- `Shared.Application.Events`: domain-event handler and dispatcher contracts.
+- `Shared.Application.Events.Infrastructure`: domain-event dispatcher implementation.
+- `Shared.Application.Composition`: constrained application assembly registration.
+- `Shared.Naming`: low-level shared naming and identifier syntax primitives.
+- `Shared.Numerics`: dependency-free numeric validation helpers shared by domain and contract metadata.
+- `Shared.Observability`: vendor-neutral metric, log-property, and tag names.
+- `Shared.Pagination`: normalized paging request helpers.
+- `Shared.Runtime`: shared runtime abstractions and dependency-free runtime helpers such as clock/id generator contracts and worker-id normalization.
+- `Shared.Runtime.Infrastructure`: default runtime implementations for clock and id generator contracts.
+- `Shared.Security`: shared claim/security constants.
+- `Shared.Caching`: cache-aside contracts, cache key/tag primitives, and cache descriptor metadata.
+- `Shared.Messaging`: integration event contracts, outbox/inbox contracts, subscription registry contracts, and messaging descriptor metadata.
+- `Shared.Tasks`: task payload, handler, control, schedule, run-store, and task descriptor contracts.
+- `Shared.Tasks.Cqrs`: optional task-to-CQRS command dispatcher contract.
+- `Shared.Tenancy`: tenant context contracts, tenant options, and tenant errors.
 - `Shared.Api`: ASP.NET Core-neutral API primitives and endpoint helpers.
 - `Shared.Api.OpenApi`: Swagger/OpenAPI package ownership.
 - `Shared.Api.Serilog`: HTTP request logging enrichment package ownership.
@@ -101,9 +143,38 @@ Avoid:
 
 Module metadata is a data contract, not runtime discovery.
 
-Use `ModuleDescriptor` in `.Contracts` when a module has permissions, integration events, inbound subscriptions, cache entries, or a persistence schema that should be visible to tests, docs, or tooling.
+Use `ModuleDescriptor` in `.Contracts` when a module has permissions, integration events, inbound subscriptions, cache entries, task metadata, or a persistence schema that should be visible to tests, docs, or tooling.
 
 `Name` is the module identity used for composition, observability, and cross-module metadata. `AdminSurfaceName` is optional and exists for modules whose public administration surface intentionally differs from the module identity, such as the `Administration` module exposing `admin.*` commands and permissions while the module remains named `administration`.
+
+Author descriptors through the builder:
+
+```csharp
+public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
+    .Create(Name)
+    .WithSchema(Schema)
+    .WithPermission(new ModulePermissionDescriptor("catalog.items.read", "Read catalog items.", tenantScoped: true))
+    .WithPublishedEvent(new ModuleIntegrationEventDescriptor("item-created", CatalogIntegrationSubjects.ItemCreated, 1, tenantScoped: true))
+    .WithCacheEntries([
+        new ModuleCacheDescriptor(ItemsCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
+        new ModuleCacheDescriptor(ItemCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
+    ])
+    .Build();
+```
+
+Prefer the single-item helpers (`WithPermission`, `WithPublishedEvent`, `WithSubscription`, `WithCacheEntry`, `WithTask`) when metadata naturally belongs near one resource or feature. Use the bulk helpers (`WithPermissions`, `WithPublishedEvents`, `WithSubscriptions`, `WithCacheEntries`, `WithTasks`) when a compact list is clearer. Repeated calls merge within the owning capability feature; duplicate metadata still fails through the capability descriptor.
+
+The root descriptor owns only identity and polymorphic capability features. Capability-specific metadata and extensions live beside the capability:
+
+- `Shared.Modules` owns the root descriptor, builder, and custom feature base.
+- `Shared.Authorization` owns permission metadata plus `WithPermission(...)`, `WithPermissions(...)`, and `GetPermissions()`.
+- `Shared.Naming` owns low-level kebab-case segment, module-name, and tenant-id normalization shared by domain events, API/admin composition, CLI command ownership, modules, messaging, caching, and task metadata.
+- `Shared.Messaging` owns published-event and subscription metadata plus `WithPublishedEvent(...)`, `WithPublishedEvents(...)`, `WithSubscription(...)`, `WithSubscriptions(...)`, `GetPublishedEvents()`, and `GetSubscriptions()`.
+- `Shared.Caching` owns cache metadata plus `WithCacheEntry(...)`, `WithCacheEntries(...)`, and `GetCacheEntries()`.
+- `Shared.Tasks` owns task metadata plus `WithTask(...)`, `WithTasks(...)`, and `GetTasks()`.
+
+This is an intentional extension seam. The root `ModuleDescriptor` is sealed so its identity surface stays stable; new optional shared capabilities should add a `ModuleDescriptorFeature` subtype and builder/read extensions in their own namespace rather than adding another root property or subclassing the root descriptor.
+Feature keys are stable and capability-prefixed, for example `authorization.permissions`, `messaging.published-events`, `caching.entries`, and `tasks.handlers`. Custom feature keys should follow the same `<capability>.<entry>` shape to avoid collisions across optional packages.
 
 Rules:
 
@@ -112,7 +183,7 @@ Rules:
 - cross-module metadata uses strings for subjects and handler names unless the consuming module already has an allowed `.Contracts` reference, and those strings must still pass shared integration-event naming validation;
 - descriptors should be kept in sync with module docs and architecture tests.
 
-Descriptor value objects validate public metadata at construction time and expose constructor-only properties. Invalid module names, permission codes, event subjects, subscription handler names, cache scopes, duplicate entries, or mismatched published-event subjects should fail as soon as the module contract assembly is loaded.
+Descriptor value objects validate public metadata at construction/build time and expose constructor-only properties. Invalid module names, permission codes, event subjects, subscription handler names, cache scopes, task names, duplicate entries, or mismatched published-event subjects should fail as soon as the module contract assembly is loaded.
 
 Compiled module projects are also listed in `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`. That catalog feeds architecture tests only and must not be used for runtime composition.
 
@@ -266,7 +337,7 @@ For persistence:
 For a richer optional shell:
 
 ```powershell
-.\eng\new-module.ps1 -Name Billing -Persistence -SqlServerMigrations -PostgreSqlMigrations -Outbox -Inbox -Admin -AdminApi -Cache
+.\eng\new-module.ps1 -Name Billing -Persistence -SqlServerMigrations -PostgreSqlMigrations -Outbox -Inbox -AdminCli -AdminApi -Cache
 ```
 
 Then decide explicitly whether to register it in `Host.Api`.

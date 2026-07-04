@@ -3,10 +3,9 @@ namespace Administration.Application.Handlers;
 using Administration.Application.Commands;
 using Administration.Application.Ports;
 using Shared.Administration;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class GrantRolePermissionCommandHandler(IAdminRbacRepository repository, ISystemClock clock)
     : ICommandHandler<GrantRolePermissionCommand, Unit>

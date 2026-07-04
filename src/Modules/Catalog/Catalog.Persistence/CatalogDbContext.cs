@@ -2,8 +2,8 @@ namespace Catalog.Persistence;
 
 using Catalog.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
-using Shared.Application.Tenancy;
-using Shared.Infrastructure.Messaging;
+using Shared.Tenancy;
+using Shared.Messaging.Infrastructure;
 
 public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options, ITenantContext tenantContext)
     : DbContext(options)

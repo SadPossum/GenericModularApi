@@ -5,8 +5,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Shared.Administration\Shared.Administration.csproj" />
     <ProjectReference Include="..\Shared.Api\Shared.Api.csproj" />
-    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\Shared.Domain\Shared.Domain.csproj" />
-    <ProjectReference Include="..\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />
+    <ProjectReference Include="..\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\Shared.Security\Shared.Security.csproj" />
   </ItemGroup>
 </Project>

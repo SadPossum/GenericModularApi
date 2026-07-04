@@ -7,12 +7,11 @@ using DotNet.Testcontainers.Containers;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Shared.Application;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
+using Shared.Caching;
+using Shared.Caching.Infrastructure;
 using Shared.Caching.Redis;
-using Shared.ErrorHandling;
-using Shared.Infrastructure;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Integration")]
@@ -154,7 +153,7 @@ public sealed class RedisCachingIntegrationTests
         builder.Configuration["ConnectionStrings:redis"] = connectionString;
         builder.Configuration["Tenancy:Enabled"] = "false";
         builder.AddRedisCaching();
-        builder.AddSharedInfrastructure();
+        builder.AddCachingInfrastructure();
         builder.Services.AddScoped<ICommandHandler<FlushInvalidationsCommand, Unit>, FlushInvalidationsHandler>();
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }

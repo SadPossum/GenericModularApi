@@ -1,9 +1,11 @@
 namespace Catalog.Tests;
 
+using Shared.Naming;
 using Catalog.Domain.Aggregates;
 using Catalog.Domain.Errors;
 using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Numerics;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]

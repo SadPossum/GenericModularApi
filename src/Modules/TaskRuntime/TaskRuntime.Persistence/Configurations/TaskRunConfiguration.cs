@@ -1,10 +1,10 @@
 namespace TaskRuntime.Persistence.Configurations;
 
+using Shared.Naming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Application.Tasks;
-using Shared.Domain;
-using Shared.Infrastructure.Tasks;
+using Shared.Tasks;
+using Shared.Tasks.Infrastructure;
 
 internal sealed class TaskRunConfiguration : IEntityTypeConfiguration<TaskRun>
 {

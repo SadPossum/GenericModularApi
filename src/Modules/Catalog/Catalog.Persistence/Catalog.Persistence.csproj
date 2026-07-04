@@ -8,7 +8,14 @@
     <ProjectReference Include="..\Catalog.Contracts\Catalog.Contracts.csproj" />
     <ProjectReference Include="..\Catalog.Application\Catalog.Application.csproj" />
     <ProjectReference Include="..\Catalog.Domain\Catalog.Domain.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
   </ItemGroup>
 </Project>

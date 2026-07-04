@@ -1,13 +1,12 @@
 namespace Shared.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application;
+using Shared.Cqrs;
 using Shared.Application.Composition;
-using Shared.Application.Cqrs;
 using Shared.Application.Events;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]

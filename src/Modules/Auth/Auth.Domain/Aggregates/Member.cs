@@ -1,5 +1,6 @@
 namespace Auth.Domain.Aggregates;
 
+using Shared.Naming;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
@@ -7,7 +8,7 @@ using Auth.Domain.Events;
 using Auth.Domain.ValueObjects;
 using Shared.Domain;
 using Shared.Domain.Models;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public sealed class Member : AggregateRoot<MemberId>, ITenantScoped
 {

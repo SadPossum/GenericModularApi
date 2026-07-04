@@ -34,7 +34,7 @@ Place public contract files in the standard folders:
 - `Metadata/` for `<Module>ModuleMetadata`, `*PermissionCodes`, and `*ContractLimits`.
 - `Types/` for public enum-like or code-list types.
 
-Confirm the public contracts `.csproj` references only `Shared.Application` plus optional producer `.Contracts` projects, and has no package or framework references.
+Confirm the public contracts `.csproj` references `Shared.Modules` for module metadata, `Shared.Authorization` for permission metadata, `Shared.Messaging` for integration events/subscriptions, `Shared.Caching` for cache metadata, and `Shared.Tasks` for task metadata/contracts only when those capabilities are declared. Public contracts should avoid `Shared.Application.Composition` and `Shared.Cqrs`; keep CQRS commands/queries and paging helpers in the module application boundary. Optional producer `.Contracts` references are allowed. Keep package and framework references out.
 Admin permission code strings live here so `<Module>ModuleMetadata` can declare permissions without referencing admin-only framework packages.
 When the module becomes compiled code, add its contract metadata descriptor to `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`; architecture tests compare that catalog with every `<Module>ModuleMetadata.Descriptor`.
 If this module consumes another module's contracts, do not expose producer DTOs or enums from this module's public contracts. Duplicate the scalar/read-model fields owned by this module.
@@ -45,7 +45,7 @@ List typed `AdminPermission` constants in `<Module>.Admin.Contracts`, if the mod
 Place typed permission wrappers in `Permissions/` and operation-name constants in `Operations/`.
 Confirm the admin contracts `.csproj` references only `Shared.Administration` and the owning public `<Module>.Contracts` project, with no package or framework references.
 
-The module scaffolder seeds admin-capable modules with one `<module>.manage` permission in public metadata and typed admin contracts. Replace or split that seed permission once the module has real resources and operations; keep `*PermissionCodes` constants and `ModuleDescriptor.Permissions` in sync.
+The module scaffolder seeds admin-capable modules with one `<module>.manage` permission in public metadata and typed admin contracts through `ModuleDescriptor.WithPermission(...)`. Replace or split that seed permission once the module has real resources and operations; keep `*PermissionCodes` constants and descriptor metadata in sync whether the final module uses single-item or bulk helpers.
 
 ## Endpoints
 
@@ -91,17 +91,17 @@ Confirm the domain `.csproj` has no package or framework references unless a fut
 
 List commands, queries, handlers, validators, domain event handlers, and integration event handlers.
 State which commands implement `ITransactionalCommand<TResponse>` and which commands intentionally remain plain `ICommand<TResponse>`.
-List task payloads and daemons, if any. State the `ModuleTaskDescriptor` name, payload version, kind, tenant scope, worker group, cancellation behavior, and whether control messages are supported.
+List task payloads and daemons, if any. State the `ModuleTaskDescriptor` name, payload version, kind, tenant scope, worker group, cancellation behavior, and whether control messages are supported. Declare task metadata through `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` so task metadata remains owned by `Shared.Tasks`.
 Keep one handler class per file under `<Module>.Application/Handlers`, including command handlers, query handlers, domain-event projectors, and integration-event handlers.
 Confirm the application project does not reference module adapters or front doors such as `.Persistence`, `.Infrastructure`, `.Api`, `.AdminCli`, or `.AdminApi`.
-Confirm the application `.csproj` references only shared abstractions, its own contracts/domain projects, optional producer `.Contracts` projects, and small Microsoft extension abstraction packages.
+Confirm the application `.csproj` references only needed shared abstractions such as `Shared.Cqrs`, `Shared.Application.Composition` for assembly registration, `Shared.Application.Events` for domain-event handlers, and `Shared.Pagination` for normalized paging, plus its own contracts/domain projects, optional producer `.Contracts` projects, and small Microsoft extension abstraction packages.
 Do not reference `Shared.Administration` from feature module application projects; keep admin framework usage in `.AdminCli`/`.AdminApi` front doors. `Administration.Application` is the owner-side exception.
 Confirm that handlers use `ISystemClock` and `IIdGenerator` instead of direct system time or ID generation.
 Confirm that application DI registration extends `IServiceCollection`, not `IHostApplicationBuilder`.
 Confirm that application DI extension methods reject null receivers and call `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` for CQRS handlers, validators, and domain-event handlers.
 Confirm that integration-event handlers are registered explicitly with `AddIntegrationEventHandler<TEvent,THandler>(...)` so subject names and stable handler names remain public contracts.
-Confirm that task handlers are registered explicitly with `AddTaskHandler<TPayload,THandler>(...)` and match the module's `ModuleTaskDescriptor` metadata, including payload version.
-Confirm that task payloads depend only on `Shared.Application.Tasks`, CQRS contracts, and module ports; they must not depend on scheduler packages, HTTP, CLI, or another module's internals. Long-running task payloads should poll `ITaskControlLoop` or use `TaskControlLoopExtensions` at safe checkpoints, mark acted-on control messages handled or failed, and throw `TaskRunCanceledException` for cooperative cancel/drain stops.
+Confirm that task handlers are registered explicitly with `AddTaskHandler<TPayload,THandler>(...)` and match the module's `ModuleTaskDescriptor` metadata, including kind, tenant scope, payload version, worker group, and control-message support.
+Confirm that task payloads depend only on `Shared.Tasks`, `Shared.Tasks.Cqrs` when they dispatch application commands, CQRS contracts, and module ports; they must not depend on scheduler packages, HTTP, CLI, or another module's internals. Long-running task payloads should poll `ITaskControlLoop` or use `TaskControlLoopExtensions` at safe checkpoints, mark acted-on control messages handled or failed, and throw `TaskRunCanceledException` for cooperative cancel/drain stops.
 If the module has recurring work, list each `ITaskScheduleProvider` schedule and its interval, tenant behavior, payload version, and dedupe key strategy. Schedules should enqueue task requests only. Prefer the default version-aware dedupe shape `schedule:<module>:<task>:<schedule>:v<payload-version>:<occurrence>` unless the module documents a safer custom key.
 If the module exposes task admin filters or docs, use `TaskRunStatusNames` wire names such as `retry-scheduled` and `cancellation-requested` rather than raw enum names.
 
@@ -127,7 +127,7 @@ Confirm that persisted enum numeric values are stable and that public contract/d
 | --- | --- | --- | --- |
 | `<EventName>` | `gma.<module>.<event>.v1` | `1` | yes/no |
 
-Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Application.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type.
+Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type.
 
 ## Inbound Subscriptions
 
@@ -151,7 +151,7 @@ List module meters, instruments, activity sources, structured log properties, an
 
 ## Caching
 
-List explicit cache-aside reads, logical keys, tags, TTL policy, and the commands/domain events that enqueue invalidation. State why each cached value is non-authoritative and whether it is tenant or global scoped. Confirm that the module references only `Shared.Application` caching contracts.
+List explicit cache-aside reads, logical keys, tags, TTL policy, and the commands/domain events that enqueue invalidation. State why each cached value is non-authoritative and whether it is tenant or global scoped. Confirm that the module references only `Shared.Caching` caching contracts.
 
 ## Extension Points
 

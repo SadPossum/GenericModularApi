@@ -3,10 +3,10 @@ namespace Catalog.Application.Handlers;
 using Catalog.Application.Ports;
 using Catalog.Application.Queries;
 using Catalog.Contracts;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
-using Shared.Application.Queries;
-using Shared.ErrorHandling;
+using Shared.Caching;
+using Shared.Cqrs;
+using Shared.Pagination;
+using Shared.Results;
 
 internal sealed class ListCatalogItemsQueryHandler(
     ICatalogItemReadRepository repository,

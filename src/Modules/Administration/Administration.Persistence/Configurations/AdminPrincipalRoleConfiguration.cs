@@ -1,10 +1,10 @@
 namespace Administration.Persistence.Configurations;
 
+using Shared.Naming;
 using Administration.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Shared.Administration;
-using Shared.Domain;
 
 internal sealed class AdminPrincipalRoleConfiguration : IEntityTypeConfiguration<AdminPrincipalRole>
 {

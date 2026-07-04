@@ -3,8 +3,8 @@ namespace Shared.Tests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
-using Shared.Application.Messaging;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging;
+using Shared.Messaging.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

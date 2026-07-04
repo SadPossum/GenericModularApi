@@ -6,11 +6,11 @@ using Ordering.Application.Ports;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Domain.Errors;
-using Shared.Application.Cqrs;
-using Shared.Application.Identity;
-using Shared.Application.Tenancy;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Identity;
+using Shared.Tenancy;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class PlaceOrderCommandHandler(
     IOrderRepository orderRepository,

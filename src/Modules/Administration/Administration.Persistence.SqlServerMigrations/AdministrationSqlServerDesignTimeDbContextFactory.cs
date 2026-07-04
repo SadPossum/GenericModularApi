@@ -2,7 +2,7 @@ namespace Administration.Persistence.SqlServerMigrations;
 
 using Administration.Persistence;
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 public sealed class AdministrationSqlServerDesignTimeDbContextFactory : IDesignTimeDbContextFactory<AdminDbContext>
 {

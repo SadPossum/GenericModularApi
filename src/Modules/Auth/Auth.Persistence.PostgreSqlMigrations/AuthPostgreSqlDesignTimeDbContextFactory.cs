@@ -2,7 +2,7 @@ namespace Auth.Persistence.PostgreSqlMigrations;
 
 using Auth.Persistence;
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 public sealed class AuthPostgreSqlDesignTimeDbContextFactory : IDesignTimeDbContextFactory<AuthDbContext>
 {

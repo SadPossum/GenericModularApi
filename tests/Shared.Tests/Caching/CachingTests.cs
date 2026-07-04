@@ -9,17 +9,15 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shared.Application;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
-using Shared.Application.Observability;
-using Shared.Application.Tenancy;
-using Shared.Application.UnitOfWork;
+using Shared.Cqrs;
+using Shared.Caching;
+using Shared.Observability;
+using Shared.Tenancy;
+using Shared.Cqrs.UnitOfWork;
 using Shared.Caching.Redis;
-using Shared.ErrorHandling;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Caching;
-using Shared.Infrastructure.Cqrs;
+using Shared.Results;
+using Shared.Caching.Infrastructure;
+using Shared.Cqrs.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -313,6 +311,8 @@ public sealed class CachingTests
         Assert.Equal("products", tag.Entry);
         Assert.Equal(["Featured"], tag.Segments);
 
+        Assert.Throws<ArgumentException>(() => CacheKey.Global("catalog.items", "product"));
+        Assert.Throws<ArgumentException>(() => CacheTag.Global("catalog_items", "products"));
         Assert.Throws<ArgumentException>(() => CacheKey.Global("catalog", "product", " "));
         Assert.Throws<ArgumentException>(() => CacheKey.Global("catalog", "product", "bad segment"));
         Assert.Throws<ArgumentException>(() => CacheKey.Global("catalog", "product", $"bad{char.MinValue}segment"));
@@ -606,7 +606,7 @@ public sealed class CachingTests
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
         builder.Configuration["Caching:Enabled"] = "true";
         builder.Configuration["Caching:Provider"] = "Redis";
-        builder.AddSharedInfrastructure();
+        builder.AddCachingInfrastructure();
 
         using ServiceProvider provider = builder.Services.BuildServiceProvider();
 
@@ -749,7 +749,7 @@ public sealed class CachingTests
         }
 
         configureServices?.Invoke(builder.Services);
-        builder.AddSharedInfrastructure();
+        builder.AddCachingInfrastructure();
 
         if (tenantContext is not null)
         {

@@ -1,6 +1,6 @@
 namespace Catalog.Domain.Errors;
 
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public static class CatalogDomainErrors
 {

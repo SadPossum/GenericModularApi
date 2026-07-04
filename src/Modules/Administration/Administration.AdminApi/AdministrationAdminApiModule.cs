@@ -14,9 +14,8 @@ using Shared.Administration;
 using Shared.Administration.Api;
 using Shared.Api.Observability;
 using Shared.Api.Results;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Results;
 
 public sealed class AdministrationAdminApiModule : IAdminApiModule
 {

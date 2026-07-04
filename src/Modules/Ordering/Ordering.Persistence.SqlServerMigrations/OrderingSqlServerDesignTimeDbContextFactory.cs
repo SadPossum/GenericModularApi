@@ -2,7 +2,7 @@ namespace Ordering.Persistence.SqlServerMigrations;
 
 using Microsoft.EntityFrameworkCore.Design;
 using Ordering.Persistence;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 public sealed class OrderingSqlServerDesignTimeDbContextFactory : IDesignTimeDbContextFactory<OrderingDbContext>
 {

@@ -1,7 +1,7 @@
 namespace Shared.Administration.Api;
 
 using Microsoft.Extensions.Options;
-using Shared.Application.Security;
+using Shared.Security;
 
 internal sealed class AdminApiOptionsValidator : IValidateOptions<AdminApiOptions>
 {

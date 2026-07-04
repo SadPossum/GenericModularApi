@@ -5,11 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shared.Application.Identity;
-using Shared.Application.Tasks;
-using Shared.Application.Time;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Tasks;
+using Shared.Runtime.Identity;
+using Shared.Tasks;
+using Shared.Runtime.Time;
+using Shared.Tasks.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

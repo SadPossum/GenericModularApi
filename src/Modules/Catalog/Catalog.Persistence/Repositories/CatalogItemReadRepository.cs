@@ -4,7 +4,7 @@ using Catalog.Application.Ports;
 using Catalog.Contracts;
 using Catalog.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
-using Shared.Application.Queries;
+using Shared.Pagination;
 
 internal sealed class CatalogItemReadRepository(CatalogDbContext dbContext) : ICatalogItemReadRepository
 {

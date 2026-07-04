@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using global::Serilog;
 using Shared.Api.Observability;
-using Shared.Application.Observability;
-using Shared.Application.Tenancy;
+using Shared.Observability;
+using Shared.Tenancy;
 
 public static class RequestLoggingApplicationBuilderExtensions
 {

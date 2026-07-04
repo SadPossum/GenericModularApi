@@ -1,8 +1,8 @@
 namespace TaskRuntime.Application.Handlers;
 
-using Shared.Application.Cqrs;
-using Shared.Application.Tasks;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Tasks;
+using Shared.Results;
 using TaskRuntime.Application.Queries;
 
 internal sealed class ListTaskRunsQueryHandler(ITaskRunStore store)

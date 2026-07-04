@@ -3,7 +3,7 @@ namespace Catalog.Application.Handlers;
 using Catalog.Contracts;
 using Catalog.Domain.Events;
 using Shared.Application.Events;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 internal sealed class CatalogItemCreatedOutboxProjector(IOutboxWriterRegistry outboxWriters)
     : IDomainEventHandler<CatalogItemCreatedDomainEvent>

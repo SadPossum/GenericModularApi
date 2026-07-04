@@ -6,9 +6,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Ordering.Application.Ports;
 using Ordering.Persistence.Repositories;
-using Shared.Application.Messaging;
-using Shared.Application.UnitOfWork;
-using Shared.Infrastructure.Persistence;
+using Shared.Messaging;
+using Shared.Cqrs.UnitOfWork;
+using Shared.Persistence.EntityFrameworkCore;
 
 public static class DependencyInjection
 {

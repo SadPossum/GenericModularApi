@@ -1,7 +1,7 @@
 namespace Auth.Application.Validation;
 
 using Auth.Application.Queries;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 internal sealed class GetAdminMemberQueryValidator : IQueryValidator<GetAdminMemberQuery>
 {

@@ -1,11 +1,11 @@
 namespace Auth.Persistence.Configurations;
 
+using Shared.Naming;
 using Auth.Domain.Aggregates;
 using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Domain;
 
 internal sealed class MemberConfiguration : IEntityTypeConfiguration<Member>
 {

@@ -1,6 +1,6 @@
 namespace Administration.Application;
 
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public static class AdministrationApplicationErrors
 {

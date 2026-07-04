@@ -1,7 +1,7 @@
 namespace TaskRuntime.Persistence.SqlServerMigrations;
 
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 using TaskRuntime.Persistence;
 
 public sealed class TaskRuntimeSqlServerDesignTimeDbContextFactory : IDesignTimeDbContextFactory<TaskRuntimeDbContext>

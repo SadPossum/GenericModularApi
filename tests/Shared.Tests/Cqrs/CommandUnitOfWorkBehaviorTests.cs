@@ -1,10 +1,9 @@
 namespace Shared.Tests;
 
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.UnitOfWork;
-using Shared.ErrorHandling;
-using Shared.Infrastructure.Cqrs;
+using Shared.Cqrs;
+using Shared.Cqrs.UnitOfWork;
+using Shared.Results;
+using Shared.Cqrs.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

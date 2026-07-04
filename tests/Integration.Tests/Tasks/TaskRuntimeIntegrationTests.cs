@@ -2,8 +2,8 @@ namespace Integration.Tests;
 
 using System.Text.Json;
 using Integration.Tests.Support;
-using Shared.Application.Tasks;
-using Shared.ErrorHandling;
+using Shared.Tasks;
+using Shared.Results;
 using TaskRuntime.Application;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
@@ -310,13 +310,13 @@ public sealed class TaskRuntimeIntegrationTests
             Now.AddMinutes(10),
             TimeSpan.FromMinutes(1)).ConfigureAwait(false);
         TaskRunSnapshot timedOut = await application.GetSnapshotAsync(timeoutRunId).ConfigureAwait(false);
-        Result<Shared.Application.Unit> retryTimedOut = await application.RetryThroughApplicationAsync(
+        Result<Shared.Cqrs.Unit> retryTimedOut = await application.RetryThroughApplicationAsync(
                 timeoutRunId,
                 "operator-retry",
                 Now.AddMinutes(11))
             .ConfigureAwait(false);
         TaskRunSnapshot retried = await application.GetSnapshotAsync(timeoutRunId).ConfigureAwait(false);
-        Result<Shared.Application.Unit> cancelRetried = await application.CancelThroughApplicationAsync(
+        Result<Shared.Cqrs.Unit> cancelRetried = await application.CancelThroughApplicationAsync(
                 timeoutRunId,
                 "operator-cancel")
             .ConfigureAwait(false);

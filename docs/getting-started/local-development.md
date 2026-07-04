@@ -172,7 +172,7 @@ Create a module with persistence and provider migration projects:
 Create a richer optional-module shell:
 
 ```powershell
-.\eng\new-module.ps1 -Name Billing -Persistence -SqlServerMigrations -PostgreSqlMigrations -Outbox -Inbox -Admin -AdminApi -Cache
+.\eng\new-module.ps1 -Name Billing -Persistence -SqlServerMigrations -PostgreSqlMigrations -Outbox -Inbox -AdminCli -AdminApi -Cache
 ```
 
 Register the module in `Host.Api` during scaffolding:

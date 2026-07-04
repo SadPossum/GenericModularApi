@@ -1,14 +1,15 @@
 namespace Architecture.Tests;
 
+using Shared.Naming;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Shared.Administration;
-using Shared.Application.Cqrs;
-using Shared.Application.Observability;
-using Shared.ErrorHandling;
-using Shared.Infrastructure.Messaging;
+using Shared.Cqrs;
+using Shared.Observability;
+using Shared.Results;
+using Shared.Messaging.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Architecture")]
@@ -235,6 +236,43 @@ public sealed partial class DeveloperExperienceGuardTests
             .ToArray();
 
         Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void Active_docs_and_scaffolder_do_not_reference_removed_shared_owners()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        Regex[] stalePatterns =
+        [
+            new(@"\bShared\.ErrorHandling\b", RegexOptions.Compiled),
+            new(@"\bShared\.Application\b(?!\.(?:Composition|Events)\b)", RegexOptions.Compiled),
+            new(@"\bShared\.Infrastructure\.(?:Caching|Messaging|Tasks|Persistence|Observability|Cqrs|Events|Identity|Time|Tenancy|Runtime)\b", RegexOptions.Compiled)
+        ];
+        string[] checkedFiles = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "docs"), "*.md", SearchOption.AllDirectories)
+            .Where(path => !Path.GetFileName(path).EndsWith("notes.md", StringComparison.OrdinalIgnoreCase))
+            .Append(Path.Combine(repositoryRoot, "eng", "new-module.ps1"))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        string[] offenders = checkedFiles
+            .SelectMany(path => File
+                .ReadLines(path)
+                .Select((line, index) => new
+                {
+                    Path = path,
+                    Line = line,
+                    LineNumber = index + 1
+                }))
+            .SelectMany(item => stalePatterns
+                .Select(pattern => pattern.Match(item.Line))
+                .Where(match => match.Success)
+                .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}:{item.LineNumber}:{match.Value}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]
@@ -477,8 +515,7 @@ public sealed partial class DeveloperExperienceGuardTests
             repositoryRoot,
             "src",
             "Shared",
-            "Shared.Application",
-            "Security",
+            "Shared.Security",
             "GmaClaimNames.cs");
         string[] rawClaimNameLiterals =
         [
@@ -680,11 +717,11 @@ public sealed partial class DeveloperExperienceGuardTests
         ];
         HashSet<string> allowedRelativePaths = new(StringComparer.OrdinalIgnoreCase)
         {
-            NormalizePath(Path.Combine("src", "Shared", "Shared.Application", "Composition", "ApplicationServiceCollectionExtensions.cs")),
-            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Cqrs", "RequestDispatcher.cs")),
-            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Events", "DomainEventDispatcher.cs")),
-            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Messaging", "IntegrationEventHandlerInvoker.cs")),
-            NormalizePath(Path.Combine("src", "Shared", "Shared.Infrastructure", "Tasks", "TaskHandlerInvoker.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Application.Composition", "ApplicationServiceCollectionExtensions.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Cqrs.Infrastructure", "RequestDispatcher.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Application.Events.Infrastructure", "DomainEventDispatcher.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Messaging.Infrastructure", "IntegrationEventHandlerInvoker.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Tasks.Infrastructure", "TaskHandlerInvoker.cs")),
             NormalizePath(Path.Combine("src", "Host.Api", "ApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminApi", "AdminApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminCli", "AdminCliAssemblyReference.cs")),
@@ -1045,6 +1082,139 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void Shared_source_projects_are_nested_under_shared_solution_folder()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string solution = File.ReadAllText(Path.Combine(repositoryRoot, "GenericModularApi.sln"));
+        Dictionary<string, string> parents = NestedProjectPattern()
+            .Matches(solution)
+            .ToDictionary(
+                match => match.Groups["child"].Value,
+                match => match.Groups["parent"].Value,
+                StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> folderNames = SolutionFolderPattern()
+            .Matches(solution)
+            .ToDictionary(
+                match => match.Groups["guid"].Value,
+                match => match.Groups["name"].Value,
+                StringComparer.OrdinalIgnoreCase);
+        string srcFolderGuid = folderNames
+            .Where(item => string.Equals(item.Value, "src", StringComparison.Ordinal) &&
+                           !parents.ContainsKey(item.Key))
+            .Select(item => item.Key)
+            .Single();
+        string sharedFolderGuid = folderNames
+            .Where(item => string.Equals(item.Value, "Shared", StringComparison.Ordinal) &&
+                           parents.TryGetValue(item.Key, out string? parentGuid) &&
+                           string.Equals(parentGuid, srcFolderGuid, StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.Key)
+            .Single();
+
+        string[] offenders = SolutionProjectPattern()
+            .Matches(solution)
+            .Select(match => new SolutionProject(
+                match.Groups["name"].Value,
+                match.Groups["path"].Value,
+                match.Groups["guid"].Value))
+            .Where(project => project.Path.StartsWith(@"src\Shared\", StringComparison.OrdinalIgnoreCase) &&
+                              project.Path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            .Where(project =>
+                !parents.TryGetValue(project.Guid, out string? parentGuid) ||
+                !string.Equals(parentGuid, sharedFolderGuid, StringComparison.OrdinalIgnoreCase))
+            .Select(project => $"{project.Path} is not nested under src/Shared solution folder.")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Naming_conventions_document_all_shared_project_names()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string namingConventions = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "guidelines", "naming-conventions.md"));
+        string[] offenders = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "src", "Shared"), "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(projectName => projectName is not null && !namingConventions.Contains(projectName, StringComparison.Ordinal))
+            .Select(projectName => $"docs/guidelines/naming-conventions.md missing {projectName}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Architecture_overview_documents_current_module_roots()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string overview = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "architecture", "overview.md"));
+        string[] offenders = Directory
+            .EnumerateDirectories(Path.Combine(repositoryRoot, "src", "Modules"))
+            .Select(Path.GetFileName)
+            .Where(moduleName => moduleName is not null && !overview.Contains($"{moduleName}/", StringComparison.Ordinal))
+            .Select(moduleName => $"docs/architecture/overview.md missing module root {moduleName}/")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Architecture_overview_documents_shared_project_dependency_map()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedRoot = Path.Combine(repositoryRoot, "src", "Shared");
+        string overview = File.ReadAllText(Path.Combine(repositoryRoot, "docs", "architecture", "overview.md"));
+        Dictionary<string, string[]> documentedDependencies = ParseDependencyDirectionBlocks(overview);
+        string[] offenders = Directory
+            .EnumerateFiles(sharedRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                string projectName = Path.GetFileNameWithoutExtension(projectPath);
+                XDocument project = XDocument.Load(projectPath);
+                string[] actualDependencies = GetProjectIncludes(project, "ProjectReference")
+                    .Select(Path.GetFileNameWithoutExtension)
+                    .Where(referenceName => !string.IsNullOrWhiteSpace(referenceName))
+                    .Select(referenceName => referenceName!)
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                if (!documentedDependencies.TryGetValue(projectName, out string[]? documented))
+                {
+                    return [$"docs/architecture/overview.md missing dependency map block for {projectName}"];
+                }
+
+                string[] normalizedDocumented = documented
+                    .Where(referenceName => !string.Equals(referenceName, "no project references", StringComparison.OrdinalIgnoreCase))
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                string[] missingDependencies = actualDependencies
+                    .Except(normalizedDocumented, StringComparer.OrdinalIgnoreCase)
+                    .Select(referenceName => $"docs/architecture/overview.md missing {projectName} -> {referenceName}")
+                    .ToArray();
+                string[] staleDependencies = normalizedDocumented
+                    .Except(actualDependencies, StringComparer.OrdinalIgnoreCase)
+                    .Select(referenceName => $"docs/architecture/overview.md has stale {projectName} -> {referenceName}")
+                    .ToArray();
+                string[] noReferenceMarkerOffenders = actualDependencies.Length == 0 &&
+                                                       !documented.Contains("no project references", StringComparer.OrdinalIgnoreCase)
+                    ? [$"docs/architecture/overview.md missing {projectName} -> no project references"]
+                    : [];
+
+                return missingDependencies
+                    .Concat(staleDependencies)
+                    .Concat(noReferenceMarkerOffenders);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Architecture_catalog_lists_all_non_migration_module_projects()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -1076,6 +1246,36 @@ public sealed partial class DeveloperExperienceGuardTests
             .ToArray();
 
         Assert.Empty(misalignedNamespaces);
+    }
+
+    [Fact]
+    public void Source_files_do_not_import_their_own_declared_namespace()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateSourceFiles(repositoryRoot)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string? declaredNamespace = NamespacePattern()
+                    .Matches(source)
+                    .Select(match => match.Groups["name"].Value)
+                    .FirstOrDefault();
+
+                if (declaredNamespace is null)
+                {
+                    return [];
+                }
+
+                return UsingNamespacePattern()
+                    .Matches(source)
+                    .Select(match => match.Groups["namespace"].Value)
+                    .Where(importedNamespace => string.Equals(importedNamespace, declaredNamespace, StringComparison.Ordinal))
+                    .Select(importedNamespace => $"{Path.GetRelativePath(repositoryRoot, path)} imports its own namespace {importedNamespace}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]
@@ -1238,8 +1438,7 @@ public sealed partial class DeveloperExperienceGuardTests
             repositoryRoot,
             "src",
             "Shared",
-            "Shared.Application",
-            "Composition",
+            "Shared.Application.Composition",
             "ApplicationServiceCollectionExtensions.cs"));
         string[] handlerRegistrationTokens =
         [
@@ -1290,7 +1489,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string[] misplacedRegistrationOffenders = EnumerateSourceFiles(srcRoot)
             .Where(path => File.ReadAllText(path).Contains("AddApplicationServicesFromAssembly(", StringComparison.Ordinal))
             .Where(path => !path.EndsWith(
-                Path.Combine("Shared.Application", "Composition", "ApplicationServiceCollectionExtensions.cs"),
+                Path.Combine("Shared.Application.Composition", "ApplicationServiceCollectionExtensions.cs"),
                 StringComparison.OrdinalIgnoreCase))
             .Where(path => !path.EndsWith(
                 Path.Combine(".Application", "DependencyInjection.cs"),
@@ -1346,6 +1545,32 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void Shared_module_and_task_metadata_do_not_depend_on_messaging_naming()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] guardedRoots =
+        [
+            Path.Combine(repositoryRoot, "src", "Shared", "Shared.Modules"),
+            Path.Combine(repositoryRoot, "src", "Shared", "Shared.Caching"),
+            Path.Combine(repositoryRoot, "src", "Shared", "Shared.Tasks")
+        ];
+        string[] offenders = guardedRoots
+            .SelectMany(EnumerateSourceFiles)
+            .Select(path => new
+            {
+                Path = path,
+                Source = File.ReadAllText(path)
+            })
+            .Where(item => item.Source.Contains("Shared.Messaging", StringComparison.Ordinal) ||
+                           item.Source.Contains("IntegrationEventNaming", StringComparison.Ordinal))
+            .Select(item => Path.GetRelativePath(repositoryRoot, item.Path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void Public_boundary_enums_define_unknown_zero_except_documented_operational_state()
     {
         Type[] operationalZeroDefaultExceptions =
@@ -1358,8 +1583,9 @@ public sealed partial class DeveloperExperienceGuardTests
             .Concat(
             [
                 typeof(AdminOperationExecutionStatus).Assembly,
-                typeof(Shared.Application.Caching.CacheScope).Assembly,
-                typeof(InboxMessageStatus).Assembly
+                typeof(Shared.Caching.CacheScope).Assembly,
+                typeof(InboxMessageStatus).Assembly,
+                typeof(Shared.Tasks.TaskRunStatus).Assembly
             ])
             .Distinct()
             .ToArray();
@@ -1465,7 +1691,7 @@ public sealed partial class DeveloperExperienceGuardTests
             .Concat(
             [
                 typeof(AdminErrors).Assembly,
-                typeof(Shared.Application.Tenancy.TenantErrors).Assembly,
+                typeof(Shared.Tenancy.TenantErrors).Assembly,
                 typeof(Error).Assembly,
             ])
             .Distinct()
@@ -1511,8 +1737,7 @@ public sealed partial class DeveloperExperienceGuardTests
             repositoryRoot,
             "src",
             "Shared",
-            "Shared.Application",
-            "Queries",
+            "Shared.Pagination",
             "PageRequest.cs"));
 
         Assert.DoesNotMatch(PositionalPageRequestPattern(), source);
@@ -1622,8 +1847,7 @@ public sealed partial class DeveloperExperienceGuardTests
             repositoryRoot,
             "src",
             "Shared",
-            "Shared.Application",
-            "Messaging");
+            "Shared.Messaging");
         Dictionary<string, string> sources = new(StringComparer.Ordinal)
         {
             ["IntegrationEventEnvelope"] = File.ReadAllText(Path.Combine(messagingRoot, "IntegrationEventEnvelope.cs")),
@@ -1761,7 +1985,7 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Tenant_id_normalization_lives_in_shared_domain()
+    public void Tenant_id_normalization_lives_in_shared_naming()
     {
         string repositoryRoot = FindRepositoryRoot();
         string[] tenantIdHelpers = Directory
@@ -1777,7 +2001,7 @@ public sealed partial class DeveloperExperienceGuardTests
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        Assert.Equal([Path.Combine("src", "Shared", "Shared.Domain", "TenantIds.cs")], tenantIdHelpers);
+        Assert.Equal([Path.Combine("src", "Shared", "Shared.Naming", "TenantIds.cs")], tenantIdHelpers);
         Assert.Empty(domainTrimOffenders);
     }
 
@@ -2068,7 +2292,7 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Redis_capable_hosts_compose_adapter_before_shared_infrastructure()
+    public void Redis_capable_hosts_compose_cache_adapter_before_cache_infrastructure()
     {
         string repositoryRoot = FindRepositoryRoot();
         string[] hostDirectories =
@@ -2092,14 +2316,24 @@ public sealed partial class DeveloperExperienceGuardTests
                 }
 
                 int redisIndex = program.IndexOf("builder.AddRedisCaching();", StringComparison.Ordinal);
+                int cachingInfrastructureIndex = program.IndexOf("builder.AddCachingInfrastructure();", StringComparison.Ordinal);
                 int sharedInfrastructureIndex = program.IndexOf("builder.AddSharedInfrastructure();", StringComparison.Ordinal);
                 if (redisIndex < 0)
                 {
                     hostOffenders.Add($"{hostName} does not call AddRedisCaching");
                 }
-                else if (sharedInfrastructureIndex < 0 || redisIndex > sharedInfrastructureIndex)
+                else if (cachingInfrastructureIndex < 0 || redisIndex > cachingInfrastructureIndex)
                 {
-                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddSharedInfrastructure");
+                    hostOffenders.Add($"{hostName} must call AddRedisCaching before AddCachingInfrastructure");
+                }
+
+                if (cachingInfrastructureIndex < 0)
+                {
+                    hostOffenders.Add($"{hostName} does not call AddCachingInfrastructure");
+                }
+                else if (sharedInfrastructureIndex < 0 || cachingInfrastructureIndex > sharedInfrastructureIndex)
+                {
+                    hostOffenders.Add($"{hostName} must call AddCachingInfrastructure before AddSharedInfrastructure");
                 }
 
                 if (!appsettings.Contains("\"Redis\"", StringComparison.Ordinal) ||
@@ -2129,6 +2363,32 @@ public sealed partial class DeveloperExperienceGuardTests
         Assert.True(
             sharedInfrastructureIndex < tenancyModuleIndex,
             "Host.Api must compose shared infrastructure before TenancyModule so tenant options and default/null context are validated before enabling tenant-scoped endpoints.");
+    }
+
+    [Fact]
+    public void Optional_adapter_integration_harnesses_do_not_compose_host_level_shared_infrastructure_facade()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string integrationTestsRoot = Path.Combine(repositoryRoot, "tests", "Integration.Tests");
+        HashSet<string> allowedFacadeUsers =
+        [
+            Path.Combine(integrationTestsRoot, "Support", "AdminCliTestApplication.cs")
+        ];
+
+        string[] offenders = Directory
+            .EnumerateFiles(integrationTestsRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !allowedFacadeUsers.Contains(path))
+            .Where(path =>
+            {
+                string source = File.ReadAllText(path);
+                return source.Contains("using Shared.Infrastructure;", StringComparison.Ordinal) ||
+                       source.Contains("AddSharedInfrastructure()", StringComparison.Ordinal);
+            })
+            .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]
@@ -2900,15 +3160,36 @@ public sealed partial class DeveloperExperienceGuardTests
         string sharedRoot = Path.Combine(repositoryRoot, "src", "Shared");
         string[] dependencyFreeProjects =
         [
-            Path.Combine(sharedRoot, "Shared.Domain", "Shared.Domain.csproj"),
-            Path.Combine(sharedRoot, "Shared.ErrorHandling", "Shared.ErrorHandling.csproj")
+            Path.Combine(sharedRoot, "Shared.Results", "Shared.Results.csproj"),
+            Path.Combine(sharedRoot, "Shared.Naming", "Shared.Naming.csproj"),
+            Path.Combine(sharedRoot, "Shared.Numerics", "Shared.Numerics.csproj"),
+            Path.Combine(sharedRoot, "Shared.Observability", "Shared.Observability.csproj"),
+            Path.Combine(sharedRoot, "Shared.Pagination", "Shared.Pagination.csproj"),
+            Path.Combine(sharedRoot, "Shared.Runtime", "Shared.Runtime.csproj"),
+            Path.Combine(sharedRoot, "Shared.Security", "Shared.Security.csproj")
         ];
-        string applicationProjectPath = Path.Combine(sharedRoot, "Shared.Application", "Shared.Application.csproj");
+        string modulesProjectPath = Path.Combine(sharedRoot, "Shared.Modules", "Shared.Modules.csproj");
+        XDocument modulesProject = XDocument.Load(modulesProjectPath);
+        HashSet<string> allowedModulesProjectReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            @"..\Shared.Naming\Shared.Naming.csproj"
+        };
+        string domainProjectPath = Path.Combine(sharedRoot, "Shared.Domain", "Shared.Domain.csproj");
+        XDocument domainProject = XDocument.Load(domainProjectPath);
+        HashSet<string> allowedDomainProjectReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            @"..\Shared.Naming\Shared.Naming.csproj",
+            @"..\Shared.Numerics\Shared.Numerics.csproj"
+        };
+        string applicationProjectPath = Path.Combine(
+            sharedRoot,
+            "Shared.Application.Composition",
+            "Shared.Application.Composition.csproj");
         XDocument applicationProject = XDocument.Load(applicationProjectPath);
         HashSet<string> allowedApplicationProjectReferences = new(StringComparer.OrdinalIgnoreCase)
         {
-            @"..\Shared.Domain\Shared.Domain.csproj",
-            @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+            @"..\Shared.Application.Events\Shared.Application.Events.csproj",
+            @"..\Shared.Cqrs\Shared.Cqrs.csproj"
         };
         HashSet<string> allowedApplicationPackageReferences = new(StringComparer.Ordinal)
         {
@@ -2933,6 +3214,30 @@ public sealed partial class DeveloperExperienceGuardTests
             .Where(reference => !allowedApplicationProjectReferences.Contains(reference!))
             .Select(reference => $"{Path.GetRelativePath(repositoryRoot, applicationProjectPath)}->ProjectReference:{reference}")
             .ToArray();
+        string[] domainReferenceOffenders = domainProject
+            .Descendants("ProjectReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => !string.IsNullOrWhiteSpace(reference))
+            .Where(reference => !allowedDomainProjectReferences.Contains(reference!))
+            .Select(reference => $"{Path.GetRelativePath(repositoryRoot, domainProjectPath)}->ProjectReference:{reference}")
+            .ToArray();
+        string[] domainPackageOrFrameworkOffenders = domainProject
+            .Descendants()
+            .Where(element => element.Name.LocalName is "PackageReference" or "FrameworkReference")
+            .Select(element => $"{Path.GetRelativePath(repositoryRoot, domainProjectPath)}->{element.Name.LocalName}:{element.Attribute("Include")?.Value}")
+            .ToArray();
+        string[] modulesReferenceOffenders = modulesProject
+            .Descendants("ProjectReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => !string.IsNullOrWhiteSpace(reference))
+            .Where(reference => !allowedModulesProjectReferences.Contains(reference!))
+            .Select(reference => $"{Path.GetRelativePath(repositoryRoot, modulesProjectPath)}->ProjectReference:{reference}")
+            .ToArray();
+        string[] modulesPackageOrFrameworkOffenders = modulesProject
+            .Descendants()
+            .Where(element => element.Name.LocalName is "PackageReference" or "FrameworkReference")
+            .Select(element => $"{Path.GetRelativePath(repositoryRoot, modulesProjectPath)}->{element.Name.LocalName}:{element.Attribute("Include")?.Value}")
+            .ToArray();
         string[] applicationPackageOffenders = applicationProject
             .Descendants("PackageReference")
             .Select(element => element.Attribute("Include")?.Value)
@@ -2946,11 +3251,115 @@ public sealed partial class DeveloperExperienceGuardTests
             .Where(reference => !string.IsNullOrWhiteSpace(reference))
             .Select(reference => $"{Path.GetRelativePath(repositoryRoot, applicationProjectPath)}->FrameworkReference:{reference}")
             .ToArray();
-
         Assert.Empty(dependencyFreeProjectOffenders
+            .Concat(domainReferenceOffenders)
+            .Concat(domainPackageOrFrameworkOffenders)
+            .Concat(modulesReferenceOffenders)
+            .Concat(modulesPackageOrFrameworkOffenders)
             .Concat(applicationReferenceOffenders)
             .Concat(applicationPackageOffenders)
             .Concat(applicationFrameworkOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Shared_application_boundary_projects_stay_source_narrow()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedRoot = Path.Combine(repositoryRoot, "src", "Shared");
+        IReadOnlyDictionary<string, string[]> expectedProjectSources = new Dictionary<string, string[]>(
+            StringComparer.Ordinal)
+        {
+            ["Shared.Application.Composition"] =
+            [
+                "ApplicationServiceCollectionExtensions.cs"
+            ],
+            ["Shared.Application.Events"] =
+            [
+                "IDomainEventDispatcher.cs",
+                "IDomainEventHandler.cs"
+            ]
+        };
+
+        string[] sourceShapeOffenders = expectedProjectSources
+            .SelectMany(entry =>
+            {
+                string projectRoot = Path.Combine(sharedRoot, entry.Key);
+                string[] actualSources = Directory
+                    .EnumerateFiles(projectRoot, "*.cs", SearchOption.AllDirectories)
+                    .Where(path => !HasIgnoredPathSegment(path))
+                    .Select(path => NormalizePath(Path.GetRelativePath(projectRoot, path)))
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                HashSet<string> expectedSources = new(entry.Value.Select(NormalizePath), StringComparer.OrdinalIgnoreCase);
+
+                return actualSources
+                    .Where(source => !expectedSources.Contains(source))
+                    .Select(source => $"{entry.Key} has unexpected source file {source}")
+                    .Concat(expectedSources
+                        .Where(source => !actualSources.Contains(source, StringComparer.OrdinalIgnoreCase))
+                        .Select(source => $"{entry.Key} is missing source file {source}"));
+            })
+            .ToArray();
+        IReadOnlyDictionary<string, string[]> forbiddenTokensByProject = new Dictionary<string, string[]>(
+            StringComparer.Ordinal)
+        {
+            ["Shared.Application.Composition"] =
+            [
+                "DbContext",
+                "IHostedService",
+                "BackgroundService",
+                "IEventBus",
+                "IOutbox",
+                "IInbox",
+                "HybridCache",
+                "IDistributedCache",
+                "StackExchange",
+                "Nats",
+                "JetStream",
+                "Endpoint",
+                "HttpContext",
+                "IApplicationBuilder",
+                "WebApplication",
+                "ITask",
+                "IUnitOfWork"
+            ],
+            ["Shared.Application.Events"] =
+            [
+                "IServiceCollection",
+                "Microsoft.Extensions.DependencyInjection",
+                "IIntegrationEvent",
+                "IntegrationEvent",
+                "IEventBus",
+                "IOutbox",
+                "IInbox",
+                "Outbox",
+                "Inbox",
+                "DbContext",
+                "Nats",
+                "JetStream"
+            ]
+        };
+        string[] forbiddenSourceOffenders = forbiddenTokensByProject
+            .SelectMany(entry =>
+            {
+                string projectRoot = Path.Combine(sharedRoot, entry.Key);
+                return Directory
+                    .EnumerateFiles(projectRoot, "*.cs", SearchOption.AllDirectories)
+                    .Where(path => !HasIgnoredPathSegment(path))
+                    .SelectMany(path =>
+                    {
+                        string source = File.ReadAllText(path);
+                        string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                        return entry.Value
+                            .Where(token => source.Contains(token, StringComparison.Ordinal))
+                            .Select(token => $"{relativePath} contains forbidden boundary token '{token}'");
+                    });
+            })
+            .ToArray();
+
+        Assert.Empty(sourceShapeOffenders
+            .Concat(forbiddenSourceOffenders)
             .Order(StringComparer.OrdinalIgnoreCase));
     }
 
@@ -2966,9 +3375,10 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.Extensions.Logging.Abstractions"],
                 [],
                 [
-                    @"..\Shared.Application\Shared.Application.csproj",
-                    @"..\Shared.Domain\Shared.Domain.csproj",
-                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
                 "Shared.Administration.Api",
@@ -2977,9 +3387,11 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.Administration\Shared.Administration.csproj",
                     @"..\Shared.Api\Shared.Api.csproj",
-                    @"..\Shared.Application\Shared.Application.csproj",
-                    @"..\Shared.Domain\Shared.Domain.csproj",
-                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Security\Shared.Security.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
                 "Shared.Administration.Cli",
@@ -2987,17 +3399,18 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Shared.Administration\Shared.Administration.csproj",
-                    @"..\Shared.Application\Shared.Application.csproj",
-                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj"
                 ]),
             new(
                 "Shared.Api",
                 [],
                 ["Microsoft.AspNetCore.App"],
                 [
-                    @"..\Shared.Application\Shared.Application.csproj",
-                    @"..\Shared.Domain\Shared.Domain.csproj",
-                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
                 "Shared.Api.OpenApi",
@@ -3010,15 +3423,67 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.AspNetCore.App"],
                 [
                     @"..\Shared.Api\Shared.Api.csproj",
-                    @"..\Shared.Application\Shared.Application.csproj"
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
             new(
-                "Shared.Application",
+                "Shared.Application.Events.Infrastructure",
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Shared.Application.Events\Shared.Application.Events.csproj",
+                    @"..\Shared.Domain\Shared.Domain.csproj"
+                ]),
+            new(
+                "Shared.Application.Composition",
                 ["Microsoft.Extensions.DependencyInjection.Abstractions"],
                 [],
                 [
-                    @"..\Shared.Domain\Shared.Domain.csproj",
-                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                    @"..\Shared.Application.Events\Shared.Application.Events.csproj",
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj"
+                ]),
+            new(
+                "Shared.Application.Events",
+                [],
+                [],
+                [
+                    @"..\Shared.Domain\Shared.Domain.csproj"
+                ]),
+            new(
+                "Shared.Cqrs.Infrastructure",
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj",
+                    @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
+                ]),
+            new(
+                "Shared.Cqrs",
+                [],
+                [],
+                [
+                    @"..\Shared.Results\Shared.Results.csproj"
+                ]),
+            new(
+                "Shared.Authorization",
+                [],
+                [],
+                [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj"
+                ]),
+            new(
+                "Shared.Caching",
+                [],
+                [],
+                [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj"
                 ]),
             new(
                 "Shared.Caching.Redis",
@@ -3028,24 +3493,45 @@ public sealed partial class DeveloperExperienceGuardTests
                     "Microsoft.Extensions.Options.ConfigurationExtensions"
                 ],
                 [],
-                [@"..\Shared.Infrastructure\Shared.Infrastructure.csproj"]),
-            new("Shared.Domain", [], [], []),
-            new("Shared.ErrorHandling", [], [], []),
+                [@"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj"]),
             new(
-                "Shared.Infrastructure",
+                "Shared.Caching.Infrastructure",
                 [
-                    "Microsoft.EntityFrameworkCore.SqlServer",
                     "Microsoft.Extensions.Caching.Hybrid",
                     "Microsoft.Extensions.Configuration.Binder",
-                    "Microsoft.Extensions.Hosting",
-                    "NATS.Net",
-                    "Npgsql.EntityFrameworkCore.PostgreSQL"
+                    "Microsoft.Extensions.Hosting"
                 ],
                 [],
                 [
-                    @"..\Shared.Application\Shared.Application.csproj",
-                    @"..\Shared.Domain\Shared.Domain.csproj",
-                    @"..\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+                    @"..\Shared.Caching\Shared.Caching.csproj",
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Domain",
+                [],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Numerics\Shared.Numerics.csproj"
+                ]),
+            new("Shared.Results", [], [], []),
+            new(
+                "Shared.Infrastructure",
+                [
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Application.Events.Infrastructure\Shared.Application.Events.Infrastructure.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
+                    @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
                 ]),
             new(
                 "Shared.Logging.Serilog",
@@ -3053,10 +3539,147 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 []),
             new(
+                "Shared.Messaging",
+                ["Microsoft.Extensions.DependencyInjection.Abstractions"],
+                [],
+                [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Numerics\Shared.Numerics.csproj"
+                ]),
+            new(
                 "Shared.Messaging.Nats.Aspire",
                 ["Aspire.NATS.Net"],
                 [],
-                [@"..\Shared.Infrastructure\Shared.Infrastructure.csproj"])
+                [@"..\Shared.Messaging.Nats\Shared.Messaging.Nats.csproj"]),
+            new(
+                "Shared.Messaging.Nats",
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
+                    "NATS.Net"
+                ],
+                [],
+                [
+                    @"..\Shared.Messaging\Shared.Messaging.csproj",
+                    @"..\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Messaging.Infrastructure",
+                [
+                    "Microsoft.EntityFrameworkCore",
+                    "Microsoft.EntityFrameworkCore.Relational",
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Messaging\Shared.Messaging.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj"
+                ]),
+            new(
+                "Shared.Modules",
+                [],
+                [],
+                [@"..\Shared.Naming\Shared.Naming.csproj"]),
+            new("Shared.Naming", [], [], []),
+            new("Shared.Numerics", [], [], []),
+            new("Shared.Observability", [], [], []),
+            new("Shared.Pagination", [], [], []),
+            new(
+                "Shared.Observability.Infrastructure",
+                [],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj"
+                ]),
+            new(
+                "Shared.Persistence.EntityFrameworkCore",
+                [
+                    "Microsoft.EntityFrameworkCore.SqlServer",
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions",
+                    "Npgsql.EntityFrameworkCore.PostgreSQL"
+                ],
+                [],
+                [
+                    @"..\Shared.Application.Events\Shared.Application.Events.csproj",
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Domain\Shared.Domain.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Runtime.Infrastructure",
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Shared.Runtime\Shared.Runtime.csproj"
+                ]),
+            new(
+                "Shared.Tasks",
+                ["Microsoft.Extensions.DependencyInjection.Abstractions"],
+                [],
+                [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj"
+                ]),
+            new(
+                "Shared.Tasks.Cqrs",
+                [],
+                [],
+                [
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Tasks\Shared.Tasks.csproj"
+                ]),
+            new(
+                "Shared.Tasks.Infrastructure",
+                [
+                    "Microsoft.EntityFrameworkCore",
+                    "Microsoft.EntityFrameworkCore.Relational",
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
+                    @"..\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj",
+                    @"..\Shared.Tasks\Shared.Tasks.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new("Shared.Runtime", [], [], []),
+            new("Shared.Security", [], [], []),
+            new(
+                "Shared.Tenancy",
+                [],
+                [],
+                [
+                    @"..\Shared.Results\Shared.Results.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Infrastructure",
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ])
         ];
         HashSet<string> expectedProjectNames = expectedShapes
             .Select(shape => shape.ProjectName)
@@ -3084,6 +3707,226 @@ public sealed partial class DeveloperExperienceGuardTests
         Assert.Empty(undocumentedSharedProjects
             .Concat(manifestOffenders)
             .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Projects_under_src_and_tests_reference_split_shared_packages_they_import_directly()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string srcRoot = Path.Combine(repositoryRoot, "src");
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string sharedRoot = Path.Combine(srcRoot, "Shared");
+        string[] sharedProjectNames = Directory
+            .EnumerateFiles(sharedRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(projectName => !string.IsNullOrWhiteSpace(projectName))
+            .Select(projectName => projectName!)
+            .OrderByDescending(projectName => projectName.Length)
+            .ToArray();
+        string[] scannedRoots = [srcRoot, testsRoot];
+        string[] offenders = scannedRoots
+            .SelectMany(root => Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                string projectName = Path.GetFileNameWithoutExtension(projectPath);
+                string projectDirectory = Path.GetDirectoryName(projectPath)!;
+                string relativeProjectPath = Path.GetRelativePath(repositoryRoot, projectPath);
+                HashSet<string> directReferences = XDocument
+                    .Load(projectPath)
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => Path.GetFileNameWithoutExtension(reference!))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                return EnumerateSourceFiles(projectDirectory)
+                    .SelectMany(sourcePath =>
+                    {
+                        string source = File.ReadAllText(sourcePath);
+                        string relativeSourcePath = Path.GetRelativePath(repositoryRoot, sourcePath);
+
+                        return SharedUsingNamespacePattern()
+                            .Matches(source)
+                            .Select(match => match.Groups["namespace"].Value)
+                            .Distinct(StringComparer.Ordinal)
+                            .Select(importedNamespace => new
+                            {
+                                SourcePath = relativeSourcePath,
+                                ImportedNamespace = importedNamespace,
+                                SharedProjectName = FindBestProjectNamespaceMatch(importedNamespace, sharedProjectNames)
+                            });
+                    })
+                    .Where(import =>
+                        import.SharedProjectName is not null &&
+                        !string.Equals(import.SharedProjectName, projectName, StringComparison.OrdinalIgnoreCase) &&
+                        !directReferences.Contains(import.SharedProjectName))
+                    .Select(import =>
+                        $"{relativeProjectPath} imports {import.SharedProjectName} via {import.SourcePath}:{import.ImportedNamespace} without a direct ProjectReference")
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Projects_under_src_and_tests_reference_module_projects_they_import_directly()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string srcRoot = Path.Combine(repositoryRoot, "src");
+        string testsRoot = Path.Combine(repositoryRoot, "tests");
+        string modulesRoot = Path.Combine(srcRoot, "Modules");
+        string[] moduleNamespaceRoots = Directory
+            .EnumerateDirectories(modulesRoot)
+            .Select(Path.GetFileName)
+            .Where(moduleName => !string.IsNullOrWhiteSpace(moduleName))
+            .Select(moduleName => moduleName!)
+            .OrderByDescending(moduleName => moduleName.Length)
+            .ToArray();
+        string[] moduleProjectNames = Directory
+            .EnumerateFiles(modulesRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(projectName => !string.IsNullOrWhiteSpace(projectName))
+            .Select(projectName => projectName!)
+            .OrderByDescending(projectName => projectName.Length)
+            .ToArray();
+        string[] scannedRoots = [srcRoot, testsRoot];
+        string[] offenders = scannedRoots
+            .SelectMany(root => Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                string projectName = Path.GetFileNameWithoutExtension(projectPath);
+                string projectDirectory = Path.GetDirectoryName(projectPath)!;
+                string relativeProjectPath = Path.GetRelativePath(repositoryRoot, projectPath);
+                HashSet<string> directReferences = XDocument
+                    .Load(projectPath)
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(reference => !string.IsNullOrWhiteSpace(reference))
+                    .Select(reference => Path.GetFileNameWithoutExtension(reference!))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                return EnumerateSourceFiles(projectDirectory)
+                    .SelectMany(sourcePath =>
+                    {
+                        string source = File.ReadAllText(sourcePath);
+                        string relativeSourcePath = Path.GetRelativePath(repositoryRoot, sourcePath);
+
+                        return FindUsingNamespaces(source, moduleNamespaceRoots)
+                            .Distinct(StringComparer.Ordinal)
+                            .Select(importedNamespace => new
+                            {
+                                SourcePath = relativeSourcePath,
+                                ImportedNamespace = importedNamespace,
+                                ModuleProjectName = FindBestProjectNamespaceMatch(importedNamespace, moduleProjectNames)
+                            });
+                    })
+                    .Where(import =>
+                        import.ModuleProjectName is not null &&
+                        !string.Equals(import.ModuleProjectName, projectName, StringComparison.OrdinalIgnoreCase) &&
+                        !directReferences.Contains(import.ModuleProjectName))
+                    .Select(import =>
+                        $"{relativeProjectPath} imports {import.ModuleProjectName} via {import.SourcePath}:{import.ImportedNamespace} without a direct ProjectReference")
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Shared_infrastructure_facade_stays_tiny_and_host_level_only()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string facadeRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.Infrastructure");
+        string[] expectedSourceFiles =
+        [
+            NormalizePath("DependencyInjection.cs"),
+            NormalizePath(Path.Combine("Properties", "AssemblyInfo.cs"))
+        ];
+        string[] sourceFiles = Directory
+            .EnumerateFiles(facadeRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Select(path => NormalizePath(Path.GetRelativePath(facadeRoot, path)))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string dependencyInjection = File.ReadAllText(Path.Combine(facadeRoot, "DependencyInjection.cs"));
+        string[] requiredTokens =
+        [
+            "public static IHostApplicationBuilder AddSharedInfrastructure(this IHostApplicationBuilder builder)",
+            "builder.AddTenancyInfrastructure();",
+            "builder.AddRuntimeInfrastructure();",
+            "builder.AddApplicationEventsInfrastructure();",
+            "builder.AddCqrsInfrastructure();",
+            "SharedInfrastructureRegistrationMarker"
+        ];
+        string[] forbiddenTokens =
+        [
+            "AddCachingInfrastructure",
+            "AddMessagingInfrastructure",
+            "AddNats",
+            "AddRedis",
+            "AddTask",
+            "AddPersistence",
+            "HybridCache",
+            "IEventBus",
+            "IHostedService",
+            "DbContext",
+            "EntityFrameworkCore"
+        ];
+
+        Assert.Equal(expectedSourceFiles.Order(StringComparer.OrdinalIgnoreCase), sourceFiles);
+        Assert.Empty(requiredTokens
+            .Where(token => !dependencyInjection.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Shared.Infrastructure facade missing {token}")
+            .ToArray());
+        Assert.Empty(forbiddenTokens
+            .Where(token => dependencyInjection.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"Shared.Infrastructure facade must not compose optional adapter/runtime concern {token}")
+            .ToArray());
+    }
+
+    [Fact]
+    public void Shared_infrastructure_facade_project_references_stay_host_or_facade_tests_only()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        HashSet<string> allowedProjectPaths = new(StringComparer.OrdinalIgnoreCase)
+        {
+            NormalizePath(Path.Combine("src", "Host.Api", "Host.Api.csproj")),
+            NormalizePath(Path.Combine("src", "Host.AdminApi", "Host.AdminApi.csproj")),
+            NormalizePath(Path.Combine("src", "Host.AdminCli", "Host.AdminCli.csproj")),
+            NormalizePath(Path.Combine("tests", "Integration.Tests", "Integration.Tests.csproj")),
+            NormalizePath(Path.Combine("tests", "Shared.Tests", "Shared.Tests.csproj"))
+        };
+
+        string[] offenders = Directory
+            .EnumerateFiles(repositoryRoot, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => IsUnder(path, Path.Combine(repositoryRoot, "src")) ||
+                           IsUnder(path, Path.Combine(repositoryRoot, "tests")))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(projectPath =>
+            {
+                string relativeProjectPath = NormalizePath(Path.GetRelativePath(repositoryRoot, projectPath));
+                XDocument project = XDocument.Load(projectPath);
+
+                return project
+                    .Descendants("ProjectReference")
+                    .Select(element => element.Attribute("Include")?.Value)
+                    .Where(referencePath => !string.IsNullOrWhiteSpace(referencePath))
+                    .Where(referencePath => referencePath!.Contains("Shared.Infrastructure", StringComparison.OrdinalIgnoreCase))
+                    .Where(_ => !allowedProjectPaths.Contains(relativeProjectPath))
+                    .Select(referencePath => $"{relativeProjectPath}->{referencePath}");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]
@@ -3124,9 +3967,11 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Api\Shared.Api.csproj",
                     @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
                     @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
+                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
+                    @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj"
                 ]),
             new(
@@ -3141,8 +3986,10 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj",
+                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
-                    @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj"
+                    @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
+                    @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"
                 ]),
             new(
                 Path.Combine("Host.Api", "Host.Api.csproj"),
@@ -3157,9 +4004,11 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Api\Shared.Api.csproj",
                     @"..\Shared\Shared.Api.OpenApi\Shared.Api.OpenApi.csproj",
                     @"..\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
+                    @"..\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
+                    @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj"
                 ]),
             new(
@@ -3285,7 +4134,7 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Provider_migration_projects_reference_only_owning_persistence_project()
+    public void Provider_migration_projects_reference_only_owning_persistence_project_and_shared_ef_design_helper()
     {
         string repositoryRoot = FindRepositoryRoot();
         string[] offenders = EnumerateProjectReferences(repositoryRoot)
@@ -3297,8 +4146,11 @@ public sealed partial class DeveloperExperienceGuardTests
                     .Replace(".SqlServerMigrations", string.Empty, StringComparison.Ordinal)
                     .Replace(".PostgreSqlMigrations", string.Empty, StringComparison.Ordinal);
                 string expectedReference = $"..\\{owningPersistenceProject}\\{owningPersistenceProject}.csproj";
+                const string SharedEfDesignHelperReference =
+                    @"..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj";
 
-                return !string.Equals(reference.ReferencePath, expectedReference, StringComparison.OrdinalIgnoreCase);
+                return !string.Equals(reference.ReferencePath, expectedReference, StringComparison.OrdinalIgnoreCase) &&
+                       !string.Equals(reference.ReferencePath, SharedEfDesignHelperReference, StringComparison.OrdinalIgnoreCase);
             })
             .Select(reference => $"{reference.ProjectPath}->{reference.ReferencePath}")
             .Order(StringComparer.OrdinalIgnoreCase)
@@ -3329,7 +4181,9 @@ public sealed partial class DeveloperExperienceGuardTests
         HashSet<string> allowedProjectReferences = new(StringComparer.OrdinalIgnoreCase)
         {
             @"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj",
-            @"..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj"
+            @"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj",
+            @"..\..\..\Shared\Shared.Numerics\Shared.Numerics.csproj",
+            @"..\..\..\Shared\Shared.Results\Shared.Results.csproj"
         };
         string[] offenders = Directory
             .EnumerateFiles(modulesRoot, "*.Domain.csproj", SearchOption.AllDirectories)
@@ -3722,6 +4576,71 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void Module_metadata_and_active_guidance_use_descriptor_builder_authoring()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] metadataForbiddenTokens =
+        [
+            "new ModuleDescriptor",
+            "ModuleDescriptor.Empty(",
+            ".WithFeature("
+        ];
+        string[] metadataOffenders = Directory
+            .EnumerateFiles(modulesRoot, "*ModuleMetadata.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                List<string> fileOffenders = [];
+                if (!source.Contains("public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor", StringComparison.Ordinal))
+                {
+                    fileOffenders.Add($"{relativePath} does not expose a static ModuleDescriptor property.");
+                }
+
+                if (!source.Contains(".Create(Name)", StringComparison.Ordinal) ||
+                    !source.Contains(".Build();", StringComparison.Ordinal))
+                {
+                    fileOffenders.Add($"{relativePath} must use ModuleDescriptor.Create(Name)...Build().");
+                }
+
+                fileOffenders.AddRange(metadataForbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{relativePath} contains forbidden descriptor authoring token {token}"));
+
+                return fileOffenders;
+            })
+            .ToArray();
+        string[] guidanceFiles = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "docs"), "*.md", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .Where(path => !Path.GetFileNameWithoutExtension(path).EndsWith("notes", StringComparison.OrdinalIgnoreCase))
+            .Append(Path.Combine(repositoryRoot, "eng", "new-module.ps1"))
+            .ToArray();
+        string[] guidanceForbiddenTokens =
+        [
+            "new ModuleDescriptor",
+            "ModuleDescriptor.Empty("
+        ];
+        string[] guidanceOffenders = guidanceFiles
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+
+                return guidanceForbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{relativePath} contains stale descriptor authoring guidance {token}");
+            })
+            .ToArray();
+
+        Assert.Empty(metadataOffenders
+            .Concat(guidanceOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Module_scaffolder_uses_current_admin_cli_contracts()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -3731,18 +4650,36 @@ public sealed partial class DeveloperExperienceGuardTests
             "IAdminModule",
             "IAdminCommandRegistry",
             "TenantScoped:",
-            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\${Name}AdminPermissionCodes.cs\")"
+            "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\${Name}AdminPermissionCodes.cs\")",
+            "$Admin -or $AdminApi",
+            "if ($Admin)",
+            "$adminProject"
         ];
         string[] requiredTokens =
         [
             "function ConvertTo-GmaKebabCase",
             "$moduleName = ConvertTo-GmaKebabCase -Value $Name",
             "public const string Name",
-            "ModuleDescriptor.Empty(Name, Schema)",
+            "ModuleDescriptor",
+            ".Create(Name)",
+            ".WithSchema(Schema)",
+            ".Build()",
+            "using Shared.Modules;",
+            "Shared\\Shared.Modules\\Shared.Modules.csproj",
+            "using Shared.Authorization;",
+            "Shared\\Shared.Authorization\\Shared.Authorization.csproj",
+            "Shared\\Shared.Messaging\\Shared.Messaging.csproj",
             "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\Metadata\\${Name}ModuleMetadata.cs\")",
             "tenantScoped: true",
-            "ModuleCacheName",
             "ModuleCacheTag",
+            "ModuleCacheEntry",
+            "using Shared.Caching;",
+            "Shared\\Shared.Caching\\Shared.Caching.csproj",
+            ".WithPermission($metadataPermissionDescriptor)",
+            ".WithCacheEntry(new ModuleCacheDescriptor(ModuleCacheEntry, CacheScope.Tenant, [ModuleCacheTag]))",
+            "public static CacheKey ModuleKey(params string[] segments) => CacheKey.Tenant(",
+            "$AdminCli -or $AdminApi",
+            "if ($AdminCli)",
             "${Name}ModuleMetadata.Name",
             "Write-GmaFile (Join-Path $moduleRoot \"$Name.Contracts\\Metadata\\${Name}AdminPermissionCodes.cs\")",
             "Write-GmaFile (Join-Path $moduleRoot \"$Name.Admin.Contracts\\Permissions\\${Name}AdminPermissions.cs\")",
@@ -3759,12 +4696,49 @@ public sealed partial class DeveloperExperienceGuardTests
             "public const string Manage = ${Name}ModuleMetadata.Name + \".manage\";",
             "AdminPermission.Create(${Name}AdminPermissionCodes.Manage)"
         ];
+        string[] generatedMetadataForbiddenTokens =
+        [
+            "ModuleCacheName",
+            ".WithPermissions([",
+            ".WithCacheEntries(["
+        ];
         string[] offenders = forbiddenTokens
             .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
             .Select(token => $"eng/new-module.ps1 contains stale {token}")
+            .Concat(generatedMetadataForbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 emits stale generated metadata token {token}"))
             .Concat(requiredTokens
                 .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
                 .Select(token => $"eng/new-module.ps1 missing {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_docs_use_current_admin_cli_switch()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        Regex staleAdminSwitchPattern = new(@"(?<![A-Za-z0-9])-Admin(?![A-Za-z0-9])");
+        string[] checkedFiles = Directory
+            .EnumerateFiles(Path.Combine(repositoryRoot, "docs"), "*.md", SearchOption.AllDirectories)
+            .Append(Path.Combine(repositoryRoot, "eng", "new-module.ps1"))
+            .Where(path => !HasIgnoredPathSegment(path))
+            .ToArray();
+
+        string[] offenders = checkedFiles
+            .SelectMany(path => File
+                .ReadLines(path)
+                .Select((line, index) => new
+                {
+                    Path = path,
+                    Line = line,
+                    LineNumber = index + 1
+                }))
+            .Where(item => staleAdminSwitchPattern.IsMatch(item.Line))
+            .Select(item => $"{Path.GetRelativePath(repositoryRoot, item.Path)}:{item.LineNumber}")
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -3935,7 +4909,8 @@ public sealed partial class DeveloperExperienceGuardTests
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
         string[] requiredTokens =
         [
-            "using Shared.Application.Identity;",
+            "using Shared.Naming;",
+            "using Shared.Runtime.Identity;",
             "IIdGenerator idGenerator",
             ": EfInboxStore<${Name}DbContext>(dbContext, clock, idGenerator,"
         ];
@@ -3956,6 +4931,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string[] requiredTokens =
         [
             "using Microsoft.Extensions.Options;",
+            "using Shared.Naming;",
             ": EfOutboxStore<${Name}DbContext>(dbContext, options, ${Name}Migrations.Schema);"
         ];
         string[] forbiddenTokens =
@@ -4023,7 +4999,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
         string[] requiredTokens =
         [
-            "using Shared.Application.Time;",
+            "using Shared.Runtime.Time;",
             ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);"
         ];
         string[] forbiddenTokens =
@@ -4031,6 +5007,33 @@ public sealed partial class DeveloperExperienceGuardTests
             "EnqueueAsync<TEvent>",
             "IntegrationEventEnvelopeFactory.Create(",
             "dbContext.OutboxMessages.Add(new OutboxMessage("
+        ];
+        string[] offenders = requiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Concat(forbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 contains stale {token}"))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_scaffolder_uses_shared_naming_for_generated_tenant_id_columns()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        string[] requiredTokens =
+        [
+            @"Shared\Shared.Naming\Shared.Naming.csproj",
+            "using Shared.Naming;",
+            "TenantIds.MaxLength"
+        ];
+        string[] forbiddenTokens =
+        [
+            "using Shared.Domain;"
         ];
         string[] offenders = requiredTokens
             .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
@@ -4199,7 +5202,7 @@ public sealed partial class DeveloperExperienceGuardTests
     public void Shared_infrastructure_centralizes_direct_time_and_id_creation()
     {
         string repositoryRoot = FindRepositoryRoot();
-        string sharedInfrastructureRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.Infrastructure");
+        string sharedInfrastructureRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.Runtime.Infrastructure");
         string[] forbiddenTokens =
         [
             "Guid.NewGuid(",
@@ -4228,30 +5231,84 @@ public sealed partial class DeveloperExperienceGuardTests
     public void Shared_infrastructure_runtime_options_are_validated_on_start()
     {
         string repositoryRoot = FindRepositoryRoot();
-        string source = File.ReadAllText(Path.Combine(
+        string coreSource = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
             "Shared",
             "Shared.Infrastructure",
             "DependencyInjection.cs"));
-        string[] requiredTokens =
+        string cachingSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Caching.Infrastructure",
+            "DependencyInjection.cs"));
+        string messagingSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Messaging.Infrastructure",
+            "DependencyInjection.cs"));
+        string natsSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Messaging.Nats",
+            "DependencyInjection.cs"));
+        string tenancySource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Tenancy.Infrastructure",
+            "DependencyInjection.cs"));
+        (string SourceName, string Source, string[] Tokens)[] requiredSources =
         [
-            "new CachingOptionsValidator()",
-            "new TenantOptionsValidator()",
-            "new OutboxOptionsValidator()",
-            "new NatsJetStreamOptionsValidator()",
-            "new NatsConsumerOptionsValidator()",
-            "OptionsValidationException(sectionName, typeof(TOptions), result.Failures)",
-            "IValidateOptions<TenantOptions>, TenantOptionsValidator",
-            "IValidateOptions<CachingOptions>, CachingOptionsValidator",
-            "IValidateOptions<OutboxOptions>, OutboxOptionsValidator",
-            "IValidateOptions<NatsJetStreamOptions>, NatsJetStreamOptionsValidator",
-            "IValidateOptions<NatsConsumerOptions>, NatsConsumerOptionsValidator",
-            ".ValidateOnStart()"
+            new(
+                "Shared.Infrastructure",
+                coreSource,
+                [
+                    "builder.AddTenancyInfrastructure();"
+                ]),
+            new(
+                "Shared.Tenancy.Infrastructure",
+                tenancySource,
+                [
+                    "new TenantOptionsValidator()",
+                    "IValidateOptions<TenantOptions>, TenantOptionsValidator",
+                    ".ValidateOnStart()"
+                ]),
+            new(
+                "Shared.Caching.Infrastructure",
+                cachingSource,
+                [
+                    "new CachingOptionsValidator()",
+                    "IValidateOptions<CachingOptions>, CachingOptionsValidator",
+                    "IValidateOptions<CachingOptions>, CachingCompositionOptionsValidator",
+                    ".ValidateOnStart()"
+                ]),
+            new(
+                "Shared.Messaging.Infrastructure",
+                messagingSource,
+                [
+                    "new OutboxOptionsValidator()",
+                    "IValidateOptions<OutboxOptions>, OutboxOptionsValidator",
+                    ".ValidateOnStart()"
+                ]),
+            new(
+                "Shared.Messaging.Nats",
+                natsSource,
+                [
+                    "new NatsJetStreamOptionsValidator()",
+                    "new NatsConsumerOptionsValidator()",
+                    "IValidateOptions<NatsJetStreamOptions>, NatsJetStreamOptionsValidator",
+                    "IValidateOptions<NatsConsumerOptions>, NatsConsumerOptionsValidator",
+                    ".ValidateOnStart()"
+                ])
         ];
-        string[] offenders = requiredTokens
-            .Where(token => !source.Contains(token, StringComparison.Ordinal))
-            .Select(token => $"Shared.Infrastructure dependency injection missing {token}")
+        string[] offenders = requiredSources
+            .SelectMany(required => required.Tokens
+                .Where(token => !required.Source.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"{required.SourceName} dependency injection missing {token}"))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
@@ -4259,19 +5316,27 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Shared_messaging_runtime_registration_composes_shared_infrastructure()
+    public void Shared_messaging_runtime_registration_composes_runtime_infrastructure()
     {
         string repositoryRoot = FindRepositoryRoot();
         string source = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
             "Shared",
-            "Shared.Infrastructure",
+            "Shared.Messaging.Infrastructure",
             "DependencyInjection.cs"));
 
-        AssertMethodContains(source, "AddNatsJetStreamMessaging", "builder.AddSharedInfrastructure();");
-        AssertMethodContains(source, "AddOutboxPublishing", "builder.AddSharedInfrastructure();");
-        AssertMethodContains(source, "AddNatsJetStreamConsumers", "builder.AddSharedInfrastructure();");
+        AssertMethodContains(source, "AddMessagingInfrastructure", "builder.AddRuntimeInfrastructure();");
+        AssertMethodContains(source, "AddOutboxPublishing", "builder.AddMessagingInfrastructure();");
+
+        string natsSource = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Messaging.Nats",
+            "DependencyInjection.cs"));
+        AssertMethodContains(natsSource, "AddNatsJetStreamMessaging", "builder.AddMessagingInfrastructure();");
+        AssertMethodContains(natsSource, "AddNatsJetStreamConsumers", "builder.AddMessagingInfrastructure();");
     }
 
     [Fact]
@@ -4281,8 +5346,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string allowedRelativePath = NormalizePath(Path.Combine(
             "src",
             "Shared",
-            "Shared.Application",
-            "Observability",
+            "Shared.Observability",
             "ObservabilityInstrumentNames.cs"));
         string[] sharedInstrumentNames =
         [
@@ -4333,8 +5397,7 @@ public sealed partial class DeveloperExperienceGuardTests
             repositoryRoot,
             "src",
             "Shared",
-            "Shared.Infrastructure",
-            "Cqrs");
+            "Shared.Cqrs.Infrastructure");
         string[] behaviorFiles =
         [
             Path.Combine(cqrsRoot, "ValidationCommandBehavior.cs"),
@@ -4913,9 +5976,19 @@ public sealed partial class DeveloperExperienceGuardTests
         string normalizedReference = NormalizePath(referencePath);
         HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
         {
-            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
-            NormalizePath(@"..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj")
+            NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj")
         };
 
         return allowedSharedReferences.Contains(normalizedReference) ||
@@ -4941,7 +6014,13 @@ public sealed partial class DeveloperExperienceGuardTests
         HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
         {
             NormalizePath(@"..\..\..\Shared\Shared.Api\Shared.Api.csproj"),
-            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj")
+            NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Security\Shared.Security.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj")
         };
 
         if (isAdminApi)
@@ -4985,7 +6064,11 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             NormalizePath(@"..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"),
-            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj")
+            NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj")
         };
 
         return allowedSharedReferences.Contains(normalizedReference) ||
@@ -5017,7 +6100,23 @@ public sealed partial class DeveloperExperienceGuardTests
 
         return string.Equals(
                    normalizedReference,
-                   NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj"),
+                   NormalizePath(@"..\..\..\Shared\Shared.Authorization\Shared.Authorization.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Modules\Shared.Modules.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
                IsOtherModuleContractsReference(moduleName, normalizedReference);
     }
@@ -5041,9 +6140,19 @@ public sealed partial class DeveloperExperienceGuardTests
         string normalizedReference = NormalizePath(referencePath);
         HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
         {
-            NormalizePath(@"..\..\..\Shared\Shared.Application\Shared.Application.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
-            NormalizePath(@"..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj")
+            NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj")
         };
 
         return allowedSharedReferences.Contains(normalizedReference) ||
@@ -5110,12 +6219,12 @@ public sealed partial class DeveloperExperienceGuardTests
 
     private static bool IsAllowedDirectTimeOrIdSource(string relativePath, string token) =>
         (string.Equals(token, "Guid.NewGuid(", StringComparison.Ordinal) &&
-         relativePath.EndsWith(
-             $"{Path.DirectorySeparatorChar}Shared.Infrastructure{Path.DirectorySeparatorChar}Identity{Path.DirectorySeparatorChar}GuidIdGenerator.cs",
+             relativePath.EndsWith(
+             $"{Path.DirectorySeparatorChar}Shared.Runtime.Infrastructure{Path.DirectorySeparatorChar}Identity{Path.DirectorySeparatorChar}GuidIdGenerator.cs",
              StringComparison.OrdinalIgnoreCase)) ||
         (token.EndsWith("UtcNow", StringComparison.Ordinal) &&
          relativePath.EndsWith(
-             $"{Path.DirectorySeparatorChar}Shared.Infrastructure{Path.DirectorySeparatorChar}Time{Path.DirectorySeparatorChar}SystemClock.cs",
+             $"{Path.DirectorySeparatorChar}Shared.Runtime.Infrastructure{Path.DirectorySeparatorChar}Time{Path.DirectorySeparatorChar}SystemClock.cs",
              StringComparison.OrdinalIgnoreCase));
 
     private static bool IsBackendAdapterPackage(string packageId)
@@ -5149,6 +6258,29 @@ public sealed partial class DeveloperExperienceGuardTests
 
     private static string NormalizePath(string path) =>
         path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+
+    private static string? FindBestProjectNamespaceMatch(string importedNamespace, string[] projectNames) =>
+        projectNames.FirstOrDefault(projectName =>
+            string.Equals(importedNamespace, projectName, StringComparison.Ordinal) ||
+            importedNamespace.StartsWith($"{projectName}.", StringComparison.Ordinal));
+
+    private static string[] FindUsingNamespaces(string source, string[] namespaceRoots)
+    {
+        if (namespaceRoots.Length == 0)
+        {
+            return [];
+        }
+
+        string rootPattern = string.Join("|", namespaceRoots.Select(Regex.Escape));
+        Regex usingNamespacePattern = new(
+            @$"^\s*(?:global\s+)?using\s+(?:static\s+)?(?:(?:[A-Za-z_][A-Za-z0-9_.]*)\s*=\s*)?(?<namespace>(?:{rootPattern})\.[A-Za-z_][A-Za-z0-9_.]*)\s*;",
+            RegexOptions.Multiline);
+
+        return usingNamespacePattern
+            .Matches(source)
+            .Select(match => match.Groups["namespace"].Value)
+            .ToArray();
+    }
 
     private static string? FindOwningProjectName(string sourcePath)
     {
@@ -5413,6 +6545,57 @@ public sealed partial class DeveloperExperienceGuardTests
                 .Select(reference => $"{relativePath}->unexpected {referenceKind}:{reference}"));
     }
 
+    private static Dictionary<string, string[]> ParseDependencyDirectionBlocks(string source)
+    {
+        int headingIndex = source.IndexOf("## Dependency Direction", StringComparison.Ordinal);
+        int fenceIndex = headingIndex < 0
+            ? -1
+            : source.IndexOf("```text", headingIndex, StringComparison.Ordinal);
+        int blockStartIndex = fenceIndex < 0
+            ? -1
+            : source.IndexOf('\n', fenceIndex);
+        int blockEndIndex = blockStartIndex < 0
+            ? -1
+            : source.IndexOf("```", blockStartIndex, StringComparison.Ordinal);
+
+        if (blockStartIndex < 0 || blockEndIndex < 0)
+        {
+            return new Dictionary<string, string[]>(StringComparer.Ordinal);
+        }
+
+        string codeBlock = source[(blockStartIndex + 1)..blockEndIndex];
+        Dictionary<string, List<string>> blocks = new(StringComparer.Ordinal);
+        string? currentBlock = null;
+
+        foreach (string rawLine in codeBlock.Split(["\r\n", "\n"], StringSplitOptions.None))
+        {
+            string line = rawLine.TrimEnd();
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                currentBlock = null;
+                continue;
+            }
+
+            if (!line.StartsWith("  -> ", StringComparison.Ordinal))
+            {
+                currentBlock = line.Trim();
+                blocks[currentBlock] = [];
+                continue;
+            }
+
+            if (currentBlock is not null)
+            {
+                blocks[currentBlock].Add(line["  -> ".Length..]);
+            }
+        }
+
+        return blocks.ToDictionary(
+            item => item.Key,
+            item => item.Value.ToArray(),
+            StringComparer.Ordinal);
+    }
+
     private static bool TryGetJsonElement(string jsonPath, IReadOnlyList<string> path, out JsonElement element)
     {
         using JsonDocument document = JsonDocument.Parse(
@@ -5598,6 +6781,12 @@ public sealed partial class DeveloperExperienceGuardTests
 
     [GeneratedRegex(@"^\s*namespace\s+(?<name>[A-Za-z_][A-Za-z0-9_.]*)\s*[;{]", RegexOptions.Multiline)]
     private static partial Regex NamespacePattern();
+
+    [GeneratedRegex(@"^\s*(?:global\s+)?using\s+(?:static\s+)?(?:(?:[A-Za-z_][A-Za-z0-9_.]*)\s*=\s*)?(?<namespace>Shared\.[A-Za-z_][A-Za-z0-9_.]*)\s*;", RegexOptions.Multiline)]
+    private static partial Regex SharedUsingNamespacePattern();
+
+    [GeneratedRegex(@"^\s*(?:global\s+)?using\s+(?:static\s+)?(?:(?:[A-Za-z_][A-Za-z0-9_.]*)\s*=\s*)?(?<namespace>[A-Za-z_][A-Za-z0-9_.]*)\s*;", RegexOptions.Multiline)]
+    private static partial Regex UsingNamespacePattern();
 
     [GeneratedRegex(@"!?\[[^\]]+\]\((?<target>[^)]+)\)", RegexOptions.Multiline)]
     private static partial Regex MarkdownLinkPattern();

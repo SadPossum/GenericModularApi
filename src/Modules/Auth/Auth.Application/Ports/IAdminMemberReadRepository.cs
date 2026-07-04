@@ -1,7 +1,7 @@
 namespace Auth.Application.Ports;
 
 using Auth.Contracts;
-using Shared.Application.Queries;
+using Shared.Pagination;
 
 public interface IAdminMemberReadRepository
 {

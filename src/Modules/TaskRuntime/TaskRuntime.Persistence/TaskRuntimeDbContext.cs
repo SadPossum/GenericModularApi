@@ -1,7 +1,7 @@
 namespace TaskRuntime.Persistence;
 
 using Microsoft.EntityFrameworkCore;
-using Shared.Infrastructure.Tasks;
+using Shared.Tasks.Infrastructure;
 
 public sealed class TaskRuntimeDbContext(DbContextOptions<TaskRuntimeDbContext> options) : DbContext(options)
 {

@@ -1,7 +1,8 @@
-﻿namespace Ordering.Contracts;
+namespace Ordering.Contracts;
 
 using Catalog.Contracts;
-using Shared.Application.Modules;
+using Shared.Messaging;
+using Shared.Modules;
 
 public static class OrderingModuleMetadata
 {
@@ -11,12 +12,10 @@ public static class OrderingModuleMetadata
     public const string CatalogItemUpdatedProjectionHandlerName = "catalog-item-updated-projection";
     public const string CatalogItemDiscontinuedProjectionHandlerName = "catalog-item-discontinued-projection";
 
-    public static ModuleDescriptor Descriptor { get; } = new(
-        Name,
-        Schema,
-        [],
-        [],
-        [
+    public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
+        .Create(Name)
+        .WithSchema(Schema)
+        .WithSubscriptions([
             new ModuleSubscriptionDescriptor(
                 CatalogModuleMetadata.Name,
                 "item-created",
@@ -35,7 +34,6 @@ public static class OrderingModuleMetadata
                 CatalogIntegrationSubjects.ItemDiscontinued,
                 CatalogItemDiscontinuedProjectionHandlerName,
                 tenantScoped: true),
-        ],
-        []);
+        ])
+        .Build();
 }
-

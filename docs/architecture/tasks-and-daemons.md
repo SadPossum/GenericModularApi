@@ -10,21 +10,25 @@ A module owns its task payloads the same way it owns commands, queries, domain e
 - A recurring task is a finite task created repeatedly by a schedule.
 - A daemon is long-running work that keeps running until canceled or stopped.
 
-Modules declare owned work with `ModuleTaskDescriptor` in module metadata:
+Modules declare owned work with the task metadata builder extension in module metadata:
 
 ```csharp
-new ModuleTaskDescriptor(
-    "rebuild-search",
-    "Rebuild catalog search projection.",
-    ModuleTaskKind.OneShot,
-    tenantScoped: true,
-    supportsControlMessages: true,
-    workerGroup: "search-workers",
-    payloadVersion: 1);
+public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
+    .Create(Name)
+    .WithTask(
+        new ModuleTaskDescriptor(
+            "rebuild-search",
+            "Rebuild catalog search projection.",
+            ModuleTaskKind.OneShot,
+            tenantScoped: true,
+            supportsControlMessages: true,
+            workerGroup: "search-workers",
+            payloadVersion: 1))
+    .Build();
 ```
 
-The descriptor is discoverability and policy metadata. It is not runtime module discovery and does not register a worker.
-Task metadata identity is `(module, task, payload version, worker group)` so modules can keep old payload handlers alive while introducing a new payload shape.
+`ModuleTaskDescriptor`, `WithTask(...)`, and `WithTasks(...)` live in `Shared.Tasks`; the generic module descriptor does not own task-specific properties. The descriptor is discoverability and policy metadata. It is not runtime module discovery and does not register a worker.
+Task handler identity is `(module, task, payload version)` so modules can keep old payload handlers alive while introducing a new payload shape. Worker group, tenant scope, kind, and control-message support are routing and policy metadata that must still match the module descriptor.
 
 ## Payload Contracts
 
@@ -55,7 +59,9 @@ services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(
     TaskSamplesModuleMetadata.GenerateReportTaskName,
     TaskSamplesModuleMetadata.WorkerGroup,
     tenantScoped: true,
-    payloadVersion: 1);
+    payloadVersion: 1,
+    kind: ModuleTaskKind.OneShot,
+    supportsControlMessages: false);
 ```
 
 Architecture tests compare registered handlers with `ModuleTaskDescriptor` metadata so task docs, module metadata, and runtime registration drift together.
@@ -75,7 +81,7 @@ System-to-runner communication uses `ITaskControlChannel`, `ITaskControlLoop`, a
 
 `TaskControlCommandNames` defines the standard control commands `tasks.cancel`, `tasks.drain`, `tasks.pause`, and `tasks.resume`. `ITaskControlLoop` is a small helper over the lower-level channel: it polls pending messages, returns a `TaskControlPollResult`, and lets payload code mark messages handled or failed after the handler has actually acted on them. `TaskControlLoopExtensions` adds reusable cooperative behavior for cancel/drain and pause-until-resume loops.
 
-Task payload code that needs to call application behavior should use `ITaskCommandDispatcher` or normal CQRS contracts. This keeps payloads independent from HTTP, CLI, scheduler APIs, and module internals.
+Task payload code that needs to call application behavior should use `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or normal CQRS contracts. This keeps payloads independent from HTTP, CLI, scheduler APIs, and module internals.
 
 ## Runtime Store Contract
 
@@ -115,6 +121,7 @@ Compose it explicitly:
 
 ```csharp
 builder.AddSharedInfrastructure();
+builder.AddTaskInfrastructure();
 builder.AddTaskRuntimePersistence();
 builder.AddTaskWorkerRuntime();
 builder.Services.AddTaskSamplesApplication(); // or your real task-owning modules
@@ -204,7 +211,7 @@ The default remains small: persistent tasks, hosted workers, code-defined schedu
 
 - Default hosts do not start task workers.
 - Domain projects do not reference scheduler, hosting, EF, HTTP, or admin APIs.
-- Application payloads depend on `Shared.Application.Tasks`, CQRS contracts, and module ports.
+- Application payloads depend on `Shared.Tasks`, `Shared.Tasks.Cqrs` when they dispatch application commands, CQRS contracts, and module ports.
 - External scheduler packages stay in explicit adapter projects.
 - Store implementations use `ITaskRunStore` and `TaskRunStatusTransitions` instead of ad hoc status changes.
 - Task worker hosts call `AddTaskWorkerRuntime()` explicitly and must also compose a concrete `ITaskRunStore`.

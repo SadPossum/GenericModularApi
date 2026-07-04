@@ -1,7 +1,7 @@
 namespace TaskRuntime.Persistence.PostgreSqlMigrations;
 
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 using TaskRuntime.Persistence;
 
 public sealed class TaskRuntimePostgreSqlDesignTimeDbContextFactory : IDesignTimeDbContextFactory<TaskRuntimeDbContext>

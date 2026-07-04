@@ -3,8 +3,7 @@ namespace Shared.Messaging.Nats.Aspire;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Nats;
 
 public static class DependencyInjection
 {

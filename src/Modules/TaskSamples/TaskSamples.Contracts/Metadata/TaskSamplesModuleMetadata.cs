@@ -1,6 +1,7 @@
 namespace TaskSamples.Contracts;
 
-using Shared.Application.Modules;
+using Shared.Modules;
+using Shared.Tasks;
 
 public static class TaskSamplesModuleMetadata
 {
@@ -12,15 +13,9 @@ public static class TaskSamplesModuleMetadata
     public const string SlowReportTaskName = "slow-report";
     public const string WorkerGroup = "samples";
 
-    public static ModuleDescriptor Descriptor { get; } = new(
-        Name,
-        schema: null,
-        [],
-        [],
-        [],
-        [],
-        tasks:
-        [
+    public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
+        .Create(Name)
+        .WithTask(
             new ModuleTaskDescriptor(
                 GenerateReportTaskName,
                 "Generate a sample tenant report through the task runtime.",
@@ -28,7 +23,8 @@ public static class TaskSamplesModuleMetadata
                 tenantScoped: true,
                 supportsControlMessages: false,
                 WorkerGroup,
-                GenerateReportTaskPayloadVersion),
+                GenerateReportTaskPayloadVersion))
+        .WithTask(
             new ModuleTaskDescriptor(
                 GenerateReportTaskName,
                 "Generate a sample tenant report through the task runtime using the v2 payload contract.",
@@ -36,20 +32,22 @@ public static class TaskSamplesModuleMetadata
                 tenantScoped: true,
                 supportsControlMessages: false,
                 WorkerGroup,
-                GenerateReportTaskPayloadVersion2),
+                GenerateReportTaskPayloadVersion2))
+        .WithTask(
             new ModuleTaskDescriptor(
                 FlakyReportTaskName,
                 "Demonstrate retry behavior by failing until a configured attempt.",
                 ModuleTaskKind.OneShot,
                 tenantScoped: true,
                 supportsControlMessages: false,
-                WorkerGroup),
+                WorkerGroup))
+        .WithTask(
             new ModuleTaskDescriptor(
                 SlowReportTaskName,
                 "Demonstrate long-running task progress, heartbeat reporting, and cooperative control.",
                 ModuleTaskKind.OneShot,
                 tenantScoped: true,
                 supportsControlMessages: true,
-                WorkerGroup)
-        ]);
+                WorkerGroup))
+        .Build();
 }

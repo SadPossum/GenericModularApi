@@ -5,11 +5,10 @@ using Auth.Domain.Aggregates;
 using Auth.Domain.Errors;
 using Auth.Domain.Repositories;
 using Auth.Domain.ValueObjects;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Identity;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Identity;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class DisableMemberCommandHandler(
     IMemberRepository memberRepository,

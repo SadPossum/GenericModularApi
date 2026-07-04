@@ -4,12 +4,12 @@ using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shared.Application.Identity;
-using Shared.Application.Messaging;
-using Shared.Application.Observability;
-using Shared.Application.Time;
-using Shared.Infrastructure.Messaging;
-using Shared.Infrastructure.Observability;
+using Shared.Runtime.Identity;
+using Shared.Messaging;
+using Shared.Observability;
+using Shared.Runtime.Time;
+using Shared.Messaging.Infrastructure;
+using Shared.Observability.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

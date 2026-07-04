@@ -17,6 +17,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Persistence and Tenancy](architecture/persistence-and-tenancy.md)
 - [Messaging and Outbox](architecture/messaging-and-outbox.md)
 - [Messaging Consumers](architecture/messaging-consumers.md)
+- [Module Descriptor Builder Refactor Notes](architecture/module-descriptor-builder-refactor-notes.md)
 - [Observability](architecture/observability.md)
 - [Caching](architecture/caching.md)
 - [Administration](architecture/administration.md)

@@ -5,8 +5,7 @@ using Catalog.Application.Commands;
 using Catalog.Application.Queries;
 using Catalog.Contracts;
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 using Shared.Application.Events;
 using Xunit;
 

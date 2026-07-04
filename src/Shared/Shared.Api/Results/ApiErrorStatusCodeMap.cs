@@ -1,7 +1,7 @@
 namespace Shared.Api.Results;
 
 using Microsoft.AspNetCore.Http;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public sealed class ApiErrorStatusCodeMap
 {

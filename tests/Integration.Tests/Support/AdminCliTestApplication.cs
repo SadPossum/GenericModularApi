@@ -12,10 +12,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shared.Administration.Cli;
-using Shared.Application.Cqrs;
-using Shared.Application.Tenancy;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Tenancy;
+using Shared.Caching.Infrastructure;
+using Shared.Results;
 using Shared.Infrastructure;
+using Shared.Messaging.Infrastructure;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Text.RegularExpressions;
@@ -46,7 +48,9 @@ internal sealed class AdminCliTestApplication : IAsyncDisposable
         });
 
         builder.Services.AddSharedAdministrationCli();
+        builder.AddCachingInfrastructure();
         builder.AddSharedInfrastructure();
+        builder.AddMessagingInfrastructure();
         builder.AddAdminModule<AdministrationAdminCliModule>();
         builder.AddAdminModule<AuthAdminCliModule>();
 

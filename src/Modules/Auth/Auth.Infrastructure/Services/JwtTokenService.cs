@@ -8,8 +8,8 @@ using Auth.Domain.Services;
 using Auth.Domain.ValueObjects;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Shared.Application.Security;
-using Shared.Application.Time;
+using Shared.Security;
+using Shared.Runtime.Time;
 
 internal sealed class JwtTokenService(IOptions<JwtSettings> options, ISystemClock clock) : ITokenService
 {

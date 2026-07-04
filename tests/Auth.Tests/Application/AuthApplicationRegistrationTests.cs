@@ -9,7 +9,7 @@ using Auth.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 using Xunit;
 
 [Trait("Category", "Unit")]

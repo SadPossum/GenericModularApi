@@ -1,6 +1,6 @@
 namespace TaskRuntime.Application;
 
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public static class TaskRuntimeApplicationErrors
 {

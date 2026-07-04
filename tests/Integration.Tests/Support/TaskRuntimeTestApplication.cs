@@ -6,12 +6,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Tasks;
-using Shared.ErrorHandling;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Persistence;
+using Shared.Cqrs;
+using Shared.Tasks;
+using Shared.Tasks.Infrastructure;
+using Shared.Results;
+using Shared.Persistence.EntityFrameworkCore;
 using TaskRuntime.Application;
 using TaskRuntime.Application.Commands;
 using TaskRuntime.Application.Queries;
@@ -55,7 +54,6 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
         });
         builder.Logging.ClearProviders();
 
-        builder.AddSharedInfrastructure();
         builder.Services.AddTaskRuntimeApplication();
         builder.AddTaskRuntimePersistence();
         builder.AddTaskWorkerRuntime();
@@ -372,7 +370,7 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
 
     public async Task<TaskRunSnapshot> WaitForStatusAsync(
         Guid runId,
-        Shared.Application.Tasks.TaskRunStatus expectedStatus,
+        Shared.Tasks.TaskRunStatus expectedStatus,
         TimeSpan timeout)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow.Add(timeout);

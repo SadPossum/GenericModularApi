@@ -2,7 +2,7 @@ namespace Administration.Application.Validation;
 
 using Administration.Application.Commands;
 using Shared.Administration;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 internal sealed class BootstrapOwnerCommandValidator : ICommandValidator<BootstrapOwnerCommand>
 {

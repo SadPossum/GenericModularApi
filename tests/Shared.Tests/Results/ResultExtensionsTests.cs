@@ -3,7 +3,7 @@ namespace Shared.Tests;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Shared.Api.Results;
-using Shared.ErrorHandling;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]

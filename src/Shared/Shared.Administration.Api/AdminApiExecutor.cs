@@ -1,5 +1,6 @@
 namespace Shared.Administration.Api;
 
+using Shared.Naming;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,11 +8,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Shared.Administration;
 using Shared.Api.Results;
-using Shared.Application;
-using Shared.Application.Security;
-using Shared.Application.Tenancy;
-using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Security;
+using Shared.Tenancy;
+using Shared.Results;
 
 public sealed class AdminApiExecutor(
     IOptions<AdminApiOptions> options,

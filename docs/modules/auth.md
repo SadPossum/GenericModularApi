@@ -141,7 +141,7 @@ Refresh tokens are stored as hashes, never as raw token values.
 The HMAC key is configured through `Auth:RefreshTokens:Pepper`. The option class intentionally has no secret default. Checked-in development settings provide a disposable local placeholder, and deployments must override it through a secret provider, for example `Auth__RefreshTokens__Pepper`.
 
 JWT signing is configured through `Auth:Jwt`. The signing key must be at least 32 bytes and should also come from a secret provider outside local development.
-Auth access tokens use `ClaimTypes.NameIdentifier` for the member id and shared `GmaClaimNames` constants for tenant and session claims. Keep claim-name changes centralized in `Shared.Application.Security.GmaClaimNames` so public Auth endpoints, admin APIs, token validation, and test token helpers stay aligned.
+Auth access tokens use `ClaimTypes.NameIdentifier` for the member id and shared `GmaClaimNames` constants for tenant and session claims. Keep claim-name changes centralized in `Shared.Security.GmaClaimNames` so public Auth endpoints, admin APIs, token validation, and test token helpers stay aligned.
 
 Login and refresh fail when a member is disabled.
 

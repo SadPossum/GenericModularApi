@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\Shared.Tasks\Shared.Tasks.csproj" />
+  </ItemGroup>
+</Project>

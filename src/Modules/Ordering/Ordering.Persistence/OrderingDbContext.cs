@@ -2,8 +2,8 @@ namespace Ordering.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 using Ordering.Domain.Aggregates;
-using Shared.Application.Tenancy;
-using Shared.Infrastructure.Messaging;
+using Shared.Tenancy;
+using Shared.Messaging.Infrastructure;
 
 public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> options, ITenantContext tenantContext)
     : DbContext(options)

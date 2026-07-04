@@ -1,6 +1,6 @@
 namespace Auth.Domain.Errors;
 
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public static class AuthDomainErrors
 {

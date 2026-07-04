@@ -2,7 +2,7 @@ namespace Auth.Application;
 
 using Auth.Contracts;
 using Auth.Domain.Enums;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 internal static class UsernameTypeMapper
 {

@@ -4,8 +4,8 @@ using Auth.Application.Ports;
 using Auth.Application.Queries;
 using Auth.Contracts;
 using Auth.Domain.Errors;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Results;
 
 internal sealed class GetAdminMemberQueryHandler(IAdminMemberReadRepository repository)
     : IQueryHandler<GetAdminMemberQuery, AdminMemberDetails>

@@ -1,13 +1,12 @@
 namespace Administration.Application.Handlers;
 
+using Shared.Naming;
 using Administration.Application.Commands;
 using Administration.Application.Ports;
 using Shared.Administration;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Time;
-using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class AssignRoleCommandHandler(IAdminRbacRepository repository, ISystemClock clock)
     : ICommandHandler<AssignRoleCommand, Unit>

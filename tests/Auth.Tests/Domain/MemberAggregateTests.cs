@@ -1,5 +1,6 @@
 namespace Auth.Tests;
 
+using Shared.Naming;
 using Auth.Domain.Aggregates;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -7,7 +8,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.ValueObjects;
 using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -349,7 +350,7 @@ public sealed class MemberAggregateTests
         Assert.Equal(AuthDomainErrors.PasswordNotValid, result.Error);
     }
 
-    private static Shared.ErrorHandling.Result<Member> CreateMember(
+    private static Shared.Results.Result<Member> CreateMember(
         string username,
         string tenantId = "tenant-a",
         string passwordHash = "hash",

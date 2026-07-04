@@ -1,6 +1,11 @@
-﻿namespace Shared.Tests;
+namespace Shared.Tests;
 
-using Shared.Application.Modules;
+using System.Reflection;
+using Shared.Authorization;
+using Shared.Caching;
+using Shared.Messaging;
+using Shared.Modules;
+using Shared.Tasks;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -12,10 +17,17 @@ public sealed class ModuleDescriptorTests
         Type[] descriptorTypes =
         [
             typeof(ModuleDescriptor),
+            typeof(ModuleDescriptorFeature),
+            typeof(ModuleDescriptorFeatureContext),
+            typeof(ModulePermissionsDescriptor),
             typeof(ModulePermissionDescriptor),
+            typeof(ModulePublishedEventsDescriptor),
             typeof(ModuleIntegrationEventDescriptor),
+            typeof(ModuleSubscriptionsDescriptor),
             typeof(ModuleSubscriptionDescriptor),
+            typeof(ModuleCacheEntriesDescriptor),
             typeof(ModuleCacheDescriptor),
+            typeof(ModuleTasksDescriptor),
             typeof(ModuleTaskDescriptor)
         ];
 
@@ -31,21 +43,52 @@ public sealed class ModuleDescriptorTests
     }
 
     [Fact]
+    public void Module_descriptor_is_authored_through_builder_only()
+    {
+        ConstructorInfo[] publicConstructors = typeof(ModuleDescriptor).GetConstructors();
+
+        Assert.Empty(publicConstructors);
+    }
+
+    [Fact]
+    public void Module_descriptor_root_is_sealed_while_features_are_polymorphic()
+    {
+        Assert.True(typeof(ModuleDescriptor).IsSealed);
+        Assert.True(typeof(ModuleDescriptorFeature).IsAbstract);
+        Assert.True(typeof(ModulePermissionsDescriptor).IsSealed);
+        Assert.True(typeof(ModulePublishedEventsDescriptor).IsSealed);
+        Assert.True(typeof(ModuleSubscriptionsDescriptor).IsSealed);
+        Assert.True(typeof(ModuleCacheEntriesDescriptor).IsSealed);
+        Assert.True(typeof(ModuleTasksDescriptor).IsSealed);
+        Assert.True(typeof(ModulePermissionsDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
+        Assert.True(typeof(ModulePublishedEventsDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
+        Assert.True(typeof(ModuleSubscriptionsDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
+        Assert.True(typeof(ModuleCacheEntriesDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
+        Assert.True(typeof(ModuleTasksDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
+    }
+
+    [Fact]
     public void Module_metadata_descriptor_constructor_parameters_use_camel_case()
     {
         Type[] descriptorTypes =
         [
             typeof(ModuleDescriptor),
+            typeof(ModuleDescriptorFeatureContext),
+            typeof(ModulePermissionsDescriptor),
             typeof(ModulePermissionDescriptor),
+            typeof(ModulePublishedEventsDescriptor),
             typeof(ModuleIntegrationEventDescriptor),
+            typeof(ModuleSubscriptionsDescriptor),
             typeof(ModuleSubscriptionDescriptor),
+            typeof(ModuleCacheEntriesDescriptor),
             typeof(ModuleCacheDescriptor),
+            typeof(ModuleTasksDescriptor),
             typeof(ModuleTaskDescriptor)
         ];
 
         string[] offenders = descriptorTypes
             .SelectMany(type => type
-                .GetConstructors()
+                .GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                 .SelectMany(constructor => constructor
                     .GetParameters()
                     .Where(parameter => parameter.Name is { Length: > 0 } name &&
@@ -58,79 +101,362 @@ public sealed class ModuleDescriptorTests
     }
 
     [Fact]
-    public void Module_descriptor_normalizes_public_metadata()
+    public void Module_metadata_helpers_keep_naming_and_guard_responsibilities_separate()
     {
-        ModuleDescriptor descriptor = new(
-            " Catalog ",
-            " Catalog ",
-            [new ModulePermissionDescriptor(" Catalog.Items.Read ", " Read catalog items. ", tenantScoped: true)],
-            [new ModuleIntegrationEventDescriptor(" Item-Created ", " GMA.Catalog.Item-Created.V1 ", 1, tenantScoped: true)],
-            [
+        string[] namingMethods = typeof(ModuleMetadataNaming)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Select(method => method.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        string[] guardMethods = typeof(ModuleMetadataGuards)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            .Select(method => method.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["NormalizeFeatureKey", "NormalizeModuleName"], namingMethods);
+        Assert.Equal(["CopyOptionalList", "CopyRequiredList", "CopyRequiredNonEmptyList", "EnsureUnique"], guardMethods);
+    }
+
+    [Fact]
+    public void Module_descriptor_builder_normalizes_public_metadata()
+    {
+        ModuleDescriptor descriptor = ModuleDescriptor
+            .Create(" Catalog ")
+            .WithSchema(" Catalog ")
+            .WithAdminSurfaceName(" Catalog-Admin ")
+            .WithPermissions([
+                new ModulePermissionDescriptor(" Catalog.Items.Read ", " Read catalog items. ", tenantScoped: true)
+            ])
+            .WithPublishedEvents([
+                new ModuleIntegrationEventDescriptor(" Item-Created ", " GMA.Catalog.Item-Created.V1 ", 1, tenantScoped: true)
+            ])
+            .WithSubscriptions([
                 new ModuleSubscriptionDescriptor(
                     " Catalog ",
                     " Item-Created ",
                     " GMA.Catalog.Item-Created.V1 ",
                     " Item-Created-Projection ",
                     tenantScoped: true)
-            ],
-            [new ModuleCacheDescriptor(" Items ", " Tenant ", tenantScoped: true, [" Products "])],
-            " Catalog-Admin ",
-            [new ModuleTaskDescriptor(" Rebuild-Search ", " Rebuild search index. ", ModuleTaskKind.OneShot, tenantScoped: true, supportsControlMessages: true, " Search-Workers ")]);
+            ])
+            .WithCacheEntries([
+                new ModuleCacheDescriptor(" Items ", CacheScope.Tenant, [" Products "])
+            ])
+            .WithTasks([
+                new ModuleTaskDescriptor(
+                    " Rebuild-Search ",
+                    " Rebuild search index. ",
+                    ModuleTaskKind.OneShot,
+                    tenantScoped: true,
+                    supportsControlMessages: true,
+                    " Search-Workers ")
+            ])
+            .Build();
 
         Assert.Equal("catalog", descriptor.Name);
         Assert.Equal("catalog", descriptor.Schema);
         Assert.Equal("catalog-admin", descriptor.AdminSurfaceName);
-        Assert.Equal("catalog.items.read", Assert.Single(descriptor.Permissions).Code);
-        Assert.Equal("item-created", Assert.Single(descriptor.PublishedEvents).EventType);
-        Assert.Equal("item-created-projection", Assert.Single(descriptor.Subscriptions).HandlerName);
-        Assert.Equal("items", Assert.Single(descriptor.CacheEntries).Name);
-        Assert.Equal(["products"], Assert.Single(descriptor.CacheEntries).Tags);
-        Assert.Equal("rebuild-search", Assert.Single(descriptor.Tasks).Name);
-        Assert.Equal("search-workers", Assert.Single(descriptor.Tasks).WorkerGroup);
+        Assert.Equal(5, descriptor.Features.Count);
+        Assert.Equal("catalog.items.read", Assert.Single(descriptor.GetPermissions()).Code);
+        Assert.Equal("item-created", Assert.Single(descriptor.GetPublishedEvents()).EventType);
+        Assert.Equal("item-created-projection", Assert.Single(descriptor.GetSubscriptions()).HandlerName);
+        Assert.Equal("items", Assert.Single(descriptor.GetCacheEntries()).Name);
+        Assert.Equal(CacheScope.Tenant, Assert.Single(descriptor.GetCacheEntries()).Scope);
+        Assert.Equal(["products"], Assert.Single(descriptor.GetCacheEntries()).Tags);
+        Assert.Equal("rebuild-search", Assert.Single(descriptor.GetTasks()).Name);
+        Assert.Equal("search-workers", Assert.Single(descriptor.GetTasks()).WorkerGroup);
+    }
+
+    [Fact]
+    public void Module_descriptor_capability_metadata_can_be_authored_incrementally()
+    {
+        ModuleDescriptor descriptor = ModuleDescriptor
+            .Create("catalog")
+            .WithPermission(new ModulePermissionDescriptor("catalog.items.read", "Read catalog items.", tenantScoped: true))
+            .WithPermissions([
+                new ModulePermissionDescriptor("catalog.items.create", "Create catalog items.", tenantScoped: true)
+            ])
+            .WithPublishedEvent(new ModuleIntegrationEventDescriptor("item-created", "gma.catalog.item-created.v1", 1, tenantScoped: true))
+            .WithPublishedEvents([
+                new ModuleIntegrationEventDescriptor("item-updated", "gma.catalog.item-updated.v1", 1, tenantScoped: true)
+            ])
+            .WithSubscription(new ModuleSubscriptionDescriptor(
+                "catalog",
+                "item-created",
+                "gma.catalog.item-created.v1",
+                "item-created-projection",
+                tenantScoped: true))
+            .WithSubscriptions([
+                new ModuleSubscriptionDescriptor(
+                    "catalog",
+                    "item-updated",
+                    "gma.catalog.item-updated.v1",
+                    "item-updated-projection",
+                    tenantScoped: true)
+            ])
+            .WithCacheEntry(new ModuleCacheDescriptor("item", CacheScope.Tenant, ["catalog.items"]))
+            .WithCacheEntries([
+                new ModuleCacheDescriptor("items", CacheScope.Tenant, ["catalog.items"])
+            ])
+            .WithTask(new ModuleTaskDescriptor(
+                "rebuild-item",
+                "Rebuild one catalog item projection.",
+                ModuleTaskKind.OneShot,
+                tenantScoped: true,
+                supportsControlMessages: false,
+                "catalog-workers"))
+            .WithTasks([
+                new ModuleTaskDescriptor(
+                    "rebuild-items",
+                    "Rebuild catalog item projections.",
+                    ModuleTaskKind.OneShot,
+                    tenantScoped: true,
+                    supportsControlMessages: true,
+                    "catalog-workers")
+            ])
+            .Build();
+
+        Assert.Equal(5, descriptor.Features.Count);
+        Assert.Equal(["catalog.items.read", "catalog.items.create"], descriptor.GetPermissions().Select(permission => permission.Code));
+        Assert.Equal(["item-created", "item-updated"], descriptor.GetPublishedEvents().Select(item => item.EventType));
+        Assert.Equal(["item-created-projection", "item-updated-projection"], descriptor.GetSubscriptions().Select(item => item.HandlerName));
+        Assert.Equal(["item", "items"], descriptor.GetCacheEntries().Select(item => item.Name));
+        Assert.Equal(["rebuild-item", "rebuild-items"], descriptor.GetTasks().Select(item => item.Name));
+    }
+
+    [Fact]
+    public void Built_in_capability_feature_descriptors_reject_empty_lists()
+    {
+        Assert.Throws<ArgumentException>(() => new ModulePermissionsDescriptor([]));
+        Assert.Throws<ArgumentException>(() => new ModulePublishedEventsDescriptor([]));
+        Assert.Throws<ArgumentException>(() => new ModuleSubscriptionsDescriptor([]));
+        Assert.Throws<ArgumentException>(() => new ModuleCacheEntriesDescriptor([]));
+        Assert.Throws<ArgumentException>(() => new ModuleTasksDescriptor([]));
+    }
+
+    [Fact]
+    public void Module_descriptor_bulk_capability_helpers_reject_empty_lists()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor.Create("catalog");
+
+        Assert.Throws<ArgumentException>(() => builder.WithPermissions([]));
+        Assert.Throws<ArgumentException>(() => builder.WithPublishedEvents([]));
+        Assert.Throws<ArgumentException>(() => builder.WithSubscriptions([]));
+        Assert.Throws<ArgumentException>(() => builder.WithCacheEntries([]));
+        Assert.Throws<ArgumentException>(() => builder.WithTasks([]));
+    }
+
+    [Fact]
+    public void Module_descriptor_supports_custom_polymorphic_features()
+    {
+        ModuleDescriptor descriptor = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("custom value"))
+            .Build();
+
+        TestFeature feature = Assert.IsType<TestFeature>(Assert.Single(descriptor.Features));
+        Assert.Same(feature, descriptor.GetFeature<TestFeature>());
+        Assert.Same(feature, Assert.Single(descriptor.GetFeatures<TestFeature>()));
+        Assert.Equal("custom value", feature.Value);
+    }
+
+    [Fact]
+    public void Module_descriptor_build_copies_builder_state()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("initial value"));
+
+        ModuleDescriptor descriptor = builder.Build();
+
+        builder.WithFeature(new OtherFeature());
+
+        TestFeature feature = Assert.IsType<TestFeature>(Assert.Single(descriptor.Features));
+        Assert.Equal("initial value", feature.Value);
+        Assert.DoesNotContain(descriptor.Features, item => item is OtherFeature);
+    }
+
+    [Fact]
+    public void Module_descriptor_rejects_null_custom_feature()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor.Create("catalog");
+
+        Assert.Throws<ArgumentNullException>(() => builder.WithFeature(null!));
+    }
+
+    [Fact]
+    public void Module_descriptor_rejects_null_custom_feature_merge()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor.Create("catalog");
+
+        Assert.Throws<ArgumentNullException>(() => builder.WithFeature(new TestFeature("value"), null!));
+    }
+
+    [Fact]
+    public void Module_descriptor_typed_merge_rejects_feature_key_changes()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new VariableKeyFeature("test.one"), static (existing, incoming) => incoming);
+
+        Assert.Throws<InvalidOperationException>(() => builder.WithFeature(
+            new VariableKeyFeature("test.one"),
+            static (_, _) => new VariableKeyFeature("test.two")));
+    }
+
+    [Fact]
+    public void Module_descriptor_typed_merge_rejects_same_key_different_feature_type()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("value"));
+
+        Assert.Throws<InvalidOperationException>(() => builder.WithFeature(
+            new KeyCollisionFeature(),
+            static (_, incoming) => incoming));
+    }
+
+    [Fact]
+    public void Module_descriptor_typed_merge_rejects_base_typed_same_key_different_feature_type()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("value"));
+
+        Assert.Throws<InvalidOperationException>(() => builder.WithFeature<ModuleDescriptorFeature>(
+            new KeyCollisionFeature(),
+            static (_, incoming) => incoming));
+    }
+
+    [Fact]
+    public void Module_descriptor_typed_merge_rejects_base_typed_result_type_changes()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("value"));
+
+        Assert.Throws<InvalidOperationException>(() => builder.WithFeature<ModuleDescriptorFeature>(
+            new TestFeature("incoming"),
+            static (_, _) => new KeyCollisionFeature()));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("-catalog")]
+    [InlineData("catalog_legacy")]
+    public void Module_descriptor_create_rejects_invalid_module_name(string? name)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => ModuleDescriptor.Create(name!));
+    }
+
+    [Fact]
+    public void Module_descriptor_empty_uses_builder_normalization()
+    {
+        ModuleDescriptor descriptor = ModuleDescriptor.Empty(" Catalog ", " Catalog ", " Catalog-Admin ");
+
+        Assert.Equal("catalog", descriptor.Name);
+        Assert.Equal("catalog", descriptor.Schema);
+        Assert.Equal("catalog-admin", descriptor.AdminSurfaceName);
+        Assert.Empty(descriptor.Features);
+    }
+
+    [Fact]
+    public void Module_descriptor_get_feature_requires_unique_matching_type()
+    {
+        ModuleDescriptor descriptor = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new VariableKeyFeature("feature.one"))
+            .WithFeature(new VariableKeyFeature("feature.two"))
+            .Build();
+
+        Assert.Equal(2, descriptor.GetFeatures<VariableKeyFeature>().Count);
+        Assert.Throws<InvalidOperationException>(() => descriptor.GetFeature<VariableKeyFeature>());
+    }
+
+    [Theory]
+    [InlineData("feature")]
+    [InlineData("feature.")]
+    [InlineData(".feature")]
+    [InlineData("feature..one")]
+    public void Module_descriptor_feature_keys_must_be_namespaced(string key)
+    {
+        Assert.Throws<ArgumentException>(() => new VariableKeyFeature(key));
+    }
+
+    [Fact]
+    public void Module_descriptor_runs_custom_feature_validation()
+    {
+        Assert.Throws<InvalidOperationException>(() => ModuleDescriptor
+            .Create("auth")
+            .WithFeature(new CatalogOnlyFeature())
+            .Build());
+    }
+
+    [Fact]
+    public void Module_descriptor_rejects_duplicate_features()
+    {
+        Assert.Throws<ArgumentException>(() => ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("one"))
+            .WithFeature(new TestFeature("two")));
+    }
+
+    [Fact]
+    public void Module_descriptor_raw_feature_authoring_rejects_duplicate_keys_immediately()
+    {
+        ModuleDescriptorBuilder builder = ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("one"));
+
+        Assert.Throws<ArgumentException>(() => builder.WithFeature(new KeyCollisionFeature()));
+
+        ModuleDescriptor descriptor = builder.Build();
+        TestFeature feature = Assert.IsType<TestFeature>(Assert.Single(descriptor.Features));
+        Assert.Equal("one", feature.Value);
+    }
+
+    [Fact]
+    public void Module_descriptor_rejects_duplicate_feature_keys_before_feature_validation()
+    {
+        Assert.Throws<ArgumentException>(() => ModuleDescriptor
+            .Create("catalog")
+            .WithFeature(new TestFeature("one"))
+            .WithFeature(new ThrowingKeyCollisionFeature()));
     }
 
     [Fact]
     public void Module_descriptor_rejects_duplicate_public_metadata()
     {
-        Assert.Throws<ArgumentException>(() => new ModuleDescriptor(
-            "catalog",
-            "catalog",
-            [
-                new ModulePermissionDescriptor("catalog.items.read", "Read catalog items.", tenantScoped: true),
-                new ModulePermissionDescriptor("Catalog.Items.Read", "Read catalog items.", tenantScoped: true)
-            ],
-            [],
-            [],
-            []));
+        Assert.Throws<ArgumentException>(() => ModuleDescriptor
+            .Create("catalog")
+            .WithSchema("catalog")
+            .WithPermission(new ModulePermissionDescriptor("catalog.items.read", "Read catalog items.", tenantScoped: true))
+            .WithPermission(new ModulePermissionDescriptor("Catalog.Items.Read", "Read catalog items.", tenantScoped: true)));
     }
 
     [Fact]
     public void Module_descriptor_rejects_duplicate_task_metadata()
     {
-        Assert.Throws<ArgumentException>(() => new ModuleDescriptor(
-            "catalog",
-            "catalog",
-            [],
-            [],
-            [],
-            [],
-            tasks:
-            [
-                new ModuleTaskDescriptor("rebuild-search", "Rebuild search index.", ModuleTaskKind.OneShot, tenantScoped: true, supportsControlMessages: true),
-                new ModuleTaskDescriptor("Rebuild-Search", "Rebuild search index.", ModuleTaskKind.Daemon, tenantScoped: true, supportsControlMessages: true)
-            ]));
+        Assert.Throws<ArgumentException>(() => ModuleDescriptor
+            .Create("catalog")
+            .WithSchema("catalog")
+            .WithTask(new ModuleTaskDescriptor("rebuild-search", "Rebuild search index.", ModuleTaskKind.OneShot, tenantScoped: true, supportsControlMessages: true))
+            .WithTask(new ModuleTaskDescriptor("Rebuild-Search", "Rebuild search index.", ModuleTaskKind.Daemon, tenantScoped: true, supportsControlMessages: true)));
     }
 
     [Fact]
     public void Module_descriptor_rejects_published_event_subject_for_another_module()
     {
-        Assert.Throws<ArgumentException>(() => new ModuleDescriptor(
-            "catalog",
-            "catalog",
-            [],
-            [new ModuleIntegrationEventDescriptor("item-created", "gma.auth.item-created.v1", 1, tenantScoped: true)],
-            [],
-            []));
+        Assert.Throws<ArgumentException>(() => ModuleDescriptor
+            .Create("catalog")
+            .WithSchema("catalog")
+            .WithPublishedEvents([
+                new ModuleIntegrationEventDescriptor("item-created", "gma.auth.item-created.v1", 1, tenantScoped: true)
+            ])
+            .Build());
     }
 
     [Fact]
@@ -145,12 +471,27 @@ public sealed class ModuleDescriptorTests
     }
 
     [Fact]
-    public void Module_cache_metadata_rejects_scope_and_tenant_mismatch()
+    public void Module_cache_metadata_derives_tenant_scope_from_scope()
+    {
+        ModuleCacheDescriptor tenantScoped = new(
+            "items",
+            CacheScope.Tenant,
+            ["items"]);
+        ModuleCacheDescriptor global = new(
+            "items",
+            CacheScope.Global,
+            ["items"]);
+
+        Assert.True(tenantScoped.TenantScoped);
+        Assert.False(global.TenantScoped);
+    }
+
+    [Fact]
+    public void Module_cache_metadata_rejects_unknown_scope()
     {
         Assert.Throws<ArgumentException>(() => new ModuleCacheDescriptor(
             "items",
-            "tenant",
-            tenantScoped: false,
+            CacheScope.Unknown,
             ["items"]));
     }
 
@@ -174,5 +515,71 @@ public sealed class ModuleDescriptorTests
         Assert.Throws<ArgumentException>(() =>
             new ModulePermissionDescriptor(code, "Read catalog items.", tenantScoped: true));
     }
-}
 
+    private sealed record TestFeature : ModuleDescriptorFeature
+    {
+        public TestFeature(string value)
+            : base("test.feature")
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(value);
+            this.Value = value;
+        }
+
+        public string Value { get; }
+    }
+
+    private sealed record CatalogOnlyFeature : ModuleDescriptorFeature
+    {
+        public CatalogOnlyFeature()
+            : base("test.catalog-only")
+        {
+        }
+
+        public override void Validate(ModuleDescriptorFeatureContext context)
+        {
+            base.Validate(context);
+            if (!string.Equals(context.ModuleName, "catalog", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("This test feature can only be used by the catalog module.");
+            }
+        }
+    }
+
+    private sealed record OtherFeature : ModuleDescriptorFeature
+    {
+        public OtherFeature()
+            : base("test.other")
+        {
+        }
+    }
+
+    private sealed record KeyCollisionFeature : ModuleDescriptorFeature
+    {
+        public KeyCollisionFeature()
+            : base("test.feature")
+        {
+        }
+    }
+
+    private sealed record ThrowingKeyCollisionFeature : ModuleDescriptorFeature
+    {
+        public ThrowingKeyCollisionFeature()
+            : base("test.feature")
+        {
+        }
+
+        public override void Validate(ModuleDescriptorFeatureContext context)
+        {
+            base.Validate(context);
+            throw new InvalidOperationException("Feature validation should not run after a duplicate key is found.");
+        }
+    }
+
+    private sealed record VariableKeyFeature : ModuleDescriptorFeature
+    {
+        public VariableKeyFeature(string key)
+            : base(key)
+        {
+        }
+    }
+}

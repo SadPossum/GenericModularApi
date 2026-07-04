@@ -1,7 +1,7 @@
 namespace Administration.Persistence.Entities;
 
+using Shared.Naming;
 using Shared.Administration;
-using Shared.Domain;
 
 public sealed class AdminPrincipalRole
 {

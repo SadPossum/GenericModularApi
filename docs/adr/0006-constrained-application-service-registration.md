@@ -20,7 +20,7 @@ The project still avoids implicit module discovery. Host composition must remain
 
 ## Decision
 
-Add a small `Shared.Application` helper:
+Add a small `Shared.Application.Composition` helper:
 
 ```csharp
 services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);

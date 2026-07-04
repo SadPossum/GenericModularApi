@@ -3,10 +3,12 @@ namespace Shared.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Shared.Application.Messaging;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging;
+using Shared.Messaging.Nats;
+using Shared.Messaging.Infrastructure;
 using Shared.Messaging.Nats.Aspire;
 using Xunit;
+using NatsAspireDependencyInjection = Shared.Messaging.Nats.Aspire.DependencyInjection;
 
 [Trait("Category", "Unit")]
 public sealed class NatsAspireAdapterTests
@@ -14,7 +16,7 @@ public sealed class NatsAspireAdapterTests
     [Fact]
     public void Configured_nats_adapter_rejects_null_builder()
     {
-        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddConfiguredNatsJetStreamMessaging(null!));
+        Assert.Throws<ArgumentNullException>(() => NatsAspireDependencyInjection.AddConfiguredNatsJetStreamMessaging(null!));
     }
 
     [Fact]
@@ -63,7 +65,6 @@ public sealed class NatsAspireAdapterTests
     public void Configured_nats_adapter_registers_event_bus_and_publisher_when_enabled()
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
-        Shared.Infrastructure.DependencyInjection.AddSharedInfrastructure(builder);
         builder.Configuration["NatsJetStream:Enabled"] = "true";
         builder.Configuration["NatsJetStream:StreamName"] = "GMA_EVENTS";
         builder.Configuration["ConnectionStrings:nats"] = "nats://localhost:4222";

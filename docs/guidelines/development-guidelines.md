@@ -1,4 +1,4 @@
-# Development Guidelines
+﻿# Development Guidelines
 
 ## Core Rule
 
@@ -27,9 +27,40 @@ Prefer explicit, boring code over framework cleverness.
 | Generic admin contracts | `Shared.Administration` |
 | HTTP admin adapter | `Shared.Administration.Api` |
 | CLI admin adapter | `Shared.Administration.Cli` |
-| Shared abstractions | `Shared.Application` or `Shared.Domain` |
-| Shared implementations | `Shared.Infrastructure` |
+| Shared module metadata | `Shared.Modules` |
+| Shared permission metadata | `Shared.Authorization` |
+| Shared naming primitives | `Shared.Naming` |
+| Shared numeric primitives | `Shared.Numerics` |
+| Shared result/error primitives | `Shared.Results` |
+| Shared observability names | `Shared.Observability` |
+| Shared clock/id abstractions | `Shared.Runtime` |
+| Shared claim/security constants | `Shared.Security` |
+| Shared cache contracts | `Shared.Caching` |
+| Shared messaging contracts | `Shared.Messaging` |
+| Shared task contracts | `Shared.Tasks` |
+| Shared task-to-CQRS bridge | `Shared.Tasks.Cqrs` |
+| Shared CQRS contracts | `Shared.Cqrs` |
+| Shared tenancy contracts | `Shared.Tenancy` |
+| Shared application assembly registration | `Shared.Application.Composition` |
+| Shared domain-event application contracts | `Shared.Application.Events` |
+| Shared domain-event dispatcher runtime | `Shared.Application.Events.Infrastructure` |
+| Shared paging request helpers | `Shared.Pagination` |
+| Shared domain abstractions | `Shared.Domain` |
+| Shared host-level runtime facade | `Shared.Infrastructure` |
+| Shared CQRS runtime | `Shared.Cqrs.Infrastructure` |
+| Shared clock/id runtime | `Shared.Runtime.Infrastructure` |
+| Shared cache runtime | `Shared.Caching.Infrastructure` |
+| Shared messaging runtime | `Shared.Messaging.Infrastructure` |
+| Shared NATS messaging transport | `Shared.Messaging.Nats` |
+| Shared task runtime | `Shared.Tasks.Infrastructure` |
+| Shared EF persistence helpers | `Shared.Persistence.EntityFrameworkCore` |
+| Shared default tenancy runtime | `Shared.Tenancy.Infrastructure` |
+| Shared CQRS metric implementations and bounded tag helpers | `Shared.Observability.Infrastructure` |
 | HTTP helpers | `Shared.Api` |
+| OpenAPI/Swagger helpers | `Shared.Api.OpenApi` |
+| HTTP request logging enrichment | `Shared.Api.Serilog` |
+| Host Serilog configuration | `Shared.Logging.Serilog` |
+| Aspire NATS client composition | `Shared.Messaging.Nats.Aspire` |
 | Tests for boundaries | `Architecture.Tests` |
 | Module metrics class | Owning module Application or Infrastructure project |
 | Exporter configuration | `ServiceDefaults` |
@@ -109,7 +140,7 @@ Guidelines:
 
 ## Request Boundaries
 
-Normalize request-bound paging inputs with `Shared.Application.Queries.PageRequest` before calling repositories or cache-key builders. Repository read ports should accept `PageRequest` rather than raw `page` / `pageSize` integers, and EF queries should use `PageRequest.SkipCount` plus `PageRequest.PageSize`.
+Normalize request-bound paging inputs with `Shared.Pagination.PageRequest` before calling repositories or cache-key builders. Repository read ports should accept `PageRequest` rather than raw `page` / `pageSize` integers, and EF queries should use `PageRequest.SkipCount` plus `PageRequest.PageSize`.
 
 Do not copy local `Math.Max`/`Math.Clamp` paging rules into handlers. Shared defaults and maximums keep API, admin API, CLI, cache keys, and EF `Skip` arithmetic aligned. `PageRequest` normalizes through `Normalize(...)`, its public constructor, and its default struct instance.
 
@@ -194,9 +225,9 @@ Do not inject a bare `IOutboxWriter` into application code. Multiple modules can
 
 Rules:
 
-- declare owned task and daemon metadata through `ModuleTaskDescriptor`;
+- declare owned task and daemon metadata through `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` and `ModuleTaskDescriptor`;
 - keep task payloads in the owning module application layer;
-- register task handlers explicitly through `AddTaskHandler<TPayload,THandler>()` from the owning module application registration;
+- register task handlers explicitly through `AddTaskHandler<TPayload,THandler>()` from the owning module application registration, matching descriptor kind, tenant scope, payload version, worker group, and control-message support;
 - keep payload code independent from scheduler packages, HTTP, CLI, and other module internals;
 - use `TaskExecutionContext` for run identity, tenant, node, worker id, worker group, attempt, correlation, and cancellation intent;
 - use explicit task payload versions when changing payload shape; keep old handlers registered until old queued work is drained;
@@ -205,7 +236,7 @@ Rules:
 - expose or accept task run statuses through `TaskRunStatusNames` wire names such as `retry-scheduled`; keep enum names as compatibility input only;
 - report heartbeat and progress through `ITaskRuntimeReporter`;
 - read system-to-runner control messages through `ITaskControlLoop` or `TaskControlLoopExtensions`;
-- dispatch normal application commands from payload code through `ITaskCommandDispatcher` or CQRS contracts;
+- dispatch normal application commands from payload code through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs` or CQRS contracts;
 - keep runtime stores behind `ITaskRunStore` and use `TaskRunStatusTransitions` for claim, retry, cancellation, and terminal-state rules;
 - persist requester metadata from `TaskRunRequest.RequestedBy` when the runtime owns a durable store;
 - compose `AddTaskRuntimePersistence()` and `AddTaskWorkerRuntime()` only in hosts that should run tasks;

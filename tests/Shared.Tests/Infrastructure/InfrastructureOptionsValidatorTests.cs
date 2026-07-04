@@ -1,18 +1,19 @@
 namespace Shared.Tests;
 
+using Shared.Naming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Shared.Administration;
-using Shared.Application.Caching;
-using Shared.Application.Messaging;
-using Shared.Application.Tenancy;
+using Shared.Caching;
+using Shared.Messaging;
+using Shared.Messaging.Nats;
+using Shared.Tenancy;
 using Shared.Caching.Redis;
-using Shared.Domain;
-using Shared.Infrastructure.Caching;
-using Shared.Infrastructure.Messaging;
-using Shared.Infrastructure.Persistence;
-using Shared.Infrastructure.Tenancy;
+using Shared.Caching.Infrastructure;
+using Shared.Messaging.Infrastructure;
+using Shared.Persistence.EntityFrameworkCore;
+using Shared.Tenancy.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

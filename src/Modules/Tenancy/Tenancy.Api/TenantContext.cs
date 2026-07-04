@@ -1,8 +1,8 @@
 namespace Tenancy.Api;
 
+using Shared.Naming;
 using Microsoft.Extensions.Options;
-using Shared.Application.Tenancy;
-using Shared.Domain;
+using Shared.Tenancy;
 
 internal sealed class TenantContext(IOptions<TenantOptions> options) : ITenantContextAccessor
 {

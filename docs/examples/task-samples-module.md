@@ -4,7 +4,7 @@
 
 ## Projects
 
-- `TaskSamples.Contracts` owns module metadata and declares `generate-report` v1/v2, `flaky-report`, and `slow-report` through `ModuleTaskDescriptor`.
+- `TaskSamples.Contracts` owns module metadata and declares `generate-report` v1/v2, `flaky-report`, and `slow-report` through `ModuleDescriptor.Create(...).WithTask(...).Build()` and `ModuleTaskDescriptor`.
 - `TaskSamples.Application` owns payloads, handlers, a schedule provider, command, command handler, and output port.
 
 The module is intentionally not registered in `Host.Api`, `Host.AdminCli`, or `Host.AdminApi`.
@@ -15,13 +15,13 @@ The module is intentionally not registered in `Host.Api`, `Host.AdminCli`, or `H
 2. Code enqueues a `TaskRunRequest` for module `task-samples`, task `generate-report`, worker group `samples`, and payload version `1` or `2`.
 3. The worker claims the run from the `tasks.task_runs` table.
 4. The runtime deserializes `GenerateReportTaskPayload`.
-5. `GenerateReportTaskHandler` dispatches `RecordTaskSampleReportCommand` through `ITaskCommandDispatcher`.
+5. `GenerateReportTaskHandler` dispatches `RecordTaskSampleReportCommand` through `ITaskCommandDispatcher` from `Shared.Tasks.Cqrs`.
 6. The command handler writes to `ITaskSampleReportSink`.
 7. The runtime marks the run succeeded after handler completion.
 
 ## Rules Demonstrated
 
-- Task metadata and task-handler registration must match.
+- Task metadata and task-handler registration must match, including task kind, tenant scope, payload version, worker group, and control-message support.
 - Task payloads live in the owning module application layer.
 - Task payload versions are explicit: v1 and v2 handlers share the same logical task name but use different `payloadVersion` metadata.
 - `FlakyReportTaskHandler` demonstrates retry behavior by failing until a configured attempt.

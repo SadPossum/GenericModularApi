@@ -5,7 +5,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shared.Administration\Shared.Administration.csproj" />
-    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />
+    <ProjectReference Include="..\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
   </ItemGroup>
 </Project>

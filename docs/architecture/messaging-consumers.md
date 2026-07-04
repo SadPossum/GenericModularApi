@@ -1,11 +1,11 @@
 # Messaging Consumers
 
 NATS consumers are optional infrastructure. Production HTTP hosts enable publishing through the configured `Shared.Messaging.Nats.Aspire` adapter with `AddConfiguredNatsJetStreamMessaging()`. Consumers start only when a host also calls `AddNatsJetStreamConsumers()` and explicitly composes modules that register subscriptions.
-`AddNatsJetStreamConsumers()` composes `AddSharedInfrastructure()` idempotently for custom hosts, but it does not discover modules or subscriptions. A host still has to register each subscribing module explicitly.
+`AddNatsJetStreamConsumers()` lives in `Shared.Messaging.Nats`, composes `AddMessagingInfrastructure()` idempotently for custom hosts, and messaging infrastructure composes only the runtime clock/id baseline it needs. It does not discover modules or subscriptions. A host still has to register each subscribing module explicitly.
 
 ## Contracts
 
-Consumer-facing contracts live in `Shared.Application.Messaging`:
+Consumer-facing contracts live in `Shared.Messaging`:
 
 - `IIntegrationEventHandler<TEvent>`
 - `IntegrationEventSubscription`
@@ -19,7 +19,7 @@ Create `InboxProcessResult` values through its factories. `Processed` and `Dupli
 
 ## Runtime
 
-`NatsJetStreamConsumerService` lives in `Shared.Infrastructure.Messaging`.
+`NatsJetStreamConsumerService` lives in `Shared.Messaging.Nats`.
 
 The service:
 

@@ -1,13 +1,13 @@
 namespace Shared.Tests;
 
+using Shared.Naming;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Shared.Administration;
-using Shared.Application.Identity;
-using Shared.Application.Tenancy;
-using Shared.Application.Time;
-using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Runtime.Identity;
+using Shared.Tenancy;
+using Shared.Runtime.Time;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]

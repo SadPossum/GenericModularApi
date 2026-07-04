@@ -1,6 +1,6 @@
 namespace Shared.Tests;
 
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

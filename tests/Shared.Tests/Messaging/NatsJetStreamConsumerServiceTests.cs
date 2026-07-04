@@ -7,10 +7,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Shared.Application.Messaging;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Messaging;
-using Shared.Infrastructure.Observability;
+using Shared.Messaging;
+using Shared.Messaging.Nats;
+using Shared.Messaging.Infrastructure;
+using Shared.Observability.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -22,7 +22,6 @@ public sealed class NatsJetStreamConsumerServiceTests
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
         builder.Configuration["NatsConsumers:Enabled"] = "false";
-        builder.AddSharedInfrastructure();
         builder.AddNatsJetStreamConsumers();
 
         using IHost host = builder.Build();

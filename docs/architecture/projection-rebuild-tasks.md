@@ -76,7 +76,7 @@ The owning module must still define the data semantics:
 
 ### Task Declaration
 
-Each rebuild task must be declared in module metadata with `ModuleTaskDescriptor`.
+Each rebuild task must be declared in module metadata with `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` and `ModuleTaskDescriptor`.
 
 The descriptor must state:
 
@@ -97,14 +97,16 @@ services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemP
     OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName,
     OrderingModuleMetadata.ProjectionWorkerGroup,
     tenantScoped: true,
-    payloadVersion: 1);
+    payloadVersion: 1,
+    kind: ModuleTaskKind.OneShot,
+    supportsControlMessages: true);
 ```
 
 A future constrained helper is acceptable only if it satisfies all of these conditions:
 
 - it scans one explicitly supplied module application assembly;
 - it registers only `ITaskHandler<TPayload>` implementations;
-- it verifies task name, worker group, tenant scope, and payload version against `ModuleTaskDescriptor`;
+- it verifies task name, worker group, kind, tenant scope, payload version, and control-message support against `ModuleTaskDescriptor`;
 - architecture tests fail on metadata or registration drift;
 - hosts still explicitly compose the module and task worker runtime.
 

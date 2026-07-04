@@ -109,12 +109,15 @@ It explicitly composes admin modules:
 
 ```csharp
 builder.AddSharedAdministrationCli();
+builder.AddRedisCaching(); // no-op unless Redis caching is enabled
+builder.AddCachingInfrastructure();
 builder.AddSharedInfrastructure();
+builder.AddMessagingInfrastructure(); // outbox writer registry without hosted publishers
 builder.AddAdminModule<AdministrationAdminCliModule>();
 builder.AddAdminModule<AuthAdminCliModule>();
 ```
 
-It does not map HTTP endpoints and does not start long-running publishers. Admin operations are short-lived command executions.
+It does not map HTTP endpoints and does not start long-running publishers or consumers. Admin operations are short-lived command executions.
 
 `Host.AdminApi` is a separate optional web host. It maps admin HTTP endpoints, requires authentication, and composes only the admin API modules the project wants.
 

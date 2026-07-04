@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\Shared.Observability\Shared.Observability.csproj" />
+  </ItemGroup>
+</Project>

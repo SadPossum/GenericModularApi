@@ -1,10 +1,9 @@
 namespace TaskRuntime.Application.Handlers;
 
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Tasks;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Tasks;
+using Shared.Runtime.Time;
+using Shared.Results;
 using TaskRuntime.Application.Commands;
 
 internal sealed class RetryTaskRunCommandHandler(

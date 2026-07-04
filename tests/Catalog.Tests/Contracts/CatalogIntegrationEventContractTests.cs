@@ -1,9 +1,9 @@
 namespace Catalog.Tests;
 
+using Shared.Naming;
 using System.Text.Json;
 using Catalog.Contracts;
 using Catalog.Domain.Aggregates;
-using Shared.Domain;
 using Xunit;
 
 [Trait("Category", "Unit")]

@@ -13,5 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Application\Administration.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Persistence\Administration.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Administration\Shared.Administration.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Naming\Shared.Naming.csproj" />
   </ItemGroup>
 </Project>

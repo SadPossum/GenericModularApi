@@ -1,6 +1,6 @@
 # CQRS and Domain Events
 
-The repo uses lightweight CQRS primitives instead of MediatR or another external dispatcher.
+The repo uses lightweight CQRS primitives from `Shared.Cqrs` instead of MediatR or another external dispatcher.
 
 ## Primitives
 
@@ -14,6 +14,8 @@ The repo uses lightweight CQRS primitives instead of MediatR or another external
 - `IQueryPipelineBehavior<TQuery, TResponse>`
 - `ICommandValidator<TCommand>`
 - `IQueryValidator<TQuery>`
+- `Unit`
+- `IUnitOfWork`
 
 ## Command Flow
 
@@ -70,7 +72,7 @@ The module unit of work:
 5. Clears domain events only after successful commit.
 
 This allows a domain event handler to write outbox records in the same database transaction as the aggregate change.
-EF-backed modules with domain events should inherit `EfDomainEventUnitOfWork<TDbContext>` from `Shared.Infrastructure.Persistence` and pass their module schema/name constant into the base constructor. Module-specific unit-of-work classes should stay thin; the shared base owns the dispatch/save/clear ordering.
+EF-backed modules with domain events should inherit `EfDomainEventUnitOfWork<TDbContext>` from `Shared.Persistence.EntityFrameworkCore` and pass their module schema/name constant into the base constructor. Module-specific unit-of-work classes should stay thin; the shared base owns the dispatch/save/clear ordering.
 
 ## Domain Event Handlers
 

@@ -7,10 +7,10 @@ using Auth.Domain.Errors;
 using Auth.Domain.Repositories;
 using Auth.Domain.Services;
 using Microsoft.Extensions.Options;
-using Shared.Application.Cqrs;
-using Shared.Application.Tenancy;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Tenancy;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class RefreshMemberSessionCommandHandler(
     IMemberRepository memberRepository,

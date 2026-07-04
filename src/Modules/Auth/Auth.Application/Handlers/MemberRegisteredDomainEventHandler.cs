@@ -3,7 +3,7 @@ namespace Auth.Application.Handlers;
 using Auth.Contracts;
 using Auth.Domain.Events;
 using Shared.Application.Events;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 internal sealed class MemberRegisteredOutboxProjector(IOutboxWriterRegistry outboxWriters)
     : IDomainEventHandler<MemberRegisteredDomainEvent>

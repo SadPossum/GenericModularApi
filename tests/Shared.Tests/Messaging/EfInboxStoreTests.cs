@@ -2,10 +2,10 @@ namespace Shared.Tests;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Shared.Application.Identity;
-using Shared.Application.Messaging;
-using Shared.Application.Time;
-using Shared.Infrastructure.Messaging;
+using Shared.Runtime.Identity;
+using Shared.Messaging;
+using Shared.Runtime.Time;
+using Shared.Messaging.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

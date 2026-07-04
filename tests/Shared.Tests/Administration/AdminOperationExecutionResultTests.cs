@@ -1,7 +1,7 @@
 namespace Shared.Tests;
 
 using Shared.Administration;
-using Shared.ErrorHandling;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]

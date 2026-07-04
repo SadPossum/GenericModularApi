@@ -69,7 +69,7 @@ Design-time factories live in provider-specific migration projects, not runtime 
 
 The pinned local `dotnet-ef` tool in `.config/dotnet-tools.json` uses the same version as `Microsoft.EntityFrameworkCore.Design`; update both together when EF Core is upgraded.
 
-`eng/add-migration.ps1` uses the selected migration project as both the EF target project and startup project. Factories should use `DesignTimeDbContextOptionsFactory.CreateSqlServerOptions(...)` or `CreatePostgreSqlOptions(...)` from `Shared.Infrastructure.Persistence` so default local connection strings and migration history configuration stay consistent.
+`eng/add-migration.ps1` uses the selected migration project as both the EF target project and startup project. Factories should use `DesignTimeDbContextOptionsFactory.CreateSqlServerOptions(...)` or `CreatePostgreSqlOptions(...)` from `Shared.Persistence.EntityFrameworkCore` so default local connection strings and migration history configuration stay consistent.
 
 `Microsoft.EntityFrameworkCore.Design` belongs only in provider migration projects.
 
@@ -109,6 +109,8 @@ V1 tenancy uses a shared database:
 - local development can use the `default` tenant.
 
 Tenancy configuration is validated at startup. `Tenancy:HeaderName` must be a valid HTTP header name and `Tenancy:LocalDefaultTenantId` must be non-empty, no longer than 128 characters, and free of whitespace or control characters, because the default/null tenant context also uses it when the optional Tenancy module is omitted.
+
+Tenant contracts live in `Shared.Tenancy` so API, persistence, caching, messaging, and task-runtime adapters can depend on tenant context without depending on the broader CQRS/application contract package.
 
 `ITenantContextAccessor` is mutable runtime state, not authoritative domain data. Host/front-door/runtime boundaries set it from the request, CLI operation, or integration-event envelope and clear it before applying a new tenant so reused scopes cannot inherit a stale tenant id. Domain entities and integration events still store their own normalized tenant ids.
 

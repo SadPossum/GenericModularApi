@@ -2,7 +2,7 @@ namespace Auth.Application.Validation;
 
 using Auth.Application.Commands;
 using Auth.Application.Security;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 internal sealed class ResetMemberPasswordCommandValidator : ICommandValidator<ResetMemberPasswordCommand>
 {

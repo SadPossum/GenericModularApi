@@ -10,9 +10,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using NATS.Client.Core;
-using Shared.Application.Messaging;
-using Shared.Application.Tenancy;
-using Shared.Infrastructure.Persistence;
+using Shared.Messaging;
+using Shared.Tenancy;
+using Shared.Persistence.EntityFrameworkCore;
 
 internal sealed class AuthTestApplication(
     string provider,
@@ -121,7 +121,7 @@ internal sealed class AuthTestApplication(
         AuthDbContext dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
         Guid id = Guid.NewGuid();
 
-        dbContext.OutboxMessages.Add(new Shared.Infrastructure.Messaging.OutboxMessage(
+        dbContext.OutboxMessages.Add(new Shared.Messaging.Infrastructure.OutboxMessage(
             id,
             "gma.auth.test.v1",
             "Integration.Tests.TestEvent",

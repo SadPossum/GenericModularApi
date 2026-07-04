@@ -2,7 +2,7 @@ namespace Auth.Persistence.SqlServerMigrations;
 
 using Auth.Persistence;
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 public sealed class AuthSqlServerDesignTimeDbContextFactory : IDesignTimeDbContextFactory<AuthDbContext>
 {

@@ -6,9 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Ordering.Persistence;
-using Shared.Application.Messaging;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging;
+using Shared.Messaging.Infrastructure;
+using Shared.Runtime.Infrastructure;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -162,7 +162,7 @@ public sealed class InboxStoreIntegrationTests
         builder.Configuration["Persistence:Provider"] = "PostgreSql";
         builder.Configuration["ConnectionStrings:PostgreSql"] = connectionString;
         builder.Configuration["Tenancy:Enabled"] = "false";
-        builder.AddSharedInfrastructure();
+        builder.AddRuntimeInfrastructure();
         builder.AddOrderingPersistence();
 
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

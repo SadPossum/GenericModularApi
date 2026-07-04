@@ -1,6 +1,6 @@
 namespace Auth.Contracts;
 
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 public sealed record MemberRegisteredIntegrationEvent : IntegrationEvent
 {

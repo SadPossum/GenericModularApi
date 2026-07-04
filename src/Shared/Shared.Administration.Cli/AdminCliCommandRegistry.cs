@@ -1,6 +1,6 @@
 namespace Shared.Administration.Cli;
 
-using Shared.Application.Messaging;
+using Shared.Naming;
 using System.CommandLine;
 
 public sealed class AdminCliCommandRegistry(
@@ -50,7 +50,7 @@ public sealed class AdminCliCommandRegistry(
 
     private static string NormalizeRootCommandName(Command command)
     {
-        string normalized = IntegrationEventNaming.NormalizeModuleName(command.Name, nameof(Command.Name));
+        string normalized = SharedModuleNames.Normalize(command.Name, nameof(Command.Name));
 
         if (!string.Equals(command.Name, normalized, StringComparison.Ordinal))
         {
@@ -64,7 +64,7 @@ public sealed class AdminCliCommandRegistry(
 
     private static string NormalizeOwnerName(string moduleName)
     {
-        string normalized = IntegrationEventNaming.NormalizeModuleName(moduleName, nameof(moduleName));
+        string normalized = SharedModuleNames.Normalize(moduleName, nameof(moduleName));
 
         if (!string.Equals(moduleName, normalized, StringComparison.Ordinal))
         {

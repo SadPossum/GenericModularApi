@@ -1,10 +1,12 @@
 namespace Catalog.Domain.Aggregates;
 
+using Shared.Naming;
 using Catalog.Domain.Errors;
 using Catalog.Domain.Events;
 using Shared.Domain;
 using Shared.Domain.Models;
-using Shared.ErrorHandling;
+using Shared.Numerics;
+using Shared.Results;
 
 public sealed class CatalogItem : AggregateRoot<Guid>, ITenantScoped
 {

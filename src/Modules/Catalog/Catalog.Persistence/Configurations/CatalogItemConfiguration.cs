@@ -1,9 +1,9 @@
 namespace Catalog.Persistence.Configurations;
 
+using Shared.Naming;
 using Catalog.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Domain;
 
 internal sealed class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogItem>
 {

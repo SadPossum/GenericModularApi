@@ -4,7 +4,6 @@ using Catalog.Application;
 using Catalog.Application.Commands;
 using Catalog.Application.Queries;
 using Catalog.Contracts;
-using Catalog.Domain.Errors;
 using Catalog.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -14,10 +13,9 @@ using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Queries;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Pagination;
+using Shared.Results;
 
 public sealed class CatalogModule : IModule
 {
@@ -95,10 +93,10 @@ public sealed class CatalogModule : IModule
     }
 
     private static readonly ApiErrorStatusCodeMap PublicErrorStatusCodes = ApiErrorStatusCodeMap.Create(
-        new(CatalogDomainErrors.ItemNotFound.Code, StatusCodes.Status404NotFound),
-        new(CatalogDomainErrors.SkuAlreadyExists.Code, StatusCodes.Status409Conflict),
-        new(CatalogDomainErrors.ItemStatusUnknown.Code, StatusCodes.Status409Conflict),
-        new(CatalogDomainErrors.ItemAlreadyDiscontinued.Code, StatusCodes.Status409Conflict));
+        new(CatalogApplicationErrors.ItemNotFound.Code, StatusCodes.Status404NotFound),
+        new(CatalogApplicationErrors.SkuAlreadyExists.Code, StatusCodes.Status409Conflict),
+        new(CatalogApplicationErrors.ItemStatusUnknown.Code, StatusCodes.Status409Conflict),
+        new(CatalogApplicationErrors.ItemAlreadyDiscontinued.Code, StatusCodes.Status409Conflict));
 
     public sealed record CatalogItemWriteRequest(string Sku, string Name, decimal Price, string Currency);
 }

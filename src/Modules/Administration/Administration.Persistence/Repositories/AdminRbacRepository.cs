@@ -1,12 +1,12 @@
 namespace Administration.Persistence.Repositories;
 
+using Shared.Naming;
 using Administration.Application;
 using Administration.Application.Ports;
 using Administration.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Shared.Administration;
-using Shared.Application.Identity;
-using Shared.Domain;
+using Shared.Runtime.Identity;
 
 internal sealed class AdminRbacRepository(AdminDbContext dbContext, IIdGenerator idGenerator) : IAdminRbacRepository
 {

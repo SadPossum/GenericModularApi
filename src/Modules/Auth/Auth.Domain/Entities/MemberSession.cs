@@ -1,10 +1,11 @@
 namespace Auth.Domain.Entities;
 
+using Shared.Naming;
 using Auth.Domain.Errors;
 using Auth.Domain.ValueObjects;
 using Shared.Domain;
 using Shared.Domain.Models;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public sealed class MemberSession : Entity<MemberSessionId>, ITenantScoped
 {

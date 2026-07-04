@@ -5,7 +5,7 @@ using Auth.Contracts;
 using Auth.Domain.Aggregates;
 using Auth.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
-using Shared.Application.Queries;
+using Shared.Pagination;
 
 internal sealed class AdminMemberReadRepository(AuthDbContext dbContext) : IAdminMemberReadRepository
 {

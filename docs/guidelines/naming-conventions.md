@@ -9,7 +9,7 @@ Namespace starts with the owning project name:
 ```text
 Auth.Application
 Auth.Domain.Aggregates
-Shared.Infrastructure.Messaging
+Shared.Messaging.Infrastructure
 Tenancy.Api
 ```
 
@@ -58,10 +58,40 @@ Shared.Api
 Shared.Administration
 Shared.Administration.Api
 Shared.Administration.Cli
-Shared.Application
+Shared.Application.Composition
+Shared.Application.Events
+Shared.Application.Events.Infrastructure
+Shared.Api.OpenApi
+Shared.Api.Serilog
+Shared.Authorization
+Shared.Caching
+Shared.Caching.Infrastructure
+Shared.Caching.Redis
+Shared.Cqrs
+Shared.Cqrs.Infrastructure
 Shared.Domain
-Shared.ErrorHandling
+Shared.Results
 Shared.Infrastructure
+Shared.Logging.Serilog
+Shared.Messaging
+Shared.Messaging.Infrastructure
+Shared.Messaging.Nats
+Shared.Messaging.Nats.Aspire
+Shared.Modules
+Shared.Naming
+Shared.Numerics
+Shared.Observability
+Shared.Observability.Infrastructure
+Shared.Pagination
+Shared.Persistence.EntityFrameworkCore
+Shared.Runtime
+Shared.Runtime.Infrastructure
+Shared.Security
+Shared.Tasks
+Shared.Tasks.Cqrs
+Shared.Tasks.Infrastructure
+Shared.Tenancy
+Shared.Tenancy.Infrastructure
 ```
 
 ## Folders

@@ -6,7 +6,6 @@ using Auth.Application.Commands;
 using Auth.Application.Queries;
 using Auth.Application.Security;
 using Auth.Contracts;
-using Auth.Domain.Errors;
 using Auth.Infrastructure;
 using Auth.Infrastructure.JwtBearer;
 using Auth.Persistence;
@@ -20,10 +19,9 @@ using Shared.Administration;
 using Shared.Administration.Api;
 using Shared.Api.Results;
 using Shared.Api.Observability;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Queries;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Pagination;
+using Shared.Results;
 
 public sealed class AuthAdminApiModule : IAdminApiModule
 {
@@ -255,11 +253,11 @@ public sealed class AuthAdminApiModule : IAdminApiModule
     public sealed record RevokeAdminMemberSessionsRequest(bool Confirmed);
 
     private static readonly ApiErrorStatusCodeMap AdminErrorStatusCodes = ApiErrorStatusCodeMap.Create(
-        new(AuthDomainErrors.MemberNotFound.Code, StatusCodes.Status404NotFound),
-        new(AuthDomainErrors.UsernameAlreadyExists.Code, StatusCodes.Status409Conflict),
-        new(AuthDomainErrors.MemberStatusUnknown.Code, StatusCodes.Status409Conflict),
-        new(AuthDomainErrors.MemberAlreadyDisabled.Code, StatusCodes.Status409Conflict),
-        new(AuthDomainErrors.MemberAlreadyActive.Code, StatusCodes.Status409Conflict));
+        new(AuthApplicationErrors.MemberNotFound.Code, StatusCodes.Status404NotFound),
+        new(AuthApplicationErrors.UsernameAlreadyExists.Code, StatusCodes.Status409Conflict),
+        new(AuthApplicationErrors.MemberStatusUnknown.Code, StatusCodes.Status409Conflict),
+        new(AuthApplicationErrors.MemberAlreadyDisabled.Code, StatusCodes.Status409Conflict),
+        new(AuthApplicationErrors.MemberAlreadyActive.Code, StatusCodes.Status409Conflict));
 
     private static class AdminApiErrors
     {

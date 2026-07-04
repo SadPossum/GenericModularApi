@@ -4,9 +4,9 @@ using Catalog.Application.Ports;
 using Catalog.Application.Queries;
 using Catalog.Contracts;
 using Catalog.Domain.Errors;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
+using Shared.Caching;
+using Shared.Cqrs;
+using Shared.Results;
 
 internal sealed class GetCatalogItemQueryHandler(
     ICatalogItemReadRepository repository,

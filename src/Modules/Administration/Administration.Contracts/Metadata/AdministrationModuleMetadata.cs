@@ -1,6 +1,7 @@
-﻿namespace Administration.Contracts;
+namespace Administration.Contracts;
 
-using Shared.Application.Modules;
+using Shared.Authorization;
+using Shared.Modules;
 
 public static class AdministrationModuleMetadata
 {
@@ -8,17 +9,14 @@ public static class AdministrationModuleMetadata
     public const string Schema = "admin";
     public const string AdminSurfaceName = "admin";
 
-    public static ModuleDescriptor Descriptor { get; } = new(
-        Name,
-        Schema,
-        [
+    public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
+        .Create(Name)
+        .WithSchema(Schema)
+        .WithAdminSurfaceName(AdminSurfaceName)
+        .WithPermissions([
             new ModulePermissionDescriptor(AdministrationPermissionCodes.Bootstrap, "Bootstrap the first administration owner.", tenantScoped: false),
             new ModulePermissionDescriptor(AdministrationPermissionCodes.RolesRead, "Read administration roles.", tenantScoped: false),
             new ModulePermissionDescriptor(AdministrationPermissionCodes.RolesManage, "Manage administration roles and assignments.", tenantScoped: false),
-        ],
-        [],
-        [],
-        [],
-        AdminSurfaceName);
+        ])
+        .Build();
 }
-

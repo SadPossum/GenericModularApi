@@ -3,7 +3,7 @@ namespace Ordering.Persistence.Repositories;
 using Catalog.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Ordering.Application.Ports;
-using Shared.Application.Identity;
+using Shared.Runtime.Identity;
 
 internal sealed class CatalogItemProjectionRepository(OrderingDbContext dbContext, IIdGenerator idGenerator) : ICatalogItemProjectionRepository
 {

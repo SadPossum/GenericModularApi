@@ -1,12 +1,13 @@
 namespace Auth.Domain.Entities;
 
+using Shared.Naming;
 using System.Text.RegularExpressions;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.ValueObjects;
 using Shared.Domain;
 using Shared.Domain.Models;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public sealed partial class MemberUsername : Entity<MemberUsernameId>, ITenantScoped
 {

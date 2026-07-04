@@ -86,7 +86,6 @@ else {
 }
 $metadataCacheLines = if ($Cache) {
     @(
-        "    public const string ModuleCacheName = `"$moduleName-module`";",
         "    public const string ModuleCacheTag = `"$moduleName.module`";",
         '    public const string ModuleCacheEntry = "module";'
     )
@@ -94,53 +93,55 @@ $metadataCacheLines = if ($Cache) {
 else {
     @()
 }
-$metadataPermissionDescriptors = if ($Admin -or $AdminApi) {
-    @(
-        "            new ModulePermissionDescriptor(${Name}AdminPermissionCodes.Manage, `"Manage $Name administration operations.`", tenantScoped: true),"
-    )
+$metadataPermissionDescriptor = if ($AdminCli -or $AdminApi) {
+    "new ModulePermissionDescriptor(${Name}AdminPermissionCodes.Manage, `"Manage $Name administration operations.`", tenantScoped: true)"
 }
 else {
-    @()
+    $null
 }
-$metadataPermissionsBlock = if ($metadataPermissionDescriptors.Count -gt 0) {
+$metadataPermissionsBlock = if ($metadataPermissionDescriptor) {
     @"
-        [
-$($metadataPermissionDescriptors -join "`r`n")
-        ],
+        .WithPermission($metadataPermissionDescriptor)
 "@
 }
 else {
-    "        [],"
+    ""
 }
 $metadataCacheDescriptorBlock = if ($Cache) {
     @"
-        [
-            new ModuleCacheDescriptor(ModuleCacheName, "tenant", tenantScoped: true, [ModuleCacheTag]),
-        ]
+        .WithCacheEntry(new ModuleCacheDescriptor(ModuleCacheEntry, CacheScope.Tenant, [ModuleCacheTag]))
 "@
 }
 else {
-    "        []"
+    ""
 }
-$metadataDescriptor = if ($Cache -or $Admin -or $AdminApi) {
-    @"
-new(
-        Name,
-        Schema,
-$metadataPermissionsBlock
-        [],
-        [],
-$metadataCacheDescriptorBlock)
+$metadataDescriptor = @"
+ModuleDescriptor
+        .Create(Name)
+        .WithSchema(Schema)
+$metadataPermissionsBlock$metadataCacheDescriptorBlock        .Build()
 "@
+$metadataUsings = @("using Shared.Modules;")
+if ($AdminCli -or $AdminApi) {
+    $metadataUsings = @("using Shared.Authorization;") + $metadataUsings
 }
-else {
-    'ModuleDescriptor.Empty(Name, Schema)'
+if ($Cache) {
+    $metadataUsings = @("using Shared.Caching;") + $metadataUsings
+}
+$contractsProjectReferences = @(
+    '    <ProjectReference Include="..\..\..\Shared\Shared.Modules\Shared.Modules.csproj" />'
+)
+if ($AdminCli -or $AdminApi) {
+    $contractsProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Authorization\Shared.Authorization.csproj" />'
+}
+if ($Cache) {
+    $contractsProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Caching\Shared.Caching.csproj" />'
 }
 
 Write-GmaFile $contractsProject @"
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+$($contractsProjectReferences -join "`r`n")
   </ItemGroup>
 </Project>
 "@
@@ -148,7 +149,7 @@ Write-GmaFile $contractsProject @"
 Write-GmaFile (Join-Path $moduleRoot "$Name.Contracts\Metadata\${Name}ModuleMetadata.cs") @"
 namespace $Name.Contracts;
 
-using Shared.Application.Modules;
+$($metadataUsings -join "`r`n")
 
 public static class ${Name}ModuleMetadata
 {
@@ -160,7 +161,7 @@ $($metadataCacheLines -join "`r`n")
 }
 "@
 
-if ($Admin -or $AdminApi) {
+if ($AdminCli -or $AdminApi) {
     Write-GmaFile (Join-Path $moduleRoot "$Name.Contracts\Metadata\${Name}AdminPermissionCodes.cs") @"
 namespace $Name.Contracts;
 
@@ -175,7 +176,7 @@ Write-GmaFile $domainProject @"
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\Shared.Domain\Shared.Domain.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
   </ItemGroup>
 </Project>
 "@
@@ -183,9 +184,19 @@ Write-GmaFile $domainProject @"
 $applicationReferences = @(
     "    <ProjectReference Include=`"..\$Name.Contracts\$Name.Contracts.csproj`" />",
     "    <ProjectReference Include=`"..\$Name.Domain\$Name.Domain.csproj`" />",
-    '    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />',
-    '    <ProjectReference Include="..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />'
+    '    <ProjectReference Include="..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj" />',
+    '    <ProjectReference Include="..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />',
+    '    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />'
 )
+$applicationUsings = @(
+    'using Microsoft.Extensions.DependencyInjection;',
+    'using Shared.Application.Composition;'
+)
+
+if ($Cache) {
+    $applicationReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Caching\Shared.Caching.csproj" />'
+    $applicationUsings += 'using Shared.Caching;'
+}
 
 Write-GmaFile $applicationProject @"
 <Project Sdk="Microsoft.NET.Sdk">
@@ -197,15 +208,6 @@ $($applicationReferences -join "`r`n")
   </ItemGroup>
 </Project>
 "@
-
-$applicationUsings = @(
-    'using Microsoft.Extensions.DependencyInjection;',
-    'using Shared.Application.Composition;'
-)
-
-if ($Cache) {
-    $applicationUsings += 'using Shared.Application.Caching;'
-}
 
 Write-GmaFile (Join-Path $moduleRoot "$Name.Application\DependencyInjection.cs") @"
 namespace $Name.Application;
@@ -228,10 +230,15 @@ if ($Cache) {
 namespace $Name.Application;
 
 using $Name.Contracts;
-using Shared.Application.Caching;
+using Shared.Caching;
 
 internal static class ${Name}Cache
 {
+    public static CacheKey ModuleKey(params string[] segments) => CacheKey.Tenant(
+        ${Name}ModuleMetadata.Name,
+        ${Name}ModuleMetadata.ModuleCacheEntry,
+        segments);
+
     public static CacheTag ModuleTag() => CacheTag.Tenant(
         ${Name}ModuleMetadata.Name,
         ${Name}ModuleMetadata.ModuleCacheTag);
@@ -310,7 +317,22 @@ if ($Persistence) {
 
     $dbContextUsings = @('using Microsoft.EntityFrameworkCore;')
     if ($Outbox -or $Inbox) {
-        $dbContextUsings += 'using Shared.Infrastructure.Messaging;'
+        $dbContextUsings += 'using Shared.Messaging.Infrastructure;'
+    }
+
+    $persistenceProjectReferences = @(
+        "    <ProjectReference Include=`"..\$Name.Contracts\$Name.Contracts.csproj`" />",
+        "    <ProjectReference Include=`"..\$Name.Application\$Name.Application.csproj`" />",
+        "    <ProjectReference Include=`"..\$Name.Domain\$Name.Domain.csproj`" />",
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj" />',
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Domain\Shared.Domain.csproj" />',
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />'
+    )
+    if ($Outbox -or $Inbox) {
+        $persistenceProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />'
+        $persistenceProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />'
+        $persistenceProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />'
+        $persistenceProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj" />'
     }
 
     Write-GmaFile $persistenceProject @"
@@ -321,12 +343,7 @@ if ($Persistence) {
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\$Name.Contracts\$Name.Contracts.csproj" />
-    <ProjectReference Include="..\$Name.Application\$Name.Application.csproj" />
-    <ProjectReference Include="..\$Name.Domain\$Name.Domain.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Domain\Shared.Domain.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
+$($persistenceProjectReferences -join "`r`n")
   </ItemGroup>
 </Project>
 "@
@@ -364,7 +381,7 @@ public static class ${Name}Migrations
 namespace $Name.Persistence;
 
 using Shared.Application.Events;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 internal sealed class ${Name}UnitOfWork(${Name}DbContext dbContext, IDomainEventDispatcher domainEventDispatcher)
     : EfDomainEventUnitOfWork<${Name}DbContext>(${Name}Migrations.Schema, dbContext, domainEventDispatcher)
@@ -377,8 +394,8 @@ internal sealed class ${Name}UnitOfWork(${Name}DbContext dbContext, IDomainEvent
         'using Microsoft.Extensions.DependencyInjection;',
         'using Microsoft.Extensions.DependencyInjection.Extensions;',
         'using Microsoft.Extensions.Hosting;',
-        'using Shared.Application.UnitOfWork;',
-        'using Shared.Infrastructure.Persistence;'
+        'using Shared.Cqrs.UnitOfWork;',
+        'using Shared.Persistence.EntityFrameworkCore;'
     )
     $persistenceServices = @(
         "        builder.Services.AddPersistenceOptions(builder.Configuration);",
@@ -395,7 +412,7 @@ internal sealed class ${Name}UnitOfWork(${Name}DbContext dbContext, IDomainEvent
     )
 
     if ($Outbox -or $Inbox) {
-        $persistenceUsings += 'using Shared.Application.Messaging;'
+        $persistenceUsings += 'using Shared.Messaging;'
     }
     if ($Outbox) {
         $persistenceServices += "        builder.Services.TryAddEnumerable(ServiceDescriptor.Scoped<IOutboxWriter, ${Name}OutboxWriter>());"
@@ -425,8 +442,8 @@ $($persistenceServices -join "`r`n")
         Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}OutboxWriter.cs") @"
 namespace $Name.Persistence;
 
-using Shared.Application.Time;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
+using Shared.Runtime.Time;
 
 internal sealed class ${Name}OutboxWriter(${Name}DbContext dbContext, ISystemClock clock)
     : EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);
@@ -436,7 +453,7 @@ internal sealed class ${Name}OutboxWriter(${Name}DbContext dbContext, ISystemClo
 namespace $Name.Persistence;
 
 using Microsoft.Extensions.Options;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
 
 internal sealed class ${Name}OutboxStore(${Name}DbContext dbContext, IOptions<OutboxOptions> options)
     : EfOutboxStore<${Name}DbContext>(dbContext, options, ${Name}Migrations.Schema);
@@ -447,8 +464,8 @@ namespace $Name.Persistence.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Domain;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
+using Shared.Naming;
 
 internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {
@@ -477,9 +494,9 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}InboxStore.cs") @"
 namespace $Name.Persistence;
 
-using Shared.Application.Identity;
-using Shared.Application.Time;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
+using Shared.Runtime.Identity;
+using Shared.Runtime.Time;
 
 internal sealed class ${Name}InboxStore(${Name}DbContext dbContext, ISystemClock clock, IIdGenerator idGenerator)
     : EfInboxStore<${Name}DbContext>(dbContext, clock, idGenerator, ${Name}Migrations.Schema);
@@ -490,8 +507,8 @@ namespace $Name.Persistence.Configurations;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Domain;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
+using Shared.Naming;
 
 internal sealed class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
 {
@@ -537,7 +554,7 @@ namespace $Name.Persistence.SqlServerMigrations;
 
 using $Name.Persistence;
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 public sealed class ${Name}SqlServerDesignTimeDbContextFactory : IDesignTimeDbContextFactory<${Name}DbContext>
 {
@@ -578,7 +595,7 @@ namespace $Name.Persistence.PostgreSqlMigrations;
 
 using $Name.Persistence;
 using Microsoft.EntityFrameworkCore.Design;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 
 public sealed class ${Name}PostgreSqlDesignTimeDbContextFactory : IDesignTimeDbContextFactory<${Name}DbContext>
 {
@@ -595,7 +612,7 @@ public sealed class ${Name}PostgreSqlDesignTimeDbContextFactory : IDesignTimeDbC
 "@
 }
 
-if ($Admin -or $AdminApi) {
+if ($AdminCli -or $AdminApi) {
     Write-GmaFile $adminContractsProject @"
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -626,7 +643,7 @@ public static class ${Name}AdminOperationNames
 "@
 }
 
-if ($Admin) {
+if ($AdminCli) {
     $adminCliReferences = @(
         "    <ProjectReference Include=`"..\$Name.Admin.Contracts\$Name.Admin.Contracts.csproj`" />",
         "    <ProjectReference Include=`"..\$Name.Application\$Name.Application.csproj`" />",
@@ -767,12 +784,12 @@ if ($PostgreSqlMigrations) {
     Add-GmaProject (Join-Path $moduleRoot "$Name.Persistence.PostgreSqlMigrations\$Name.Persistence.PostgreSqlMigrations.csproj")
 }
 
-if ($Admin -or $AdminApi) {
+if ($AdminCli -or $AdminApi) {
     Add-GmaProject $adminContractsProject
 }
 
-if ($Admin) {
-    Add-GmaProject $adminProject
+if ($AdminCli) {
+    Add-GmaProject $adminCliProject
 }
 
 if ($AdminApi) {

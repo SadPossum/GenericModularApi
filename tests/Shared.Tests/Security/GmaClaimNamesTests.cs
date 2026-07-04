@@ -1,6 +1,6 @@
 namespace Shared.Tests;
 
-using Shared.Application.Security;
+using Shared.Security;
 using Xunit;
 
 [Trait("Category", "Unit")]

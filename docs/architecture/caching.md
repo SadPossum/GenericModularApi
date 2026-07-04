@@ -4,7 +4,7 @@ Caching is an optional cache-aside optimization. It is disabled by default and n
 
 ## Boundaries
 
-Modules may depend on the contracts in `Shared.Application.Caching`:
+Modules may depend on the contracts in `Shared.Caching`:
 
 - `IApplicationCache`
 - `ICacheInvalidationQueue`
@@ -97,11 +97,11 @@ Memory mode uses HybridCache L1 and its in-process stampede protection. It is su
 
 ### Redis
 
-Redis mode adds Redis as HybridCache L2 through the separate `Shared.Caching.Redis` adapter. Compose Redis before shared infrastructure:
+Redis mode adds Redis as HybridCache L2 through the separate `Shared.Caching.Redis` adapter. Compose Redis before caching infrastructure:
 
 ```csharp
 builder.AddRedisCaching();
-builder.AddSharedInfrastructure();
+builder.AddCachingInfrastructure();
 ```
 
 The adapter is a no-op unless caching is enabled and the provider is `Redis`.

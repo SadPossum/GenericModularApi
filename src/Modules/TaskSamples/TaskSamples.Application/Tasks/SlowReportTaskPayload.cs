@@ -1,6 +1,6 @@
 namespace TaskSamples.Application.Tasks;
 
-using Shared.Application.Tasks;
+using Shared.Tasks;
 
 public sealed record SlowReportTaskPayload(
     string ReportName,

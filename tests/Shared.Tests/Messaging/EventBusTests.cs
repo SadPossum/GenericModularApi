@@ -4,8 +4,9 @@ using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NATS.Client.Core;
-using Shared.Application.Messaging;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging;
+using Shared.Messaging.Nats;
+using Shared.Messaging.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

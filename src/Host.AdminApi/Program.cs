@@ -5,9 +5,11 @@ using Shared.Administration.Api;
 using Shared.Api.OpenApi;
 using Shared.Api.Security;
 using Shared.Api.Serilog;
+using Shared.Caching.Infrastructure;
 using Shared.Caching.Redis;
 using Shared.Infrastructure;
 using Shared.Logging.Serilog;
+using Shared.Messaging.Infrastructure;
 using Shared.Messaging.Nats.Aspire;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -16,7 +18,9 @@ builder.Host.UseConfiguredSerilog();
 
 builder.Services.AddSharedAdministrationApi(builder.Configuration);
 builder.AddRedisCaching();
+builder.AddCachingInfrastructure();
 builder.AddSharedInfrastructure();
+builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging();
 builder.Services.AddGmaApiSecurityDefaults();
 

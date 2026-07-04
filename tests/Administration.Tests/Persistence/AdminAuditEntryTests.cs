@@ -1,8 +1,8 @@
 namespace Administration.Tests;
 
+using Shared.Naming;
 using Administration.Persistence.Entities;
 using Shared.Administration;
-using Shared.Domain;
 using Xunit;
 
 [Trait("Category", "Unit")]

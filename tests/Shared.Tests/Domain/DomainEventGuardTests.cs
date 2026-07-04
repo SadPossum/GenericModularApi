@@ -1,5 +1,6 @@
 namespace Shared.Tests;
 
+using Shared.Naming;
 using Shared.Domain;
 using Xunit;
 

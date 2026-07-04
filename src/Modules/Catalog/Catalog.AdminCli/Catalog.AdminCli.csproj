@@ -9,6 +9,8 @@
     <ProjectReference Include="..\Catalog.Persistence\Catalog.Persistence.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Administration\Shared.Administration.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
   </ItemGroup>
 </Project>

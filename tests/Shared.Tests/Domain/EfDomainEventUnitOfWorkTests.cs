@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Application.Events;
 using Shared.Domain;
 using Shared.Domain.Models;
-using Shared.Infrastructure.Persistence;
+using Shared.Persistence.EntityFrameworkCore;
 using Xunit;
 
 [Trait("Category", "Unit")]

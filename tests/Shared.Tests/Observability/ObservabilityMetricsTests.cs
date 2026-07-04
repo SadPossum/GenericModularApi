@@ -4,16 +4,17 @@ using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Messaging;
-using Shared.Application.Observability;
-using Shared.Application.Tasks;
-using Shared.Application.Tenancy;
-using Shared.ErrorHandling;
-using Shared.Infrastructure.Caching;
-using Shared.Infrastructure.Cqrs;
-using Shared.Infrastructure.Observability;
+using Shared.Cqrs;
+using Shared.Messaging;
+using Shared.Observability;
+using Shared.Tasks;
+using Shared.Tenancy;
+using Shared.Results;
+using Shared.Caching.Infrastructure;
+using Shared.Cqrs.Infrastructure;
+using Shared.Messaging.Infrastructure;
+using Shared.Observability.Infrastructure;
+using Shared.Tasks.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

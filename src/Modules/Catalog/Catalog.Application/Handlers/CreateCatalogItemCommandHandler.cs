@@ -6,12 +6,12 @@ using Catalog.Application.Ports;
 using Catalog.Contracts;
 using Catalog.Domain.Aggregates;
 using Catalog.Domain.Errors;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
-using Shared.Application.Identity;
-using Shared.Application.Tenancy;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Caching;
+using Shared.Cqrs;
+using Shared.Runtime.Identity;
+using Shared.Tenancy;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class CreateCatalogItemCommandHandler(
     ICatalogItemRepository repository,

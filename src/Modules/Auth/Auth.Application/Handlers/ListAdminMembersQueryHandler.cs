@@ -3,9 +3,9 @@ namespace Auth.Application.Handlers;
 using Auth.Application.Ports;
 using Auth.Application.Queries;
 using Auth.Contracts;
-using Shared.Application.Cqrs;
-using Shared.Application.Queries;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Pagination;
+using Shared.Results;
 
 internal sealed class ListAdminMembersQueryHandler(IAdminMemberReadRepository repository)
     : IQueryHandler<ListAdminMembersQuery, AdminMemberListResponse>

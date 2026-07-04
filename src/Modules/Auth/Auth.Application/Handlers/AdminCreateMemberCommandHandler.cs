@@ -8,11 +8,11 @@ using Auth.Domain.Errors;
 using Auth.Domain.Repositories;
 using Auth.Domain.Services;
 using Auth.Domain.ValueObjects;
-using Shared.Application.Cqrs;
-using Shared.Application.Identity;
-using Shared.Application.Tenancy;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Identity;
+using Shared.Tenancy;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class AdminCreateMemberCommandHandler(
     IMemberRepository memberRepository,

@@ -7,6 +7,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shared.Api\Shared.Api.csproj" />
-    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
+    <ProjectReference Include="..\Shared.Observability\Shared.Observability.csproj" />
+    <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />
   </ItemGroup>
 </Project>

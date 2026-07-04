@@ -3,8 +3,8 @@ namespace Auth.Persistence;
 using Auth.Domain.Aggregates;
 using Auth.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using Shared.Application.Tenancy;
-using Shared.Infrastructure.Messaging;
+using Shared.Tenancy;
+using Shared.Messaging.Infrastructure;
 
 public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options, ITenantContext tenantContext)
     : DbContext(options)

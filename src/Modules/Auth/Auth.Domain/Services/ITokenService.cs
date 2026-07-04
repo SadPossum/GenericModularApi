@@ -1,7 +1,7 @@
 namespace Auth.Domain.Services;
 
+using Shared.Naming;
 using Auth.Domain.ValueObjects;
-using Shared.Domain;
 
 public interface ITokenService
 {

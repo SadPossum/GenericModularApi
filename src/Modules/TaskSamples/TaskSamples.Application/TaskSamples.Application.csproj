@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\TaskSamples.Contracts\TaskSamples.Contracts.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
   </ItemGroup>
 </Project>

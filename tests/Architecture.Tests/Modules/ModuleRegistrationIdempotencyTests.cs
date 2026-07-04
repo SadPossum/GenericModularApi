@@ -14,9 +14,9 @@ using Microsoft.Extensions.Options;
 using Ordering.Persistence;
 using Shared.Administration;
 using Shared.Api.Security;
-using Shared.Application.Messaging;
-using Shared.Application.UnitOfWork;
-using Shared.Infrastructure.Persistence;
+using Shared.Messaging;
+using Shared.Cqrs.UnitOfWork;
+using Shared.Persistence.EntityFrameworkCore;
 using Xunit;
 
 [Trait("Category", "Architecture")]

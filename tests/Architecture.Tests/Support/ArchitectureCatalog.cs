@@ -27,7 +27,7 @@ using Host.AdminCli;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Persistence;
-using Shared.Application.Modules;
+using Shared.Modules;
 using TaskRuntime.Admin.Contracts;
 using TaskRuntime.AdminCli;
 using TaskRuntime.AdminApi;

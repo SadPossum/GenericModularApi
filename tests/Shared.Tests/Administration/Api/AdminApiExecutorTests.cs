@@ -6,9 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Shared.Administration;
 using Shared.Administration.Api;
-using Shared.Application;
-using Shared.Application.Tenancy;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Tenancy;
+using Shared.Results;
 using Xunit;
 
 [Trait("Category", "Unit")]

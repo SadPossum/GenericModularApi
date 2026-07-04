@@ -19,7 +19,7 @@ These are current audit notes for future refactoring passes. They are intentiona
 ## Keep Watching
 
 - Design-time EF factories and provider migration project files are repetitive. A shared design-time helper would reduce boilerplate once the module examples settle.
-- `Shared.ErrorHandling` may eventually fit better under a broader `Shared.Primitives` or `Shared.Kernel` name, but renaming it now would churn stable code.
+- Result primitives now live in `Shared.Results`; keep this package dependency-free and avoid folding unrelated shared-kernel concepts into it.
 
 ## Reflection And Magic Boundary
 

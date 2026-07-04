@@ -4,7 +4,7 @@ using Catalog.Application.Mapping;
 using Catalog.Contracts;
 using Catalog.Domain.Events;
 using Shared.Application.Events;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 internal sealed class CatalogItemUpdatedOutboxProjector(IOutboxWriterRegistry outboxWriters)
     : IDomainEventHandler<CatalogItemUpdatedDomainEvent>

@@ -12,26 +12,29 @@ Messaging is behind abstractions. Domain and application code should never depen
 - `IOutboxStore`
 - `IEventBus`
 
-Public module integration events inherit `IntegrationEvent` from `Shared.Application.Messaging`.
+Public module integration events inherit `IntegrationEvent` from `Shared.Messaging`.
 The base owns event id, tenant id, occurrence time, event name, and version validation. Module event types keep payload-specific fields and validation local to the owning `.Contracts` project.
 This keeps the skeleton compatible with common event metadata practices without forcing a full CloudEvents envelope into module payload classes.
 
 ## Runtime Adapter
 
-`Shared.Infrastructure` registers a fail-fast null event bus by default and does not start the outbox publisher by itself.
+`Shared.Messaging.Infrastructure` registers EF outbox/inbox helpers, the outbox writer registry, outbox options, messaging metrics, the outbox publisher loop, and a fail-fast null event bus. It does not reference NATS and does not start the outbox publisher by itself.
+`Shared.Messaging.Nats` owns the NATS JetStream event bus, consumer hosted service, NATS options, and low-level `AddNatsJetStreamMessaging()` / `AddNatsJetStreamConsumers()` composition hooks.
+`Shared.Messaging.Nats.Aspire` owns Aspire NATS client composition for production-style HTTP hosts.
 
 HTTP hosts that need real publishing opt in by referencing `Shared.Messaging.Nats.Aspire` and calling:
 
 ```csharp
+builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging();
 ```
 
-That call is a no-op unless `NatsJetStream:Enabled=true`. When enabled, it validates `NatsJetStream` settings, requires `ConnectionStrings:nats`, configures the Aspire NATS client from that connection string, registers the NATS event bus, and starts `OutboxPublisherService`.
+That call is a no-op unless `NatsJetStream:Enabled=true`. When enabled, it validates `NatsJetStream` settings, requires `ConnectionStrings:nats`, configures the Aspire NATS client from that connection string, calls into `Shared.Messaging.Nats`, registers the NATS event bus, and starts `OutboxPublisherService`.
 When the host does not opt in, `IEventBus` remains a null adapter and module outbox rows stay local until a publisher is composed.
 Tools and short-lived hosts can use shared infrastructure without accidentally draining outboxes.
 
-Lower-level test or custom hosts can still provide `INatsConnection` themselves and call `AddNatsJetStreamMessaging()` directly, but production hosts should use the configured adapter so connection-string behavior stays consistent.
-The low-level publisher methods compose `AddSharedInfrastructure()` idempotently, so direct custom hosts still get shared clocks, id generation, options validation, metrics, and outbox publisher dependencies without separately remembering the root shared call.
+Lower-level test or custom hosts can still reference `Shared.Messaging.Nats`, provide `INatsConnection` themselves, and call `AddNatsJetStreamMessaging()` directly, but production hosts should use the configured Aspire adapter so connection-string behavior stays consistent.
+The low-level messaging methods compose `AddMessagingInfrastructure()` idempotently, and that composes `AddRuntimeInfrastructure()` for shared clocks and id generation without pulling in CQRS or domain-event dispatch.
 
 The NATS JetStream adapter publishes each outbox row with the outbox message id as `NatsJSPubOpts.MsgId`.
 If the broker accepted a message but the local outbox mark-processed step failed, a later retry may publish the same outbox row again. JetStream duplicate tracking then returns a duplicate ack instead of storing another message, and the adapter treats that ack as a successful idempotent publish.

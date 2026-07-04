@@ -1,5 +1,5 @@
 namespace Administration.Application.Queries;
 
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 public sealed record ListRolesQuery : IQuery<IReadOnlyList<AdminRoleDetails>>;

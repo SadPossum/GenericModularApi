@@ -1,10 +1,10 @@
 namespace Ordering.Application.Ports;
 
+using Shared.Naming;
 using Catalog.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Domain.Errors;
-using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public sealed record CatalogItemProjectionWriteModel
 {

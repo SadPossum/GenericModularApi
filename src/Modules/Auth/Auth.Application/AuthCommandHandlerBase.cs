@@ -2,8 +2,8 @@ namespace Auth.Application;
 
 using Auth.Domain.Services;
 using Auth.Domain.ValueObjects;
-using Shared.Application.Identity;
-using Shared.Application.Time;
+using Shared.Runtime.Identity;
+using Shared.Runtime.Time;
 
 internal abstract class AuthCommandHandlerBase(
     ITokenService tokenService,

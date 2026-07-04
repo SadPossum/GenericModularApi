@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Shared.Administration;
-using Shared.Application.UnitOfWork;
-using Shared.Infrastructure.Persistence;
+using Shared.Cqrs.UnitOfWork;
+using Shared.Persistence.EntityFrameworkCore;
 
 public static class DependencyInjection
 {

@@ -1,5 +1,8 @@
 namespace Shared.Domain;
 
+using Shared.Naming;
+using Shared.Numerics;
+
 public static class DomainEventGuards
 {
     public static Guid RequireId(Guid value, string parameterName)

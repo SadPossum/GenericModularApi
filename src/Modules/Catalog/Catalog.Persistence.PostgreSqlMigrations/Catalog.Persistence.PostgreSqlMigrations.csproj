@@ -10,5 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Catalog.Persistence\Catalog.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
   </ItemGroup>
 </Project>

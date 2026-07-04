@@ -6,9 +6,8 @@ using Auth.Domain.Errors;
 using Auth.Domain.Repositories;
 using Auth.Domain.Services;
 using Auth.Domain.ValueObjects;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Results;
 
 internal sealed class ResetMemberPasswordCommandHandler(
     IMemberRepository memberRepository,

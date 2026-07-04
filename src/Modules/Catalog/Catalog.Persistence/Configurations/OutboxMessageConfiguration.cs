@@ -1,9 +1,9 @@
 namespace Catalog.Persistence.Configurations;
 
+using Shared.Naming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Domain;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
 
 internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {

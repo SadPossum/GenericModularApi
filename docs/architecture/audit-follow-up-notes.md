@@ -124,7 +124,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Tightened shared tenant id normalization so tenant ids remain case-preserving external identifiers but cannot contain whitespace or control characters that would create ambiguous headers, cache keys, audit entries, or persisted rows.
 - Tightened cache identity segments so logical keys/tags remain case-preserving external identifiers but cannot contain whitespace or control characters before URI encoding.
 - Made `AdminActor` factory-created, rejected whitespace/control characters in admin actor ids and audit error codes, and made Admin API return unauthorized for invalid actor claims instead of throwing inside executor setup.
-- Hardened `Shared.ErrorHandling.Error` so only `Error.None` can carry an empty code/message; failure errors now use validated dotted codes and compact messages, with API status maps and admin audit sharing the same code rules.
+- Hardened `Shared.Results.Error` so only `Error.None` can carry an empty code/message; failure errors now use validated dotted codes and compact messages, with API status maps and admin audit sharing the same code rules.
 - Hardened `Result`/`Result<T>` so failed results reject null or `Error.None`, successful typed results reject null values at construction, and architecture tests guard production code against nullable `Result<T?>` contracts.
 - Made admin authorization and inbox processing outcomes factory-created, so allowed/processed/duplicate outcomes cannot carry failure diagnostics and denied/failed outcomes must carry bounded normalized diagnostics.
 - Hardened Auth GUID identity value objects so explicit `Guid.Empty` construction fails early, while aggregates keep default-struct defensive checks for persistence and accidental defaults.
@@ -221,7 +221,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Reorganized `GenericModularApi.sln` so Administration, Catalog, and ServiceDefaults test projects sit under matching `tests/*` solution folders, and added an architecture guard for future test-project nesting.
 - Added Administration command validators for bootstrap, role creation, permission grants, and role assignment, extended validator coverage guards to Administration, and kept handlers safe for direct invalid actor inputs.
 - Added missing `eng/check-migrations.ps1` plus newer ADR, architecture, and example docs to solution items, then guarded docs, engineering scripts, and request files so IDE discoverability does not drift.
-- Added a module metadata guard that keeps public `*PermissionCodes` constants and `ModuleDescriptor.Permissions` in sync, so admin/RBAC documentation cannot silently diverge from declared module metadata.
+- Added a module metadata guard that keeps public `*PermissionCodes` constants and `ModuleDescriptor.WithPermissions(...)` metadata in sync, so admin/RBAC documentation cannot silently diverge from declared module metadata.
 - Made refresh-token pepper configuration visible in every Auth-capable host appsettings file and integration test host config, then guarded it, so local defaults stay easy to run while production secret override requirements remain discoverable.
 - Moved generated admin permission code-string containers into generated public `.Contracts` projects while leaving typed `AdminPermission` wrappers in optional `.Admin.Contracts`, preserving metadata ownership without admin-framework references.
 - Updated setup and deployment configuration checklists for newer caching, Redis, NATS consumer, observability, tenancy, and administration option keys so operators do not need to reverse-engineer option classes.
@@ -249,7 +249,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Removed the public API host's inert `AddCors()` registration and added a guard so browser cross-origin support returns later only as an explicit configured policy/adapter.
 - Moved default HTTP health endpoint mapping fully into `ServiceDefaults.MapDefaultEndpoints()`, so hosts get `/health`, `/alive`, and optional `/metrics` from one shared runtime endpoint owner.
 - Added neutral `Shared.Api` security defaults so HTTP hosts can safely run authentication/authorization middleware without making the Auth module the hidden owner of baseline ASP.NET Core security services; actual schemes remain explicit Auth or external identity adapter choices.
-- Centralized default JWT/admin claim-name strings in `Shared.Application.Security.GmaClaimNames`, replacing raw `tenant_id`, `sid`, and `sub` literals in production code and guarding the contract against drift.
+- Centralized default JWT/admin claim-name strings in `Shared.Security.GmaClaimNames`, replacing raw `tenant_id`, `sid`, and `sub` literals in production code and guarding the contract against drift.
 - Hardened admin API claim-name option validation so actor and configured tenant claim names reject whitespace, control characters, and overlong values while preserving URI-style external identity claim types.
 - Split Auth core infrastructure from the JWT bearer authentication adapter into separate projects, keeping CLI Auth composition free of HTTP bearer packages/scheme registration while public/admin HTTP Auth surfaces opt into `Auth.Infrastructure.JwtBearer` explicitly.
 - Decoupled core Auth infrastructure registration from host-builder APIs: `Auth.Infrastructure` now exposes an `IServiceCollection` plus configuration extension, while host-builder coupling stays in HTTP/CLI composition and the explicit JWT bearer adapter.
@@ -282,7 +282,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Added a persistence project-shape guard so module `.Persistence` projects stay EF provider adapters instead of accumulating front-door, admin, framework, or unrelated package dependencies.
 - Added HTTP and admin CLI front-door project-shape guards so module `.Api`, `.AdminApi`, and `.AdminCli` projects can compose their owning module adapters without becoming catch-all dependency sinks.
 - Hardened module boundary source/project scans to ignore `bin` and `obj`, keeping architecture checks stable after local builds generate source files.
-- Added a shared-core project-shape guard so `Shared.Domain` and `Shared.ErrorHandling` stay dependency-free while `Shared.Application` remains abstractions-only.
+- Added shared-core project-shape guards so dependency-free primitives stay dependency-free, `Shared.Application.Composition` remains limited to constrained registration, `Shared.Application.Events` stays event-contract-only, and `Shared.Pagination` stays dependency-free.
 - Added a shared-project dependency manifest guard so concrete backend packages stay in explicit shared adapter projects and new shared projects require a deliberate dependency-shape update.
 - Added a runtime host dependency manifest guard so public/admin HTTP hosts stay package-free composition roots, `Host.AdminCli` owns only CLI-hosting packages, `ServiceDefaults` owns observability packages, and `AppHost` owns Aspire hosting packages.
 - Added a test-project hygiene guard so every test project remains discoverable, non-packable, centrally versioned, and keeps the xUnit runner dependency private.
@@ -310,7 +310,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Documented ADR 0006 so this reflection rule stays bounded and does not become implicit host/module discovery or integration-event subscription scanning.
 - Evaluated FluentValidation against the current request-shape validators and documented ADR 0007 to keep shared CQRS validator contracts as the default instead of adding a parallel validation stack.
 - Started the optional tasks/daemons framework with ADR 0008, shared task payload/context/progress/control contracts, and module task metadata without adding a scheduler/runtime dependency to default hosts.
-- Added scheduler-neutral task run store contracts, lease request/value objects, shared status-transition rules, and a shared infrastructure `ITaskCommandDispatcher` registration while keeping EF tables, worker services, and scheduler adapters out of default host composition.
+- Added scheduler-neutral task run store contracts, lease request/value objects, shared status-transition rules, and a shared infrastructure `ITaskCommandDispatcher` registration while keeping EF tables, worker services, and scheduler adapters out of default host composition. The dispatcher contract now lives in `Shared.Tasks.Cqrs` so task contracts stay CQRS-free.
 - Added the optional `TaskRuntime` EF persistence module with SQL Server/PostgreSQL migrations, explicit `AddTaskWorkerRuntime()` hosted-worker composition, explicit task-handler registration metadata, architecture guards that task metadata matches handler registration, and a compiled `TaskSamples` module proving task execution through CQRS dispatch.
 
 ## Findings To Keep Watching
@@ -329,7 +329,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Architecture tests now use a single explicit catalog for compiled module projects. New non-migration module projects are tested to appear there in the same change that adds the module.
 - Continue the admin API security pass with deeper audit export, audit retention, and external identity-provider mapping requirements.
 - Keep Administration and Tenancy contract metadata aligned with `ArchitectureCatalog`, docs, and scaffolding output as those optional modules evolve.
-- `Shared.ErrorHandling` remains a slightly different naming style from the rest of `Shared.*`. It is acceptable, but a future breaking cleanup could move result/error primitives under `Shared.Application` or `Shared.Domain`.
+- Renamed the legacy result/error primitive package to `Shared.Results` so the package name matches its actual `Error` / `Result` primitives and the existing `tests/Shared.Tests/Results` test area.
 - Continue documenting permission codes carefully so consumer modules do not treat permissions as domain model.
 - Keep using `Unknown = 0` for ordinary public contract and domain-state enums. If a future module needs richer compatibility semantics, use a deliberate smart enum or value-object/code-list type with tests and docs rather than silently mapping unknown values to a valid domain value.
 - Follow-up enum design remains open: regular enums with `Unknown = 0` are the default, but modules may introduce a documented custom enum/smart-enum/code-list pattern when versioning, parsing, or provider compatibility needs stronger behavior.

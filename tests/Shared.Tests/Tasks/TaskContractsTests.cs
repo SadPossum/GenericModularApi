@@ -1,6 +1,6 @@
 namespace Shared.Tests;
 
-using Shared.Application.Tasks;
+using Shared.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -542,15 +542,28 @@ public sealed class TaskContractsTests
             " Rebuild-Search ",
             " Search-Workers ",
             tenantScoped: true,
-            payloadVersion: 2);
+            payloadVersion: 2,
+            kind: ModuleTaskKind.Daemon,
+            supportsControlMessages: true);
 
         Assert.Equal("catalog", registration.ModuleName);
         Assert.Equal("rebuild-search", registration.TaskName);
         Assert.Equal("search-workers", registration.WorkerGroup);
         Assert.Equal(typeof(TestTaskPayload), registration.PayloadType);
         Assert.Equal(typeof(TestTaskHandler), registration.HandlerType);
+        Assert.Equal(ModuleTaskKind.Daemon, registration.Kind);
         Assert.True(registration.TenantScoped);
         Assert.Equal(2, registration.PayloadVersion);
+        Assert.True(registration.SupportsControlMessages);
+    }
+
+    [Fact]
+    public void Task_handler_registration_rejects_unknown_kind()
+    {
+        Assert.Throws<ArgumentException>(() => TaskHandlerRegistration.Create<TestTaskPayload, TestTaskHandler>(
+            "catalog",
+            "rebuild-search",
+            kind: ModuleTaskKind.Unknown));
     }
 
     [Fact]
@@ -595,6 +608,19 @@ public sealed class TaskContractsTests
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TaskHandlerRegistration));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ITaskHandlerRegistry));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(TestTaskHandler));
+    }
+
+    [Fact]
+    public void Task_handler_service_registration_rejects_same_identity_with_different_metadata()
+    {
+        ServiceCollection services = new();
+
+        services.AddTaskHandler<TestTaskPayload, TestTaskHandler>("catalog", "rebuild-search");
+
+        Assert.Throws<InvalidOperationException>(() => services.AddTaskHandler<TestTaskPayload, TestTaskHandler>(
+            "catalog",
+            "rebuild-search",
+            supportsControlMessages: true));
     }
 
     [Theory]

@@ -1,7 +1,7 @@
 namespace Catalog.Application.Ports;
 
 using Catalog.Contracts;
-using Shared.Application.Queries;
+using Shared.Pagination;
 
 public interface ICatalogItemReadRepository
 {

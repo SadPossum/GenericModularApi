@@ -53,7 +53,7 @@ Use these defaults:
 
 - `Support/` for fixtures, test applications, helper attributes, shared test collections, and catalogs.
 - Feature module unit tests mirror the module layer: `Application/`, `Contracts/`, `Domain/`, `Persistence/`, `Security/`, or a focused capability such as `Projections/`.
-- `Shared.Tests` groups by shared capability: `Administration/`, `Api/`, `Caching/`, `Cqrs/`, `Domain/`, `Infrastructure/`, `Messaging/`, `Modules/`, `Observability/`, `Results/`, `Security/`.
+- `Shared.Tests` groups by shared capability: `Administration/`, `Api/`, `Caching/`, `Cqrs/`, `Domain/`, `Infrastructure/`, `Messaging/`, `Modules/`, `Numerics/`, `Observability/`, `Results/`, `Security/`.
 - `Architecture.Tests` uses `Boundaries/`, `DeveloperExperience/`, `Modules/`, and `Support/`.
 - `Integration.Tests` groups by runtime surface or adapter: `AdminApi/`, `AdminCli/`, `Auth/`, `Caching/`, `Messaging/`, `Observability/`, `Persistence/`, and `Support/`.
 

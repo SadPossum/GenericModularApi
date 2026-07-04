@@ -2,7 +2,7 @@ namespace Shared.Tests;
 
 using Microsoft.Extensions.Options;
 using Shared.Administration.Api;
-using Shared.Application.Security;
+using Shared.Security;
 using Xunit;
 
 [Trait("Category", "Unit")]

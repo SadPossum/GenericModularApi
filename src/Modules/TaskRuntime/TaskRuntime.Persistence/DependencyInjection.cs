@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Shared.Application.Tasks;
-using Shared.Application.UnitOfWork;
-using Shared.Infrastructure.Persistence;
+using Shared.Tasks;
+using Shared.Cqrs.UnitOfWork;
+using Shared.Persistence.EntityFrameworkCore;
 
 public static class DependencyInjection
 {

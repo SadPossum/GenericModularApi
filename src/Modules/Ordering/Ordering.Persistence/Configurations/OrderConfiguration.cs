@@ -1,9 +1,9 @@
 namespace Ordering.Persistence.Configurations;
 
+using Shared.Naming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Ordering.Domain.Aggregates;
-using Shared.Domain;
 
 internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 {

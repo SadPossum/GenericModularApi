@@ -2,8 +2,8 @@ namespace Shared.Administration.Cli;
 
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Administration;
-using Shared.Application;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Results;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 

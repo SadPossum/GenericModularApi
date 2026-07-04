@@ -6,7 +6,7 @@ using Auth.Domain.ValueObjects;
 using Auth.Persistence;
 using Auth.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Shared.Application.Tenancy;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Unit")]

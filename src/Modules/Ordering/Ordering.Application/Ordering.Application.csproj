@@ -6,7 +6,12 @@
     <ProjectReference Include="..\..\Catalog\Catalog.Contracts\Catalog.Contracts.csproj" />
     <ProjectReference Include="..\Ordering.Contracts\Ordering.Contracts.csproj" />
     <ProjectReference Include="..\Ordering.Domain\Ordering.Domain.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
   </ItemGroup>
 </Project>

@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ordering.Application.Handlers;
 using Ordering.Contracts;
 using Shared.Application.Composition;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 public static class DependencyInjection
 {

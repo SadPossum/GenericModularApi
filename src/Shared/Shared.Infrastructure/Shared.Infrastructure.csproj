@@ -1,15 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="NATS.Net" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Shared.Application\Shared.Application.csproj" />
-    <ProjectReference Include="..\Shared.Domain\Shared.Domain.csproj" />
-    <ProjectReference Include="..\Shared.ErrorHandling\Shared.ErrorHandling.csproj" />
+    <ProjectReference Include="..\Shared.Application.Events.Infrastructure\Shared.Application.Events.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

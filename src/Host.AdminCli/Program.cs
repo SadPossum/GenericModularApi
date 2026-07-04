@@ -4,8 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Administration.Cli;
+using Shared.Caching.Infrastructure;
 using Shared.Caching.Redis;
 using Shared.Infrastructure;
+using Shared.Messaging.Infrastructure;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 
@@ -20,7 +22,9 @@ try
 
     builder.Services.AddSharedAdministrationCli();
     builder.AddRedisCaching();
+    builder.AddCachingInfrastructure();
     builder.AddSharedInfrastructure();
+    builder.AddMessagingInfrastructure();
     builder.AddAdminModule<AdministrationAdminCliModule>();
     builder.AddAdminModule<AuthAdminCliModule>();
 

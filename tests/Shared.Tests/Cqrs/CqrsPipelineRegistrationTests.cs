@@ -2,18 +2,16 @@ namespace Shared.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
-using Shared.Infrastructure;
-using Shared.Infrastructure.Cqrs;
+using Shared.Cqrs;
+using Shared.Results;
+using Shared.Cqrs.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]
 public sealed class CqrsPipelineRegistrationTests
 {
     [Fact]
-    public async Task Shared_infrastructure_registers_query_behaviors_in_expected_order()
+    public async Task Cqrs_infrastructure_registers_query_behaviors_in_expected_order()
     {
         await using ServiceProvider provider = BuildProvider();
         using IServiceScope scope = provider.CreateScope();
@@ -276,7 +274,7 @@ public sealed class CqrsPipelineRegistrationTests
         builder.Configuration["Caching:Enabled"] = "false";
         builder.Configuration["Tenancy:Enabled"] = "false";
 
-        builder.AddSharedInfrastructure();
+        builder.AddCqrsInfrastructure();
         configureServices?.Invoke(builder.Services);
 
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

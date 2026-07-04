@@ -1,8 +1,7 @@
 namespace TaskSamples.Application.Tasks;
 
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Results;
 
 internal sealed class RecordTaskSampleReportCommandHandler(ITaskSampleReportSink sink)
     : ICommandHandler<RecordTaskSampleReportCommand, Unit>

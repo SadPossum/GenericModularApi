@@ -1,5 +1,5 @@
 namespace Administration.Application.Commands;
 
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 public sealed record CreateRoleCommand(string Name) : ITransactionalCommand<AdminRoleDetails>;

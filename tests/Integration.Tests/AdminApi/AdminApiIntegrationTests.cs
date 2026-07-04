@@ -1,5 +1,6 @@
 namespace Integration.Tests;
 
+using Shared.Naming;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -12,9 +13,8 @@ using Auth.Domain.Errors;
 using DotNet.Testcontainers.Containers;
 using Integration.Tests.Support;
 using Shared.Administration;
-using Shared.Application.Cqrs;
-using Shared.Application.Queries;
-using Shared.Domain;
+using Shared.Cqrs;
+using Shared.Pagination;
 using Testcontainers.MsSql;
 using Testcontainers.PostgreSql;
 using Xunit;

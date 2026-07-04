@@ -3,20 +3,35 @@ namespace Shared.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Shared.Application;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
-using Shared.Application.Messaging;
-using Shared.Application.Tasks;
-using Shared.Application.Tenancy;
-using Shared.ErrorHandling;
+using Shared.Application.Events;
+using Shared.Application.Events.Infrastructure;
+using Shared.Cqrs;
+using Shared.Caching;
+using Shared.Messaging;
+using Shared.Messaging.Nats;
+using Shared.Runtime.Identity;
+using Shared.Runtime.Time;
+using Shared.Tasks;
+using Shared.Tasks.Cqrs;
+using Shared.Tenancy;
+using Shared.Results;
 using Shared.Infrastructure;
-using Shared.Infrastructure.Caching;
-using Shared.Infrastructure.Cqrs;
-using Shared.Infrastructure.Messaging;
-using Shared.Infrastructure.Tasks;
-using Shared.Infrastructure.Tenancy;
+using Shared.Caching.Infrastructure;
+using Shared.Cqrs.Infrastructure;
+using Shared.Messaging.Infrastructure;
+using Shared.Runtime.Infrastructure;
+using Shared.Tasks.Infrastructure;
+using Shared.Tenancy.Infrastructure;
 using Xunit;
+using ApplicationEventsDependencyInjection = Shared.Application.Events.Infrastructure.DependencyInjection;
+using CachingDependencyInjection = Shared.Caching.Infrastructure.DependencyInjection;
+using CoreDependencyInjection = Shared.Infrastructure.DependencyInjection;
+using CqrsDependencyInjection = Shared.Cqrs.Infrastructure.DependencyInjection;
+using MessagingDependencyInjection = Shared.Messaging.Infrastructure.DependencyInjection;
+using NatsDependencyInjection = Shared.Messaging.Nats.DependencyInjection;
+using RuntimeDependencyInjection = Shared.Runtime.Infrastructure.DependencyInjection;
+using TaskDependencyInjection = Shared.Tasks.Infrastructure.TaskWorkerRuntimeDependencyInjection;
+using TenancyDependencyInjection = Shared.Tenancy.Infrastructure.DependencyInjection;
 
 [Trait("Category", "Unit")]
 public sealed class SharedInfrastructureRegistrationTests
@@ -24,10 +39,17 @@ public sealed class SharedInfrastructureRegistrationTests
     [Fact]
     public void Shared_infrastructure_registration_rejects_null_arguments()
     {
-        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddSharedInfrastructure(null!));
-        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddOutboxPublishing(null!));
-        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddNatsJetStreamMessaging(null!));
-        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddNatsJetStreamConsumers(null!));
+        Assert.Throws<ArgumentNullException>(() => CoreDependencyInjection.AddSharedInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => TenancyDependencyInjection.AddTenancyInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => RuntimeDependencyInjection.AddRuntimeInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => ApplicationEventsDependencyInjection.AddApplicationEventsInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => CqrsDependencyInjection.AddCqrsInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => CachingDependencyInjection.AddCachingInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => MessagingDependencyInjection.AddMessagingInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => MessagingDependencyInjection.AddOutboxPublishing(null!));
+        Assert.Throws<ArgumentNullException>(() => NatsDependencyInjection.AddNatsJetStreamMessaging(null!));
+        Assert.Throws<ArgumentNullException>(() => NatsDependencyInjection.AddNatsJetStreamConsumers(null!));
+        Assert.Throws<ArgumentNullException>(() => TaskDependencyInjection.AddTaskInfrastructure(null!));
     }
 
     [Fact]
@@ -35,21 +57,33 @@ public sealed class SharedInfrastructureRegistrationTests
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
 
+        builder.AddRuntimeInfrastructure();
+        builder.AddRuntimeInfrastructure();
+        builder.AddApplicationEventsInfrastructure();
+        builder.AddApplicationEventsInfrastructure();
+        builder.AddCqrsInfrastructure();
+        builder.AddCqrsInfrastructure();
         builder.AddSharedInfrastructure();
         builder.AddSharedInfrastructure();
+        builder.AddTenancyInfrastructure();
 
-        Assert.Single(builder.Services, HasService<IValidateOptions<CachingOptions>, CachingOptionsValidator>());
-        Assert.Single(builder.Services, HasService<IValidateOptions<CachingOptions>, CachingCompositionOptionsValidator>());
         Assert.Single(builder.Services, HasService<IValidateOptions<TenantOptions>, TenantOptionsValidator>());
-        Assert.Single(builder.Services, HasService<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>());
-        Assert.Single(builder.Services, HasService<IValidateOptions<NatsJetStreamOptions>, NatsJetStreamOptionsValidator>());
-        Assert.Single(builder.Services, HasService<IValidateOptions<NatsConsumerOptions>, NatsConsumerOptionsValidator>());
-        Assert.Single(builder.Services, HasService<ITaskCommandDispatcher, TaskCommandDispatcher>());
-        Assert.Single(builder.Services, HasService<ITaskControlLoop, TaskControlLoop>());
-        Assert.Single(builder.Services, HasService<IHostedService, CachingStartupValidator>());
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "TenancyInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "RuntimeInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "ApplicationEventsInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "CqrsInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "SharedInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IIdGenerator));
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(ISystemClock));
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IDomainEventDispatcher));
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(ICommandPipelineBehavior<,>), typeof(ValidationCommandBehavior<,>)));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(ICommandPipelineBehavior<,>), typeof(CommandUnitOfWorkBehavior<,>)));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(IQueryPipelineBehavior<,>), typeof(ValidationQueryBehavior<,>)));
+        Assert.DoesNotContain(builder.Services, HasService<IValidateOptions<CachingOptions>, CachingOptionsValidator>());
+        Assert.DoesNotContain(builder.Services, HasService<IValidateOptions<OutboxOptions>, OutboxOptionsValidator>());
+        Assert.DoesNotContain(builder.Services, HasService<ITaskCommandDispatcher, TaskCommandDispatcher>());
+        Assert.DoesNotContain(builder.Services, HasService<IHostedService, CachingStartupValidator>());
     }
 
     [Theory]
@@ -58,7 +92,7 @@ public sealed class SharedInfrastructureRegistrationTests
     [InlineData("Caching:MaximumPayloadBytes", "0", "MaximumPayloadBytes")]
     [InlineData("Caching:MaximumKeyLength", "0", "MaximumKeyLength")]
     [InlineData("Caching:KeyPrefix", "gma.value", "KeyPrefix")]
-    public void Shared_infrastructure_rejects_invalid_caching_options_before_hybrid_cache_registration(
+    public void Caching_infrastructure_rejects_invalid_caching_options_before_hybrid_cache_registration(
         string setting,
         string value,
         string expectedFailure)
@@ -67,19 +101,16 @@ public sealed class SharedInfrastructureRegistrationTests
         builder.Configuration[setting] = value;
 
         OptionsValidationException exception = Assert.Throws<OptionsValidationException>(() =>
-            builder.AddSharedInfrastructure());
+            builder.AddCachingInfrastructure());
 
         Assert.Contains(exception.Failures, failure => failure.Contains(expectedFailure, StringComparison.Ordinal));
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.FullName?.Contains("HybridCache", StringComparison.Ordinal) == true);
-        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "SharedInfrastructureRegistrationMarker");
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "CachingInfrastructureRegistrationMarker");
     }
 
     [Theory]
     [InlineData("Tenancy:HeaderName", "X Tenant Id", "HeaderName")]
-    [InlineData("Outbox:BatchSize", "0", "BatchSize")]
-    [InlineData("NatsJetStream:StreamName", "GMA.EVENTS", "StreamName")]
-    [InlineData("NatsConsumers:DurablePrefix", "gma.prod", "DurablePrefix")]
-    public void Shared_infrastructure_rejects_invalid_runtime_options_before_service_mutation(
+    public void Shared_infrastructure_rejects_invalid_core_options_before_service_mutation(
         string setting,
         string value,
         string expectedFailure)
@@ -95,12 +126,49 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
     }
 
+    [Theory]
+    [InlineData("Outbox:BatchSize", "0", "BatchSize")]
+    public void Messaging_infrastructure_rejects_invalid_runtime_options_before_service_mutation(
+        string setting,
+        string value,
+        string expectedFailure)
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration[setting] = value;
+
+        OptionsValidationException exception = Assert.Throws<OptionsValidationException>(() =>
+            builder.AddMessagingInfrastructure());
+
+        Assert.Contains(exception.Failures, failure => failure.Contains(expectedFailure, StringComparison.Ordinal));
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "MessagingInfrastructureRegistrationMarker");
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
+    }
+
+    [Theory]
+    [InlineData("NatsJetStream:StreamName", "GMA.EVENTS", "StreamName")]
+    [InlineData("NatsConsumers:DurablePrefix", "gma.prod", "DurablePrefix")]
+    public void Nats_adapter_rejects_invalid_runtime_options_before_service_mutation(
+        string setting,
+        string value,
+        string expectedFailure)
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration[setting] = value;
+
+        OptionsValidationException exception = Assert.Throws<OptionsValidationException>(() =>
+            builder.AddNatsJetStreamMessaging());
+
+        Assert.Contains(exception.Failures, failure => failure.Contains(expectedFailure, StringComparison.Ordinal));
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "MessagingInfrastructureRegistrationMarker");
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
+        Assert.DoesNotContain(builder.Services, HasService<IEventBus, NatsJetStreamEventBus>());
+    }
+
     [Fact]
     public void Messaging_host_service_registration_is_idempotent()
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
 
-        builder.AddSharedInfrastructure();
         builder.AddOutboxPublishing();
         builder.AddOutboxPublishing();
         builder.AddNatsJetStreamConsumers();
@@ -116,7 +184,6 @@ public sealed class SharedInfrastructureRegistrationTests
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
 
-        builder.AddSharedInfrastructure();
         builder.AddNatsJetStreamMessaging();
         builder.AddNatsJetStreamMessaging();
 
@@ -128,7 +195,7 @@ public sealed class SharedInfrastructureRegistrationTests
     [InlineData("outbox")]
     [InlineData("nats-publisher")]
     [InlineData("nats-consumer")]
-    public void Messaging_runtime_registration_composes_shared_infrastructure_dependencies(
+    public void Messaging_runtime_registration_composes_only_runtime_infrastructure_dependencies(
         string registration)
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
@@ -148,15 +215,18 @@ public sealed class SharedInfrastructureRegistrationTests
                 throw new ArgumentOutOfRangeException(nameof(registration), registration, "Unknown registration.");
         }
 
-        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "SharedInfrastructureRegistrationMarker");
-        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "RuntimeInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IIdGenerator));
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(ISystemClock));
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "SharedInfrastructureRegistrationMarker");
+        Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
     }
 
     [Fact]
     public async Task Task_command_dispatcher_delegates_to_shared_request_dispatcher()
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
-        builder.AddSharedInfrastructure();
+        builder.AddTaskInfrastructure();
         builder.Services.AddScoped<ICommandHandler<TestTaskCommand, Unit>, TestTaskCommandHandler>();
 
         using IHost host = builder.Build();

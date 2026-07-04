@@ -2,7 +2,7 @@ namespace Ordering.Application.Handlers;
 
 using Catalog.Contracts;
 using Ordering.Application.Ports;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 internal sealed class CatalogItemDiscontinuedProjectionHandler(ICatalogItemProjectionRepository repository)
     : IIntegrationEventHandler<CatalogItemDiscontinuedIntegrationEvent>

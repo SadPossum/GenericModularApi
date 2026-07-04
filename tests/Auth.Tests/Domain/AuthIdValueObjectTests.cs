@@ -1,5 +1,6 @@
 namespace Auth.Tests;
 
+using Shared.Naming;
 using Auth.Domain.Services;
 using Auth.Domain.ValueObjects;
 using Shared.Domain;

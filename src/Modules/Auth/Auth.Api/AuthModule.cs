@@ -4,7 +4,6 @@ using System.Security.Claims;
 using Auth.Application;
 using Auth.Application.Commands;
 using Auth.Contracts;
-using Auth.Domain.Errors;
 using Auth.Infrastructure;
 using Auth.Infrastructure.JwtBearer;
 using Auth.Persistence;
@@ -16,11 +15,10 @@ using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Security;
-using Shared.Application.Tenancy;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Security;
+using Shared.Tenancy;
+using Shared.Results;
 
 public sealed class AuthModule : IModule
 {
@@ -125,17 +123,17 @@ public sealed class AuthModule : IModule
     }
 
     private static readonly ApiErrorStatusCodeMap PublicErrorStatusCodes = ApiErrorStatusCodeMap.Create(
-        new(AuthDomainErrors.CredentialsNotValid.Code, StatusCodes.Status401Unauthorized),
+        new(AuthApplicationErrors.CredentialsNotValid.Code, StatusCodes.Status401Unauthorized),
         new(AuthApplicationErrors.TokenInvalid.Code, StatusCodes.Status401Unauthorized),
-        new(AuthDomainErrors.MemberNotFound.Code, StatusCodes.Status401Unauthorized),
-        new(AuthDomainErrors.SessionNotFound.Code, StatusCodes.Status401Unauthorized),
-        new(AuthDomainErrors.SessionInactive.Code, StatusCodes.Status401Unauthorized),
-        new(AuthDomainErrors.RefreshTokenInvalid.Code, StatusCodes.Status401Unauthorized),
-        new(AuthDomainErrors.RefreshTokenExpired.Code, StatusCodes.Status401Unauthorized),
+        new(AuthApplicationErrors.MemberNotFound.Code, StatusCodes.Status401Unauthorized),
+        new(AuthApplicationErrors.SessionNotFound.Code, StatusCodes.Status401Unauthorized),
+        new(AuthApplicationErrors.SessionInactive.Code, StatusCodes.Status401Unauthorized),
+        new(AuthApplicationErrors.RefreshTokenInvalid.Code, StatusCodes.Status401Unauthorized),
+        new(AuthApplicationErrors.RefreshTokenExpired.Code, StatusCodes.Status401Unauthorized),
         new(AuthApplicationErrors.TenantMismatch.Code, StatusCodes.Status403Forbidden),
-        new(AuthDomainErrors.MemberStatusUnknown.Code, StatusCodes.Status403Forbidden),
-        new(AuthDomainErrors.MemberDisabled.Code, StatusCodes.Status403Forbidden),
-        new(AuthDomainErrors.UsernameAlreadyExists.Code, StatusCodes.Status409Conflict));
+        new(AuthApplicationErrors.MemberStatusUnknown.Code, StatusCodes.Status403Forbidden),
+        new(AuthApplicationErrors.MemberDisabled.Code, StatusCodes.Status403Forbidden),
+        new(AuthApplicationErrors.UsernameAlreadyExists.Code, StatusCodes.Status409Conflict));
 
     private static Guid? GetMemberId(ClaimsPrincipal user)
     {

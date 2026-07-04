@@ -1,6 +1,6 @@
 namespace Shared.Administration;
 
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public static class AdminErrors
 {

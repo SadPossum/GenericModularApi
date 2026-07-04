@@ -4,10 +4,9 @@ using Administration.Application.Commands;
 using Administration.Application.Ports;
 using Microsoft.Extensions.Options;
 using Shared.Administration;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Time;
+using Shared.Results;
 
 internal sealed class BootstrapOwnerCommandHandler(
     IAdminRbacRepository repository,

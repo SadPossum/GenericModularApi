@@ -1,7 +1,7 @@
 namespace Administration.Persistence;
 
 using Administration.Contracts;
-using Shared.Application.UnitOfWork;
+using Shared.Cqrs.UnitOfWork;
 
 internal sealed class AdminUnitOfWork(AdminDbContext dbContext) : IUnitOfWork
 {

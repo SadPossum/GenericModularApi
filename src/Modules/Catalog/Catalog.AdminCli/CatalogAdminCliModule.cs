@@ -11,10 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shared.Administration;
 using Shared.Administration.Cli;
-using Shared.Application;
-using Shared.Application.Cqrs;
-using Shared.Application.Queries;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Pagination;
+using Shared.Results;
 
 public sealed class CatalogAdminCliModule : IAdminCliModule
 {

@@ -1,9 +1,9 @@
 namespace Ordering.Persistence;
 
+using Shared.Naming;
 using Catalog.Contracts;
 using Ordering.Domain.Aggregates;
-using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Results;
 
 public sealed class CatalogItemProjection
 {

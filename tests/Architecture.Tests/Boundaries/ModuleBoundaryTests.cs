@@ -2,15 +2,27 @@ namespace Architecture.Tests;
 
 using System.Reflection;
 using System.Text.RegularExpressions;
-using Shared.Application.Caching;
-using Shared.Application.Cqrs;
-using Shared.Application.Messaging;
-using Shared.Application.UnitOfWork;
+using Shared.Caching;
+using Shared.Cqrs;
+using Shared.Messaging;
+using Shared.Cqrs.UnitOfWork;
 using Xunit;
 
 [Trait("Category", "Architecture")]
 public sealed class ModuleBoundaryTests
 {
+    private static readonly string[] SharedAdapterAssembliesWithNonStandardNames =
+    [
+        "Shared.Api.OpenApi",
+        "Shared.Api.Serilog",
+        "Shared.Caching.Redis",
+        "Shared.Infrastructure",
+        "Shared.Logging.Serilog",
+        "Shared.Messaging.Nats",
+        "Shared.Messaging.Nats.Aspire",
+        "Shared.Persistence.EntityFrameworkCore"
+    ];
+
     [Fact]
     public void Module_domain_projects_do_not_depend_on_contracts_application_or_infrastructure()
     {
@@ -379,12 +391,12 @@ public sealed class ModuleBoundaryTests
             [Path.Combine(repositoryRoot, "src", "Modules", "Auth", "Auth.AdminApi", "AuthAdminApiModule.cs")] =
             [
                 "errorStatusCodes:",
-                "AuthDomainErrors.MemberNotFound.Code"
+                "AuthApplicationErrors.MemberNotFound.Code"
             ],
             [Path.Combine(repositoryRoot, "src", "Modules", "Catalog", "Catalog.AdminApi", "CatalogAdminApiModule.cs")] =
             [
                 "errorStatusCodes:",
-                "CatalogDomainErrors.ItemNotFound.Code"
+                "CatalogApplicationErrors.ItemNotFound.Code"
             ]
         };
         string[] offenders = expectedTokensByFile
@@ -475,10 +487,13 @@ public sealed class ModuleBoundaryTests
 
     private static bool IsForbiddenDomainDependency(string referenceName) =>
         ArchitectureCatalog.ModulePrefixes.Any(prefix => referenceName.StartsWith(prefix + ".", StringComparison.Ordinal)) ||
+        IsSharedAdapterDependency(referenceName) ||
         referenceName.StartsWith("Shared.Application", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Infrastructure", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Api", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Administration", StringComparison.Ordinal) ||
+        referenceName.StartsWith("Shared.Messaging", StringComparison.Ordinal) ||
+        referenceName.StartsWith("Shared.Tasks", StringComparison.Ordinal) ||
         referenceName.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) ||
         referenceName.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal) ||
         referenceName.StartsWith("Microsoft.Extensions", StringComparison.Ordinal) ||
@@ -490,6 +505,7 @@ public sealed class ModuleBoundaryTests
         referenceName.StartsWith(modulePrefix + ".Api", StringComparison.Ordinal) ||
         referenceName.StartsWith(modulePrefix + ".Infrastructure", StringComparison.Ordinal) ||
         referenceName.StartsWith(modulePrefix + ".Persistence", StringComparison.Ordinal) ||
+        IsSharedAdapterDependency(referenceName) ||
         referenceName.StartsWith("Shared.Infrastructure", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Api", StringComparison.Ordinal) ||
         referenceName.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) ||
@@ -497,6 +513,11 @@ public sealed class ModuleBoundaryTests
         referenceName.StartsWith("Microsoft.Extensions.Hosting", StringComparison.Ordinal) ||
         referenceName.StartsWith("System.CommandLine", StringComparison.Ordinal) ||
         referenceName.StartsWith("NATS.", StringComparison.Ordinal);
+
+    private static bool IsSharedAdapterDependency(string referenceName) =>
+        (referenceName.StartsWith("Shared.", StringComparison.Ordinal) &&
+         referenceName.EndsWith(".Infrastructure", StringComparison.Ordinal)) ||
+        SharedAdapterAssembliesWithNonStandardNames.Contains(referenceName, StringComparer.Ordinal);
 
     private static bool ImplementsCommand(Type type) =>
         type.GetInterfaces().Any(IsCommandInterface);
@@ -511,7 +532,7 @@ public sealed class ModuleBoundaryTests
         type.IsGenericType &&
         string.Equals(
             type.GetGenericTypeDefinition().FullName,
-            "Shared.Application.Cqrs.ICommand`1",
+            "Shared.Cqrs.ICommand`1",
             StringComparison.Ordinal);
 
     private static bool ImplementsQuery(Type type) =>
@@ -529,7 +550,7 @@ public sealed class ModuleBoundaryTests
         type.IsGenericType &&
         string.Equals(
             type.GetGenericTypeDefinition().FullName,
-            "Shared.Application.Cqrs.ITransactionalCommand`1",
+            "Shared.Cqrs.ITransactionalCommand`1",
             StringComparison.Ordinal);
 
     private static bool ContainsForbiddenQuerySideEffectDependency(Type dependencyType)

@@ -1,7 +1,7 @@
 namespace Administration.Application.Validation;
 
 using Administration.Application.Commands;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 internal sealed class CreateRoleCommandValidator : ICommandValidator<CreateRoleCommand>
 {

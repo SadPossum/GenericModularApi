@@ -1,5 +1,6 @@
 namespace Catalog.Tests;
 
+using Shared.Naming;
 using Catalog.Domain.Aggregates;
 using Catalog.Domain.Events;
 using Shared.Domain;

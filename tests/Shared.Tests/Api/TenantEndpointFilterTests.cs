@@ -6,8 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Shared.Api.Tenancy;
-using Shared.Application.Tenancy;
-using Shared.Domain;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Unit")]

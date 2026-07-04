@@ -6,8 +6,8 @@ using Ordering.Application;
 using Ordering.Application.Commands;
 using Ordering.Application.Validation;
 using Ordering.Contracts;
-using Shared.Application.Cqrs;
-using Shared.Application.Messaging;
+using Shared.Cqrs;
+using Shared.Messaging;
 using Xunit;
 
 [Trait("Category", "Unit")]

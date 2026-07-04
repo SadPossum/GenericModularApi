@@ -1,7 +1,7 @@
 namespace Ordering.Application.Validation;
 
 using Ordering.Application.Commands;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 internal sealed class PlaceOrderCommandValidator : ICommandValidator<PlaceOrderCommand>
 {

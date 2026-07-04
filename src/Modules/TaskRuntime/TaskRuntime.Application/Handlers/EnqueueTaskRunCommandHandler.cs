@@ -1,11 +1,11 @@
 namespace TaskRuntime.Application.Handlers;
 
 using System.Text.Json;
-using Shared.Application.Cqrs;
-using Shared.Application.Identity;
-using Shared.Application.Tasks;
-using Shared.Application.Time;
-using Shared.ErrorHandling;
+using Shared.Cqrs;
+using Shared.Runtime.Identity;
+using Shared.Tasks;
+using Shared.Runtime.Time;
+using Shared.Results;
 using TaskRuntime.Application.Commands;
 
 internal sealed class EnqueueTaskRunCommandHandler(

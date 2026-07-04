@@ -1,7 +1,7 @@
 namespace Shared.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application.Messaging;
+using Shared.Messaging;
 using Xunit;
 
 [Trait("Category", "Unit")]

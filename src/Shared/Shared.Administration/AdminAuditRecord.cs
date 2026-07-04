@@ -1,7 +1,7 @@
 namespace Shared.Administration;
 
-using Shared.Domain;
-using Shared.ErrorHandling;
+using Shared.Naming;
+using Shared.Results;
 
 public sealed record AdminAuditRecord
 {

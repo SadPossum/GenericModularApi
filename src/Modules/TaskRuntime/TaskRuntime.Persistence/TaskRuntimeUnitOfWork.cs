@@ -1,6 +1,6 @@
 namespace TaskRuntime.Persistence;
 
-using Shared.Application.UnitOfWork;
+using Shared.Cqrs.UnitOfWork;
 using TaskRuntime.Contracts;
 
 internal sealed class TaskRuntimeUnitOfWork(TaskRuntimeDbContext dbContext) : IUnitOfWork

@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Administration\Shared.Administration.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Api\Shared.Api.csproj" />
-    <ProjectReference Include="..\..\..\Shared\Shared.Application\Shared.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
   </ItemGroup>
 </Project>

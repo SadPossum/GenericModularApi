@@ -3,7 +3,7 @@ namespace Shared.Tests;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.Events;
 using Shared.Domain;
-using Shared.Infrastructure.Events;
+using Shared.Application.Events.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

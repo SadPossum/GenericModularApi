@@ -18,9 +18,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using NATS.Client.Core;
-using Shared.Application.Security;
-using Shared.Application.Tenancy;
-using Shared.Infrastructure.Persistence;
+using Shared.Security;
+using Shared.Tenancy;
+using Shared.Persistence.EntityFrameworkCore;
 
 internal sealed class AdminApiTestApplication(
     string provider,

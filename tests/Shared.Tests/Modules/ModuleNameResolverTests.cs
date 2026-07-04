@@ -1,6 +1,6 @@
 namespace Shared.Tests;
 
-using Shared.Infrastructure.Observability;
+using Shared.Observability.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

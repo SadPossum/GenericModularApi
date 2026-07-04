@@ -1,7 +1,6 @@
 namespace TaskSamples.Application.Tasks;
 
-using Shared.Application;
-using Shared.Application.Cqrs;
+using Shared.Cqrs;
 
 public sealed record RecordTaskSampleReportCommand(
     string ReportName,

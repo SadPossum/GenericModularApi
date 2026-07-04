@@ -13,12 +13,13 @@ using Microsoft.Extensions.Options;
 using NATS.Client.Core;
 using NATS.Client.JetStream;
 using NATS.Client.JetStream.Models;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
 using Ordering.Application;
 using Ordering.Persistence;
-using Shared.Application.Messaging;
-using Shared.Application.Tenancy;
-using Shared.Infrastructure;
+using Shared.Messaging;
+using Shared.Messaging.Nats;
+using Shared.Tenancy;
+using Shared.Tenancy.Infrastructure;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -216,7 +217,7 @@ public sealed class NatsConsumerIntegrationTests
             Url = natsConnectionString,
         }));
 
-        builder.AddSharedInfrastructure();
+        builder.AddTenancyInfrastructure();
         builder.Services.AddOrderingApplication();
         builder.AddOrderingPersistence();
         builder.AddNatsJetStreamMessaging();

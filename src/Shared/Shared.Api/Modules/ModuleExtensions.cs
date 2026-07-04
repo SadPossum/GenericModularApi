@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Shared.Application.Messaging;
+using Shared.Naming;
 
 public static class ModuleExtensions
 {
@@ -80,7 +80,7 @@ public static class ModuleExtensions
     {
         try
         {
-            string normalized = IntegrationEventNaming.NormalizeModuleName(moduleName, "Name");
+            string normalized = SharedModuleNames.Normalize(moduleName, "Name");
             if (!string.Equals(moduleName, normalized, StringComparison.Ordinal))
             {
                 throw new ArgumentException("Module names must already be lowercase kebab-case and must not require normalization.");

@@ -1,9 +1,11 @@
 namespace Ordering.Domain.Aggregates;
 
+using Shared.Naming;
 using Ordering.Domain.Errors;
 using Shared.Domain;
 using Shared.Domain.Models;
-using Shared.ErrorHandling;
+using Shared.Numerics;
+using Shared.Results;
 
 public sealed class Order : AggregateRoot<Guid>, ITenantScoped
 {

@@ -7,9 +7,9 @@ using Auth.Domain.ValueObjects;
 using Auth.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Events;
-using Shared.Application.Tenancy;
+using Shared.Tenancy;
 using Shared.Domain;
-using Shared.Infrastructure.Messaging;
+using Shared.Messaging.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]

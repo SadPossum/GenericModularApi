@@ -9,5 +9,9 @@
     <ProjectReference Include="..\Auth.Infrastructure.JwtBearer\Auth.Infrastructure.JwtBearer.csproj" />
     <ProjectReference Include="..\Auth.Persistence\Auth.Persistence.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Api\Shared.Api.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Security\Shared.Security.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
   </ItemGroup>
 </Project>

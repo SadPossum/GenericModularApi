@@ -1,6 +1,6 @@
 namespace Catalog.Contracts;
 
-using Shared.Application.Messaging;
+using Shared.Messaging;
 
 public sealed record CatalogItemUpdatedIntegrationEvent : IntegrationEvent
 {

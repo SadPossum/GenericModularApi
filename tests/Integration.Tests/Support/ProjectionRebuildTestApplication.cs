@@ -142,7 +142,7 @@ internal sealed class ProjectionRebuildTestApplication : IAsyncDisposable
                 new TaskRunRequest(
                     runId,
                     OrderingModuleMetadata.Name,
-                    OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName,
+                    RebuildCatalogItemProjectionPayload.TaskName,
                     payload,
                     now,
                     now,
@@ -150,7 +150,7 @@ internal sealed class ProjectionRebuildTestApplication : IAsyncDisposable
                     tenantId,
                     requestedBy: "integration-test",
                     maxAttempts: 2,
-                    payloadVersion: OrderingModuleMetadata.RebuildCatalogItemProjectionsPayloadVersion,
+                    payloadVersion: RebuildCatalogItemProjectionPayload.PayloadVersion,
                     deduplicationKey: null),
                 CancellationToken.None)
             .ConfigureAwait(false);

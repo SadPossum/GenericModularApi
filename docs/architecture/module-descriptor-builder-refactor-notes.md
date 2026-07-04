@@ -155,7 +155,7 @@ Temporary working notes for the descriptor/capability refactor. Keep this file u
 
 - Keep `Shared.Infrastructure` as a host-level facade over the baseline runtime adapters. The concrete implementations live in their narrower infrastructure packages so optional adapters can reference only the slices they need.
 - Keep public names explicit and string-backed; no assembly scanning or magic registration in this slice.
-- Use builder/extensions rather than attributes for now. Attributes may be useful later for low-risk docs generation, but they would need tests proving no runtime composition depends on reflection.
+- Use builder/extensions as the module catalog. Attribute-backed helpers are now acceptable only for metadata that belongs to a known local type, such as published integration events, integration-event handlers, and task payloads. Runtime composition still calls explicit generic registration helpers and does not scan assemblies.
 - Keep optional capability-to-CQRS bridges out of the capability core. `Shared.Tasks.Cqrs` is the pattern to copy if caching, messaging, or future capabilities need helpers that depend on the application dispatcher.
 - Allow runtime adapter registration methods to compose narrower shared infrastructure they require, such as runtime clock/id registration or CQRS pipeline registration, while keeping module application/domain projects guarded against those adapter packages.
 - Keep `Unknown = 0` as the default for public contract/domain/shared semantic enums such as `CacheScope` and `ModuleTaskKind`, and reject unknown or undefined values at module boundaries. If a future capability needs richer compatibility semantics, use one documented smart-enum/code-list pattern with tests instead of per-module enum magic.

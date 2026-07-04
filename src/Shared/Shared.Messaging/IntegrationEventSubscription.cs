@@ -1,6 +1,8 @@
 namespace Shared.Messaging;
 
-public sealed class IntegrationEventSubscription
+using Shared.Modules;
+
+public sealed class IntegrationEventSubscription : IModuleMetadataProvider
 {
     private IntegrationEventSubscription(
         string consumerModule,
@@ -11,7 +13,7 @@ public sealed class IntegrationEventSubscription
         Type eventType,
         Type handlerType,
         string handlerName,
-        bool tenantScoped)
+        ModuleMetadataItems metadata)
     {
         this.ConsumerModule = consumerModule;
         this.ProducerModule = producerModule;
@@ -21,7 +23,7 @@ public sealed class IntegrationEventSubscription
         this.EventType = eventType;
         this.HandlerType = handlerType;
         this.HandlerName = handlerName;
-        this.TenantScoped = tenantScoped;
+        this.Metadata = metadata;
     }
 
     public string ConsumerModule { get; }
@@ -33,7 +35,7 @@ public sealed class IntegrationEventSubscription
     public Type EventType { get; }
     public Type HandlerType { get; }
     public string HandlerName { get; }
-    public bool TenantScoped { get; }
+    public ModuleMetadataItems Metadata { get; }
 
     public string CreateSubject(string subjectPrefix) =>
         IntegrationEventNaming.CreateSubject(subjectPrefix, this.ProducerModule, this.EventName, this.Version);
@@ -42,7 +44,7 @@ public sealed class IntegrationEventSubscription
         string consumerModule,
         string subject,
         string handlerName,
-        bool tenantScoped = true)
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
         where TEvent : IIntegrationEvent
         where THandler : class, IIntegrationEventHandler<TEvent>
     {
@@ -57,7 +59,7 @@ public sealed class IntegrationEventSubscription
             parsedSubject.EventName,
             parsedSubject.Version,
             handlerName,
-            tenantScoped,
+            metadata,
             parsedSubject.SubjectPrefix);
     }
 
@@ -67,7 +69,7 @@ public sealed class IntegrationEventSubscription
         string eventName,
         int version,
         string handlerName,
-        bool tenantScoped = true,
+        IReadOnlyList<ModuleMetadataItem>? metadata = null,
         string subjectPrefix = IntegrationEventNaming.DefaultSubjectPrefix)
         where TEvent : IIntegrationEvent
         where THandler : class, IIntegrationEventHandler<TEvent>
@@ -87,6 +89,6 @@ public sealed class IntegrationEventSubscription
             typeof(TEvent),
             typeof(THandler),
             IntegrationEventNaming.NormalizeHandlerName(handlerName),
-            tenantScoped);
+            ModuleMetadataItems.Create(metadata));
     }
 }

@@ -4,6 +4,13 @@ using Shared.Modules;
 
 public static class ModuleDescriptorTaskExtensions
 {
+    public static ModuleDescriptorBuilder WithTask<TPayload>(this ModuleDescriptorBuilder builder)
+        where TPayload : ITaskPayload
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.WithTask(TaskPayloadMetadataReader.CreateDescriptor(typeof(TPayload)));
+    }
+
     public static ModuleDescriptorBuilder WithTask(
         this ModuleDescriptorBuilder builder,
         ModuleTaskDescriptor task)

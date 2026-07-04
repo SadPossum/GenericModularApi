@@ -145,7 +145,7 @@ internal sealed class TaskWorkerService(
         }
 
         tenantContext.ClearTenant();
-        if (registration.TenantScoped)
+        if (registration.IsTenantScoped())
         {
             if (string.IsNullOrWhiteSpace(lease.TenantId))
             {

@@ -2,15 +2,39 @@ namespace Shared.Messaging;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Shared.Modules;
 
 public static class IntegrationEventSubscriptionServiceCollectionExtensions
 {
     public static IServiceCollection AddIntegrationEventHandler<TEvent, THandler>(
         this IServiceCollection services,
         string consumerModule,
+        string producerModule)
+        where TEvent : IIntegrationEvent
+        where THandler : class, IIntegrationEventHandler<TEvent>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(consumerModule);
+        ArgumentException.ThrowIfNullOrWhiteSpace(producerModule);
+
+        IntegrationEventMetadataReader.IntegrationEventMetadata publishedEvent =
+            IntegrationEventMetadataReader.ReadRequired(typeof(TEvent));
+        IntegrationEventHandlerAttribute handler = IntegrationEventHandlerAttribute.GetRequired(typeof(THandler));
+        return services.AddIntegrationEventHandler<TEvent, THandler>(
+            consumerModule,
+            producerModule,
+            publishedEvent.EventName,
+            publishedEvent.Version,
+            handler.HandlerName,
+            publishedEvent.Metadata.Items);
+    }
+
+    public static IServiceCollection AddIntegrationEventHandler<TEvent, THandler>(
+        this IServiceCollection services,
+        string consumerModule,
         string subject,
         string handlerName,
-        bool tenantScoped = true)
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
         where TEvent : IIntegrationEvent
         where THandler : class, IIntegrationEventHandler<TEvent>
     {
@@ -20,7 +44,7 @@ public static class IntegrationEventSubscriptionServiceCollectionExtensions
             consumerModule,
             subject,
             handlerName,
-            tenantScoped);
+            metadata);
 
         services.TryAddSingleton<IIntegrationEventSubscriptionRegistry, IntegrationEventSubscriptionRegistry>();
         services.TryAddScoped<THandler>();
@@ -36,7 +60,7 @@ public static class IntegrationEventSubscriptionServiceCollectionExtensions
         string eventName,
         int version,
         string handlerName,
-        bool tenantScoped = true)
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
         where TEvent : IIntegrationEvent
         where THandler : class, IIntegrationEventHandler<TEvent>
     {
@@ -48,7 +72,7 @@ public static class IntegrationEventSubscriptionServiceCollectionExtensions
             eventName,
             version,
             handlerName,
-            tenantScoped);
+            metadata);
 
         services.TryAddSingleton<IIntegrationEventSubscriptionRegistry, IntegrationEventSubscriptionRegistry>();
         services.TryAddScoped<THandler>();
@@ -88,5 +112,5 @@ public static class IntegrationEventSubscriptionServiceCollectionExtensions
         string.Equals(existing.Subject, subscription.Subject, StringComparison.Ordinal) &&
         existing.EventType == subscription.EventType &&
         existing.HandlerType == subscription.HandlerType &&
-        existing.TenantScoped == subscription.TenantScoped;
+        existing.Metadata == subscription.Metadata;
 }

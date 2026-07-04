@@ -1,47 +1,34 @@
 namespace Shared.Tasks;
 
-public sealed record ModuleTaskDescriptor
+using Shared.Modules;
+
+public sealed record ModuleTaskDescriptor : IModuleMetadataProvider
 {
     public ModuleTaskDescriptor(
         string name,
         string description,
         ModuleTaskKind kind,
-        bool tenantScoped,
         bool supportsControlMessages,
         string workerGroup = TaskWorkerGroups.Default,
-        int payloadVersion = 1)
+        int payloadVersion = 1,
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
     {
         this.Name = TaskNames.NormalizeTaskName(name, nameof(name));
-        this.Description = NormalizeDescription(description);
-        this.Kind = kind is ModuleTaskKind.Unknown || !Enum.IsDefined(kind)
-            ? throw new ArgumentException("Task kind must be a known non-unknown value.", nameof(kind))
-            : kind;
-        this.TenantScoped = tenantScoped;
+        this.Description = TaskDescriptionAttribute.NormalizeDescription(description);
+        this.Kind = TaskKindAttribute.Normalize(kind, nameof(kind));
         this.SupportsControlMessages = supportsControlMessages;
         this.WorkerGroup = TaskNames.NormalizeWorkerGroup(workerGroup, nameof(workerGroup));
         this.PayloadVersion = payloadVersion > 0
             ? payloadVersion
             : throw new ArgumentOutOfRangeException(nameof(payloadVersion), payloadVersion, "Task payload version must be positive.");
+        this.Metadata = ModuleMetadataItems.Create(metadata);
     }
 
     public string Name { get; }
     public string Description { get; }
     public ModuleTaskKind Kind { get; }
-    public bool TenantScoped { get; }
     public bool SupportsControlMessages { get; }
     public string WorkerGroup { get; }
     public int PayloadVersion { get; }
-
-    private static string NormalizeDescription(string description)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(description);
-
-        string normalized = description.Trim();
-        if (normalized.Any(char.IsControl))
-        {
-            throw new ArgumentException("Task description cannot contain control characters.", nameof(description));
-        }
-
-        return normalized;
-    }
+    public ModuleMetadataItems Metadata { get; }
 }

@@ -154,7 +154,7 @@ public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
     .Create(Name)
     .WithSchema(Schema)
     .WithPermission(new ModulePermissionDescriptor("catalog.items.read", "Read catalog items.", tenantScoped: true))
-    .WithPublishedEvent(new ModuleIntegrationEventDescriptor("item-created", CatalogIntegrationSubjects.ItemCreated, 1, tenantScoped: true))
+    .WithPublishedEvent<CatalogItemCreatedIntegrationEvent>()
     .WithCacheEntries([
         new ModuleCacheDescriptor(ItemsCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
         new ModuleCacheDescriptor(ItemCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
@@ -164,14 +164,24 @@ public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
 
 Prefer the single-item helpers (`WithPermission`, `WithPublishedEvent`, `WithSubscription`, `WithCacheEntry`, `WithTask`) when metadata naturally belongs near one resource or feature. Use the bulk helpers (`WithPermissions`, `WithPublishedEvents`, `WithSubscriptions`, `WithCacheEntries`, `WithTasks`) when a compact list is clearer. Repeated calls merge within the owning capability feature; duplicate metadata still fails through the capability descriptor.
 
+For metadata that belongs to one local type, prefer the attribute-backed helpers:
+
+- put `IntegrationEventNameAttribute` and `IntegrationEventVersionAttribute` on integration event contract types and use `WithPublishedEvent<TEvent>()`;
+- put `IntegrationEventHandlerAttribute` on consumer handler types and register them with `AddIntegrationEventHandler<TEvent,THandler>(consumerModule, producerModule)`;
+- put split task attributes such as `TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, and optional `TaskWorkerGroupAttribute`/`SupportsTaskControlAttribute` on serialized task payload contract types and use `WithTask<TPayload>()` plus `AddTaskHandler<TPayload,THandler>(moduleName)`;
+- put `[TenantScoped]` from `Shared.Tenancy` on event or task payload contracts that need tenant context.
+
+These helpers read attributes from known generic types only. They do not scan assemblies, discover modules, register endpoints, start consumers, or compose workers. Keep permissions and cache metadata descriptor-authored until a single local owner type exists for that metadata.
+
 The root descriptor owns only identity and polymorphic capability features. Capability-specific metadata and extensions live beside the capability:
 
 - `Shared.Modules` owns the root descriptor, builder, and custom feature base.
 - `Shared.Authorization` owns permission metadata plus `WithPermission(...)`, `WithPermissions(...)`, and `GetPermissions()`.
 - `Shared.Naming` owns low-level kebab-case segment, module-name, and tenant-id normalization shared by domain events, API/admin composition, CLI command ownership, modules, messaging, caching, and task metadata.
-- `Shared.Messaging` owns published-event and subscription metadata plus `WithPublishedEvent(...)`, `WithPublishedEvents(...)`, `WithSubscription(...)`, `WithSubscriptions(...)`, `GetPublishedEvents()`, and `GetSubscriptions()`.
+- `Shared.Messaging` owns published-event and subscription metadata plus `IntegrationEventNameAttribute`, `IntegrationEventVersionAttribute`, `IntegrationEventHandlerAttribute`, `WithPublishedEvent(...)`, `WithPublishedEvent<TEvent>()`, `WithPublishedEvents(...)`, `WithSubscription(...)`, `WithSubscription<TEvent>(producerModule, handlerName)`, `WithSubscriptions(...)`, `GetPublishedEvents()`, and `GetSubscriptions()`.
 - `Shared.Caching` owns cache metadata plus `WithCacheEntry(...)`, `WithCacheEntries(...)`, and `GetCacheEntries()`.
-- `Shared.Tasks` owns task metadata plus `WithTask(...)`, `WithTasks(...)`, and `GetTasks()`.
+- `Shared.Tasks` owns task metadata plus `TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, `TaskWorkerGroupAttribute`, `SupportsTaskControlAttribute`, `WithTask(...)`, `WithTask<TPayload>()`, `WithTasks(...)`, and `GetTasks()`.
+- `Shared.Tenancy` owns `[TenantScoped]` and tenancy metadata readers. Base messaging/task packages do not reference tenancy.
 
 This is an intentional extension seam. The root `ModuleDescriptor` is sealed so its identity surface stays stable; new optional shared capabilities should add a `ModuleDescriptorFeature` subtype and builder/read extensions in their own namespace rather than adding another root property or subclassing the root descriptor.
 Feature keys are stable and capability-prefixed, for example `authorization.permissions`, `messaging.published-events`, `caching.entries`, and `tasks.handlers`. Custom feature keys should follow the same `<capability>.<entry>` shape to avoid collisions across optional packages.

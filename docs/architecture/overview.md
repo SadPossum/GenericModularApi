@@ -397,6 +397,7 @@ Shared.Tasks.Infrastructure
   -> Shared.Tenancy
 
 Shared.Tenancy
+  -> Shared.Modules
   -> Shared.Results
 
 Shared.Tenancy.Infrastructure

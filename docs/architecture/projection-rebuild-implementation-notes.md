@@ -52,10 +52,10 @@ These are temporary working notes for the projection rebuild slice. Keep useful 
 - Catalog contracts:
   - `CatalogItemProjectionExport`
   - `ICatalogItemProjectionExportSource`
-- Ordering application:
+- Ordering contracts/application:
   - `RebuildCatalogItemProjectionPayload`
   - `RebuildCatalogItemProjectionTaskHandler`
-  - module task metadata `rebuild-catalog-item-projections`, worker group `projection-workers`, payload version `1`, control-enabled.
+  - payload-owned module task metadata `rebuild-catalog-item-projections`, worker group `projection-workers`, payload version `1`, control-enabled.
 - Ordering persistence:
   - `OrderingProjectionRebuildCheckpoint`
   - `OrderingProjectionRebuildCheckpointStore`

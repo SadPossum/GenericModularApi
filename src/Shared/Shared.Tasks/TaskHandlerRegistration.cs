@@ -1,6 +1,8 @@
 namespace Shared.Tasks;
 
-public sealed class TaskHandlerRegistration
+using Shared.Modules;
+
+public sealed class TaskHandlerRegistration : IModuleMetadataProvider
 {
     private TaskHandlerRegistration(
         string moduleName,
@@ -9,9 +11,9 @@ public sealed class TaskHandlerRegistration
         Type payloadType,
         Type handlerType,
         ModuleTaskKind kind,
-        bool tenantScoped,
         int payloadVersion,
-        bool supportsControlMessages)
+        bool supportsControlMessages,
+        ModuleMetadataItems metadata)
     {
         this.ModuleName = moduleName;
         this.TaskName = taskName;
@@ -19,9 +21,9 @@ public sealed class TaskHandlerRegistration
         this.PayloadType = payloadType;
         this.HandlerType = handlerType;
         this.Kind = kind;
-        this.TenantScoped = tenantScoped;
         this.PayloadVersion = payloadVersion;
         this.SupportsControlMessages = supportsControlMessages;
+        this.Metadata = metadata;
     }
 
     public string ModuleName { get; }
@@ -30,18 +32,25 @@ public sealed class TaskHandlerRegistration
     public Type PayloadType { get; }
     public Type HandlerType { get; }
     public ModuleTaskKind Kind { get; }
-    public bool TenantScoped { get; }
     public int PayloadVersion { get; }
     public bool SupportsControlMessages { get; }
+    public ModuleMetadataItems Metadata { get; }
+
+    public static TaskHandlerRegistration Create<TPayload, THandler>(string moduleName)
+        where TPayload : ITaskPayload
+        where THandler : class, ITaskHandler<TPayload>
+    {
+        return TaskPayloadMetadataReader.CreateRegistration<TPayload, THandler>(moduleName);
+    }
 
     public static TaskHandlerRegistration Create<TPayload, THandler>(
         string moduleName,
         string taskName,
         string workerGroup = TaskWorkerGroups.Default,
-        bool tenantScoped = true,
         int payloadVersion = 1,
         ModuleTaskKind kind = ModuleTaskKind.OneShot,
-        bool supportsControlMessages = false)
+        bool supportsControlMessages = false,
+        IReadOnlyList<ModuleMetadataItem>? metadata = null)
         where TPayload : ITaskPayload
         where THandler : class, ITaskHandler<TPayload>
     {
@@ -51,13 +60,11 @@ public sealed class TaskHandlerRegistration
             TaskNames.NormalizeWorkerGroup(workerGroup, nameof(workerGroup)),
             typeof(TPayload),
             typeof(THandler),
-            kind is ModuleTaskKind.Unknown || !Enum.IsDefined(kind)
-                ? throw new ArgumentException("Task kind must be a known non-unknown value.", nameof(kind))
-                : kind,
-            tenantScoped,
+            TaskKindAttribute.Normalize(kind, nameof(kind)),
             payloadVersion > 0
                 ? payloadVersion
                 : throw new ArgumentOutOfRangeException(nameof(payloadVersion), payloadVersion, "Task payload version must be positive."),
-            supportsControlMessages);
+            supportsControlMessages,
+            ModuleMetadataItems.Create(metadata));
     }
 }

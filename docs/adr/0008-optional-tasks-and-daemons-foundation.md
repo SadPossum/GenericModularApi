@@ -32,10 +32,10 @@ The first foundation includes:
 - `ITaskCommandDispatcher` in `Shared.Tasks.Cqrs` for dispatching normal CQRS commands from task payload code with task-run context;
 - `TaskRunRequest`, `TaskWorkerClaim`, `TaskRunLease`, `ITaskRunStore`, `TaskRunStats`, `TaskRunStatusTransitions`, and `TaskRunStatusNames` for scheduler-neutral run persistence, requester provenance, leasing, stats, cancellation, status rules, and stable status wire names;
 - payload versioning and active-run deduplication on `TaskRunRequest`;
-- `TaskHandlerRegistration`, `ITaskHandlerRegistry`, and explicit `AddTaskHandler<TPayload,THandler>()` registration;
+- `TaskHandlerRegistration`, `ITaskHandlerRegistry`, and explicit attribute-backed `AddTaskHandler<TPayload,THandler>(moduleName)` registration;
 - `ITaskScheduleProvider`, `ScheduledTaskDefinition`, and `AddTaskRunScheduling()` for optional code-defined schedules that enqueue task requests only;
 - `TaskRunStatus` and `TaskControlMessageStatus` enums;
-- `ModuleTaskDescriptor`, `ModuleTaskKind`, `WithTask(...)`, and `WithTasks(...)` so modules can declare owned tasks and daemons without adding task-specific properties to the root module descriptor.
+- split task attributes, `ModuleTaskDescriptor`, `ModuleTaskKind`, `WithTask<TPayload>()`, `WithTask(...)`, and `WithTasks(...)` so modules can declare owned tasks and daemons without adding task-specific properties to the root module descriptor.
 
 The first runtime implementation adds:
 

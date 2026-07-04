@@ -10,6 +10,8 @@ public sealed class ModuleDescriptorBuilder
     internal ModuleDescriptorBuilder(string name)
         => this.name = ModuleMetadataNaming.NormalizeModuleName(name, nameof(name));
 
+    public string Name => this.name;
+
     public ModuleDescriptorBuilder WithSchema(string? value)
     {
         this.schema = value;

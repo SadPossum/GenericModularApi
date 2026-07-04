@@ -10,29 +10,36 @@ A module owns its task payloads the same way it owns commands, queries, domain e
 - A recurring task is a finite task created repeatedly by a schedule.
 - A daemon is long-running work that keeps running until canceled or stopped.
 
-Modules declare owned work with the task metadata builder extension in module metadata:
+Modules declare owned work by putting task identity on the serialized payload contract and referencing that payload from module metadata:
 
 ```csharp
+[TaskName(RebuildSearchPayload.TaskName)]
+[TaskPayloadVersion(RebuildSearchPayload.PayloadVersion)]
+[TaskDescription("Rebuild catalog search projection.")]
+[TaskKind(ModuleTaskKind.OneShot)]
+[TaskWorkerGroup("search-workers")]
+[SupportsTaskControl]
+[TenantScoped]
+public sealed record RebuildSearchPayload(bool Force) : ITaskPayload
+{
+    public const string TaskName = "rebuild-search";
+    public const int PayloadVersion = 1;
+}
+
 public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
     .Create(Name)
-    .WithTask(
-        new ModuleTaskDescriptor(
-            "rebuild-search",
-            "Rebuild catalog search projection.",
-            ModuleTaskKind.OneShot,
-            tenantScoped: true,
-            supportsControlMessages: true,
-            workerGroup: "search-workers",
-            payloadVersion: 1))
+    .WithTask<RebuildSearchPayload>()
     .Build();
 ```
 
-`ModuleTaskDescriptor`, `WithTask(...)`, and `WithTasks(...)` live in `Shared.Tasks`; the generic module descriptor does not own task-specific properties. The descriptor is discoverability and policy metadata. It is not runtime module discovery and does not register a worker.
+`TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, `TaskWorkerGroupAttribute`, `SupportsTaskControlAttribute`, `ModuleTaskDescriptor`, `WithTask<TPayload>()`, `WithTask(...)`, and `WithTasks(...)` live in `Shared.Tasks`. Tenant scope is a `Shared.Tenancy` metadata attribute, not a task-package field. The descriptor is discoverability and policy metadata. It is not runtime module discovery and does not register a worker.
 Task handler identity is `(module, task, payload version)` so modules can keep old payload handlers alive while introducing a new payload shape. Worker group, tenant scope, kind, and control-message support are routing and policy metadata that must still match the module descriptor.
 
 ## Payload Contracts
 
-Task payload code implements `ITaskHandler<TPayload>`:
+Serialized task payloads implement `ITaskPayload`. If the task is visible in module metadata or can be enqueued outside the current application assembly, keep the payload type in `<Module>.Contracts`, expose task identity constants on the payload contract, and annotate it with the small task-owned attributes plus `[TenantScoped]` when the tenancy package applies.
+
+Task handler code implements `ITaskHandler<TPayload>`:
 
 ```csharp
 internal sealed class RebuildSearchTask : ITaskHandler<RebuildSearchPayload>
@@ -47,24 +54,15 @@ internal sealed class RebuildSearchTask : ITaskHandler<RebuildSearchPayload>
 }
 ```
 
-Payloads implement `ITaskPayload`.
-
 `TaskExecutionContext` carries run id, module name, task name, worker group, worker id, node id, attempt, tenant id, correlation id, and whether the run was reclaimed for cancellation. Runtime adapters should pass this context into logging scopes, metrics, audit records, and command dispatch.
 
 Register payload handlers explicitly from the owning module application project:
 
 ```csharp
-services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(
-    TaskSamplesModuleMetadata.Name,
-    TaskSamplesModuleMetadata.GenerateReportTaskName,
-    TaskSamplesModuleMetadata.WorkerGroup,
-    tenantScoped: true,
-    payloadVersion: 1,
-    kind: ModuleTaskKind.OneShot,
-    supportsControlMessages: false);
+services.AddTaskHandler<GenerateReportTaskPayload, GenerateReportTaskHandler>(CatalogModuleMetadata.Name);
 ```
 
-Architecture tests compare registered handlers with `ModuleTaskDescriptor` metadata so task docs, module metadata, and runtime registration drift together.
+`AddTaskHandler<TPayload,THandler>(moduleName)` reads task-owned attributes and generic metadata contributors from the payload type. The older explicit overload remains available for unusual cases, but the attribute-backed overload is the default for module-owned tasks. Architecture tests compare registered handlers, payload attributes, and module descriptors so task docs, module metadata, and runtime registration drift together.
 
 Projection rebuilds are a task use case, not a separate scheduler. Use `Shared.ProjectionRebuild` when a task needs the generic batch/checkpoint/progress loop, and keep the source contract, writer, cursor semantics, and checkpoint persistence in the producer/consumer modules that own the data. See [Projection Rebuild Tasks](projection-rebuild-tasks.md).
 

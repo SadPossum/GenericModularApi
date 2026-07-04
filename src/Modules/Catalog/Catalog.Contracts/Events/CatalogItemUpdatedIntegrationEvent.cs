@@ -1,9 +1,16 @@
 namespace Catalog.Contracts;
 
 using Shared.Messaging;
+using Shared.Tenancy;
 
+[IntegrationEventName(CatalogItemUpdatedIntegrationEvent.EventType)]
+[IntegrationEventVersion(CatalogItemUpdatedIntegrationEvent.EventVersion)]
+[TenantScoped]
 public sealed record CatalogItemUpdatedIntegrationEvent : IntegrationEvent
 {
+    public const string EventType = "item-updated";
+    public const int EventVersion = 1;
+
     public CatalogItemUpdatedIntegrationEvent(
         Guid eventId,
         string tenantId,
@@ -14,7 +21,7 @@ public sealed record CatalogItemUpdatedIntegrationEvent : IntegrationEvent
         decimal price,
         string currency,
         CatalogItemStatus status)
-        : base(eventId, tenantId, occurredAtUtc, "item-updated", version: 1)
+        : base(eventId, tenantId, occurredAtUtc, EventType, EventVersion)
     {
         this.ItemId = IntegrationEventContractGuards.RequireId(itemId, nameof(itemId));
         this.Sku = NormalizeSku(sku);

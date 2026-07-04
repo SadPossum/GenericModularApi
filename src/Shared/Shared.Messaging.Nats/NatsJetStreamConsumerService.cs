@@ -167,7 +167,7 @@ internal sealed class NatsJetStreamConsumerService(
         using IServiceScope scope = scopeFactory.CreateScope();
         ITenantContextAccessor tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContextAccessor>();
         tenantContext.ClearTenant();
-        if (subscription.TenantScoped)
+        if (subscription.IsTenantScoped())
         {
             tenantContext.SetTenant(integrationEvent.TenantId);
         }

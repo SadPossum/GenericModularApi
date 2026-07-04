@@ -1,7 +1,8 @@
 namespace Shared.Tests;
 
-using Shared.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Tasks;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -541,10 +542,10 @@ public sealed class TaskContractsTests
             " Catalog ",
             " Rebuild-Search ",
             " Search-Workers ",
-            tenantScoped: true,
             payloadVersion: 2,
             kind: ModuleTaskKind.Daemon,
-            supportsControlMessages: true);
+            supportsControlMessages: true,
+            metadata: [TenantScopeMetadataItem.Instance]);
 
         Assert.Equal("catalog", registration.ModuleName);
         Assert.Equal("rebuild-search", registration.TaskName);
@@ -552,9 +553,72 @@ public sealed class TaskContractsTests
         Assert.Equal(typeof(TestTaskPayload), registration.PayloadType);
         Assert.Equal(typeof(TestTaskHandler), registration.HandlerType);
         Assert.Equal(ModuleTaskKind.Daemon, registration.Kind);
-        Assert.True(registration.TenantScoped);
+        Assert.True(registration.IsTenantScoped());
         Assert.Equal(2, registration.PayloadVersion);
         Assert.True(registration.SupportsControlMessages);
+    }
+
+    [Fact]
+    public void Task_handler_registration_can_use_payload_attribute_metadata()
+    {
+        TaskHandlerRegistration registration =
+            TaskHandlerRegistration.Create<AttributedTaskPayload, AttributedTaskHandler>("catalog");
+
+        Assert.Equal("catalog", registration.ModuleName);
+        Assert.Equal("rebuild-search", registration.TaskName);
+        Assert.Equal("search-workers", registration.WorkerGroup);
+        Assert.Equal(typeof(AttributedTaskPayload), registration.PayloadType);
+        Assert.Equal(typeof(AttributedTaskHandler), registration.HandlerType);
+        Assert.Equal(ModuleTaskKind.Daemon, registration.Kind);
+        Assert.True(registration.IsTenantScoped());
+        Assert.Equal(2, registration.PayloadVersion);
+        Assert.True(registration.SupportsControlMessages);
+    }
+
+    [Fact]
+    public void Task_handler_service_registration_can_use_payload_attribute_metadata()
+    {
+        ServiceCollection services = new();
+
+        services.AddTaskHandler<AttributedTaskPayload, AttributedTaskHandler>("catalog");
+        services.AddTaskHandler<AttributedTaskPayload, AttributedTaskHandler>("catalog");
+
+        TaskHandlerRegistration registration = Assert.IsType<TaskHandlerRegistration>(Assert.Single(
+            services,
+            descriptor => descriptor.ServiceType == typeof(TaskHandlerRegistration)).ImplementationInstance);
+        Assert.Equal("catalog", registration.ModuleName);
+        Assert.Equal("rebuild-search", registration.TaskName);
+        Assert.Equal(2, registration.PayloadVersion);
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(AttributedTaskHandler));
+    }
+
+    [Fact]
+    public void Task_handler_attribute_registration_requires_payload_metadata()
+    {
+        ServiceCollection services = new();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            services.AddTaskHandler<TestTaskPayload, TestTaskHandler>("catalog"));
+
+        Assert.Contains(nameof(TaskNameAttribute), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Task_handler_attribute_registration_requires_payload_version_metadata()
+    {
+        ServiceCollection services = new();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            services.AddTaskHandler<MissingVersionTaskPayload, MissingVersionTaskHandler>("catalog"));
+
+        Assert.Contains(nameof(TaskPayloadVersionAttribute), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Task_payload_version_attribute_rejects_non_positive_versions()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TaskPayloadVersionAttribute(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TaskPayloadVersionAttribute(-1));
     }
 
     [Fact]
@@ -693,6 +757,45 @@ public sealed class TaskContractsTests
     {
         public Task HandleAsync(
             TestTaskPayload payload,
+            TaskExecutionContext context,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    [TaskName(AttributedTaskPayload.TaskName)]
+    [TaskPayloadVersion(AttributedTaskPayload.PayloadVersion)]
+    [TaskDescription("Rebuild search index.")]
+    [TaskKind(ModuleTaskKind.Daemon)]
+    [TaskWorkerGroup("search-workers")]
+    [SupportsTaskControl]
+    [TenantScoped]
+    private sealed record AttributedTaskPayload : ITaskPayload
+    {
+        public const string TaskName = "rebuild-search";
+        public const int PayloadVersion = 2;
+    }
+
+    private sealed class AttributedTaskHandler : ITaskHandler<AttributedTaskPayload>
+    {
+        public Task HandleAsync(
+            AttributedTaskPayload payload,
+            TaskExecutionContext context,
+            CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    [TaskName(MissingVersionTaskPayload.TaskName)]
+    [TaskDescription("Missing payload version.")]
+    [TaskKind(ModuleTaskKind.OneShot)]
+    private sealed record MissingVersionTaskPayload : ITaskPayload
+    {
+        public const string TaskName = "missing-version";
+    }
+
+    private sealed class MissingVersionTaskHandler : ITaskHandler<MissingVersionTaskPayload>
+    {
+        public Task HandleAsync(
+            MissingVersionTaskPayload payload,
             TaskExecutionContext context,
             CancellationToken cancellationToken) =>
             Task.CompletedTask;

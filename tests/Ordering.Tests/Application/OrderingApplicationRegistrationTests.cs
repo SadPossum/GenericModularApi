@@ -10,6 +10,7 @@ using Ordering.Contracts;
 using Shared.Cqrs;
 using Shared.Messaging;
 using Shared.Tasks;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -49,13 +50,13 @@ public sealed class OrderingApplicationRegistrationTests
             subscription.HandlerName == OrderingModuleMetadata.CatalogItemDiscontinuedProjectionHandlerName);
         TaskHandlerRegistration task = Assert.Single(taskRegistry.Registrations);
         Assert.Equal(OrderingModuleMetadata.Name, task.ModuleName);
-        Assert.Equal(OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName, task.TaskName);
+        Assert.Equal(RebuildCatalogItemProjectionPayload.TaskName, task.TaskName);
         Assert.Equal(OrderingModuleMetadata.ProjectionWorkerGroup, task.WorkerGroup);
         Assert.Equal(typeof(RebuildCatalogItemProjectionPayload), task.PayloadType);
         Assert.Equal(ModuleTaskKind.OneShot, task.Kind);
-        Assert.True(task.TenantScoped);
+        Assert.True(task.IsTenantScoped());
         Assert.True(task.SupportsControlMessages);
-        Assert.Equal(OrderingModuleMetadata.RebuildCatalogItemProjectionsPayloadVersion, task.PayloadVersion);
+        Assert.Equal(RebuildCatalogItemProjectionPayload.PayloadVersion, task.PayloadVersion);
     }
 
     [Fact]

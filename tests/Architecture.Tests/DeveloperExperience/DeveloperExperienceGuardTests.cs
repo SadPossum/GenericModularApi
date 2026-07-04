@@ -756,8 +756,10 @@ public sealed partial class DeveloperExperienceGuardTests
             "DomainEventDispatcher",
             "IntegrationEventHandlerInvoker",
             "TaskHandlerInvoker",
+            "ModuleMetadataAttributeReader",
             "ApplicationServiceCollectionExtensions",
             "ApplyConfigurationsFromAssembly",
+            "TenantEntityTypeBuilderExtensions",
             "host assembly marker classes",
             "observability module-name inference",
             "Do not use reflection or attributes to auto-register modules"
@@ -767,8 +769,10 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(Path.Combine("src", "Shared", "Shared.Application.Composition", "ApplicationServiceCollectionExtensions.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Cqrs.Infrastructure", "RequestDispatcher.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Application.Events.Infrastructure", "DomainEventDispatcher.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Modules", "ModuleMetadataAttributeReader.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Messaging.Infrastructure", "IntegrationEventHandlerInvoker.cs")),
             NormalizePath(Path.Combine("src", "Shared", "Shared.Tasks.Infrastructure", "TaskHandlerInvoker.cs")),
+            NormalizePath(Path.Combine("src", "Shared", "Shared.Persistence.EntityFrameworkCore", "TenantEntityTypeBuilderExtensions.cs")),
             NormalizePath(Path.Combine("src", "Host.Api", "ApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminApi", "AdminApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminCli", "AdminCliAssemblyReference.cs")),
@@ -2472,19 +2476,16 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             [Path.Combine("Configurations", "MemberConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "Member.PasswordHashMaxLength",
                 "Member.DisabledReasonMaxLength",
                 "HasIndex(member => new { member.TenantId, member.RegisteredAtUtc })"
             ],
             [Path.Combine("Configurations", "MemberSessionConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "MemberSession.RefreshTokenHashMaxLength"
             ],
             [Path.Combine("Configurations", "MemberUsernameConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "MemberUsername.ValueMaxLength",
                 "MemberUsername.NormalizedValueMaxLength"
             ]
@@ -3886,6 +3887,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [],
                 [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Results\Shared.Results.csproj"
                 ]),
             new(
@@ -5250,12 +5252,16 @@ public sealed partial class DeveloperExperienceGuardTests
     {
         string repositoryRoot = FindRepositoryRoot();
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
-        string[] requiredTokens =
+        List<string> requiredTokens =
         [
             @"Shared\Shared.Naming\Shared.Naming.csproj",
-            "using Shared.Naming;",
-            "TenantIds.MaxLength"
+            "using Shared.Naming;"
         ];
+        if (scaffolder.Contains("TenantId", StringComparison.Ordinal))
+        {
+            requiredTokens.Add("TenantIds.MaxLength");
+        }
+
         string[] forbiddenTokens =
         [
             "using Shared.Domain;"
@@ -6378,6 +6384,10 @@ public sealed partial class DeveloperExperienceGuardTests
                    normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
                IsOtherModuleContractsReference(moduleName, normalizedReference);
     }
 
@@ -6748,6 +6758,11 @@ public sealed partial class DeveloperExperienceGuardTests
             fileName.EndsWith("ExportSource.cs", StringComparison.Ordinal))
         {
             return "Exports";
+        }
+
+        if (source.Contains(": ITaskPayload", StringComparison.Ordinal))
+        {
+            return "Tasks";
         }
 
         if (fileName.EndsWith("ModuleMetadata.cs", StringComparison.Ordinal) ||

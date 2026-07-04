@@ -1,10 +1,11 @@
 namespace TaskSamples.Application.Tasks;
 
 using Shared.Cqrs;
+using Shared.Results;
+using Shared.Runtime.Time;
 using Shared.Tasks;
 using Shared.Tasks.Cqrs;
-using Shared.Runtime.Time;
-using Shared.Results;
+using TaskSamples.Contracts;
 
 internal sealed class SlowReportTaskHandler(
     ITaskCommandDispatcher dispatcher,

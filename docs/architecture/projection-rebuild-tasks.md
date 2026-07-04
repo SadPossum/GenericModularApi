@@ -107,9 +107,9 @@ flowchart LR
 
 ### Task Declaration
 
-Each rebuild task must be declared in module metadata with `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` and `ModuleTaskDescriptor`.
+Each rebuild task payload must declare split task attributes and be listed in module metadata with `ModuleDescriptor.Create(...).WithTask<TPayload>().Build()`.
 
-The descriptor must state:
+The task payload should expose task identity constants and carry `TaskNameAttribute`, `TaskPayloadVersionAttribute`, `TaskDescriptionAttribute`, `TaskKindAttribute`, optional routing/control attributes, and `[TenantScoped]` when tenant context is required. The descriptor should reference it with `WithTask<TPayload>()`. The attributes must state:
 
 - task name, for example `rebuild-catalog-item-projections`;
 - task kind, normally `OneShot`;
@@ -122,22 +122,17 @@ The descriptor must state:
 
 Task handlers must be registered explicitly from the owning module application registration:
 
+The preferred registration is the parameterless generic overload:
+
 ```csharp
-services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTask>(
-    OrderingModuleMetadata.Name,
-    OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName,
-    OrderingModuleMetadata.ProjectionWorkerGroup,
-    tenantScoped: true,
-    payloadVersion: 1,
-    kind: ModuleTaskKind.OneShot,
-    supportsControlMessages: true);
+services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTask>();
 ```
 
-A future constrained helper is acceptable only if it satisfies all of these conditions:
+A future constrained helper or source generator is acceptable only if it satisfies all of these conditions:
 
 - it scans one explicitly supplied module application assembly;
 - it registers only `ITaskHandler<TPayload>` implementations;
-- it verifies task name, worker group, kind, tenant scope, payload version, and control-message support against `ModuleTaskDescriptor`;
+- it verifies task name, worker group, kind, tenant scope metadata, payload version, and control-message support against the payload attributes and `ModuleTaskDescriptor`;
 - architecture tests fail on metadata or registration drift;
 - hosts still explicitly compose the module and task worker runtime.
 

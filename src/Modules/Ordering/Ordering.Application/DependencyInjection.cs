@@ -20,24 +20,14 @@ public static class DependencyInjection
         services.AddProjectionRebuild();
         services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
             OrderingModuleMetadata.Name,
-            CatalogIntegrationSubjects.ItemCreated,
-            OrderingModuleMetadata.CatalogItemCreatedProjectionHandlerName);
+            CatalogModuleMetadata.Name);
         services.AddIntegrationEventHandler<CatalogItemUpdatedIntegrationEvent, CatalogItemUpdatedProjectionHandler>(
             OrderingModuleMetadata.Name,
-            CatalogIntegrationSubjects.ItemUpdated,
-            OrderingModuleMetadata.CatalogItemUpdatedProjectionHandlerName);
+            CatalogModuleMetadata.Name);
         services.AddIntegrationEventHandler<CatalogItemDiscontinuedIntegrationEvent, CatalogItemDiscontinuedProjectionHandler>(
             OrderingModuleMetadata.Name,
-            CatalogIntegrationSubjects.ItemDiscontinued,
-            OrderingModuleMetadata.CatalogItemDiscontinuedProjectionHandlerName);
-        services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTaskHandler>(
-            OrderingModuleMetadata.Name,
-            OrderingModuleMetadata.RebuildCatalogItemProjectionsTaskName,
-            OrderingModuleMetadata.ProjectionWorkerGroup,
-            tenantScoped: true,
-            payloadVersion: OrderingModuleMetadata.RebuildCatalogItemProjectionsPayloadVersion,
-            kind: ModuleTaskKind.OneShot,
-            supportsControlMessages: true);
+            CatalogModuleMetadata.Name);
+        services.AddTaskHandler<RebuildCatalogItemProjectionPayload, RebuildCatalogItemProjectionTaskHandler>(OrderingModuleMetadata.Name);
 
         return services;
     }

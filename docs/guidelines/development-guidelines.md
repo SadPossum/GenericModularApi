@@ -253,9 +253,9 @@ Do not inject a bare `IOutboxWriter` into application code. Multiple modules can
 
 Rules:
 
-- declare owned task and daemon metadata through `ModuleDescriptor.Create(...).WithTask(...).Build()` or `WithTasks([...])` and `ModuleTaskDescriptor`;
-- keep task payloads in the owning module application layer;
-- register task handlers explicitly through `AddTaskHandler<TPayload,THandler>()` from the owning module application registration, matching descriptor kind, tenant scope, payload version, worker group, and control-message support;
+- declare owned task and daemon metadata with split task attributes on the serialized payload contract, then reference it through `ModuleDescriptor.Create(...).WithTask<TPayload>().Build()`;
+- keep task payloads that are module metadata or externally enqueueable in the owning module `.Contracts` project;
+- register task handlers explicitly through the attribute-backed `AddTaskHandler<TPayload,THandler>(moduleName)` overload from the owning module application registration;
 - keep payload code independent from scheduler packages, HTTP, CLI, and other module internals;
 - use `TaskExecutionContext` for run identity, tenant, node, worker id, worker group, attempt, correlation, and cancellation intent;
 - use explicit task payload versions when changing payload shape; keep old handlers registered until old queued work is drained;
@@ -327,7 +327,7 @@ Rules:
 - Prefer small, explicit classes.
 - Keep application-layer DI registration host-agnostic. Use `IServiceCollection`; pass `IConfiguration` only for application-owned options.
 - Use `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` from module application registration for CQRS handlers, validators, and domain-event handlers. This is the project's only default reflection-based application registration convention.
-- Keep integration-event subscriptions explicit with `AddIntegrationEventHandler<TEvent,THandler>(...)`; subjects and durable handler names are public cross-module contracts.
+- Keep integration-event subscriptions explicit with `AddIntegrationEventHandler<TEvent,THandler>(consumerModule, producerModule)`; put event identity/version on the event contract through `EventType`/`EventVersion` constants plus `IntegrationEventNameAttribute` and `IntegrationEventVersionAttribute`, durable handler identity on the handler through `IntegrationEventHandlerAttribute`, and tenant behavior through `[TenantScoped]` from `Shared.Tenancy` when needed.
 - Keep one application handler class per file under `<Module>.Application/Handlers`.
 - Keep one public contract type per file under `<Module>.Contracts`.
 - Add comments only when they explain non-obvious decisions.

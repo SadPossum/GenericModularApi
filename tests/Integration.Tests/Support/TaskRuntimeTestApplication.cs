@@ -107,10 +107,10 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
         Guid runId,
         DateTimeOffset createdAtUtc,
         int maxAttempts = 3,
-        int payloadVersion = TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion,
+        int payloadVersion = GenerateReportTaskPayload.PayloadVersion,
         string? deduplicationKey = null,
         string? payloadJson = null,
-        string taskName = TaskSamplesModuleMetadata.GenerateReportTaskName)
+        string taskName = GenerateReportTaskPayload.TaskName)
     {
         using IServiceScope scope = this.Services.CreateScope();
         ITaskRunStore store = scope.ServiceProvider.GetRequiredService<ITaskRunStore>();
@@ -224,7 +224,7 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
         string payloadJson,
         DateTimeOffset scheduledAtUtc,
         string? deduplicationKey = null,
-        int payloadVersion = TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion)
+        int payloadVersion = GenerateReportTaskPayload.PayloadVersion)
     {
         using IServiceScope scope = this.Services.CreateScope();
         IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
@@ -233,7 +233,7 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
                 new EnqueueTaskRunCommand(
                     runId,
                     TaskSamplesModuleMetadata.Name,
-                    TaskSamplesModuleMetadata.GenerateReportTaskName,
+                    GenerateReportTaskPayload.TaskName,
                     payloadJson,
                     scheduledAtUtc,
                     TaskSamplesModuleMetadata.WorkerGroup,
@@ -276,7 +276,7 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
         Result<IReadOnlyList<TaskRunSummary>> result = await dispatcher.QueryAsync(
                 new ListTaskRunsQuery(
                     TaskSamplesModuleMetadata.Name,
-                    TaskSamplesModuleMetadata.GenerateReportTaskName,
+                    GenerateReportTaskPayload.TaskName,
                     TaskSamplesModuleMetadata.WorkerGroup,
                     null,
                     "tenant-a",

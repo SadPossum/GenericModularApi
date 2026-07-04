@@ -93,7 +93,7 @@ public sealed class TaskRuntimeIntegrationTests
             workerEnabled: true);
         await application.MigrateDatabaseAsync().ConfigureAwait(false);
         Guid runId = Guid.Parse("12121212-3434-5656-7878-909090909090");
-        string payload = JsonSerializer.Serialize(new TaskSamples.Application.Tasks.SlowReportTaskPayload(
+        string payload = JsonSerializer.Serialize(new TaskSamples.Contracts.SlowReportTaskPayload(
             "slow",
             10,
             Steps: 20,
@@ -104,7 +104,7 @@ public sealed class TaskRuntimeIntegrationTests
                 DateTimeOffset.UtcNow,
                 maxAttempts: 1,
                 payloadJson: payload,
-                taskName: TaskSamples.Contracts.TaskSamplesModuleMetadata.SlowReportTaskName)
+                taskName: TaskSamples.Contracts.SlowReportTaskPayload.TaskName)
             .ConfigureAwait(false);
         await application.StartAsync().ConfigureAwait(false);
         Result<TaskControlMessage> control = await application.SendControlThroughApplicationAsync(
@@ -231,7 +231,7 @@ public sealed class TaskRuntimeIntegrationTests
         TaskRunSnapshot canceledReclaimed = await application.GetSnapshotAsync(cancelReclaimRunId).ConfigureAwait(false);
 
         string dedupeKey = $"sample-dedupe-{provider.ToLowerInvariant()}";
-        string samplePayload = JsonSerializer.Serialize(new TaskSamples.Application.Tasks.GenerateReportTaskPayload("dedupe", 1));
+        string samplePayload = JsonSerializer.Serialize(new TaskSamples.Contracts.GenerateReportTaskPayload("dedupe", 1));
         Guid dedupeRunId = Guid.Parse($"66666666-6666-6666-6666-{(provider == "SqlServer" ? "111111111111" : "222222222222")}");
         Guid duplicateDedupeRunId = Guid.Parse($"66666666-6666-6666-6666-{(provider == "SqlServer" ? "333333333333" : "444444444444")}");
         Error invalidPayloadError = (await application.EnqueueThroughApplicationAsync(
@@ -285,11 +285,11 @@ public sealed class TaskRuntimeIntegrationTests
         await application.MarkSucceededAsync(renewedReclaimContext, Now.AddSeconds(64)).ConfigureAwait(false);
 
         Guid versionedRunId = Guid.Parse($"44444444-4444-4444-4444-{(provider == "SqlServer" ? "111111111111" : "222222222222")}");
-        string versionedPayload = JsonSerializer.Serialize(new TaskSamples.Application.Tasks.GenerateReportTaskPayloadV2("daily", 10, "csv"));
+        string versionedPayload = JsonSerializer.Serialize(new TaskSamples.Contracts.GenerateReportTaskPayloadV2("daily", 10, "csv"));
         await application.EnqueueSampleTaskAsync(
                 versionedRunId,
                 Now.AddSeconds(60),
-                payloadVersion: TaskSamples.Contracts.TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion2,
+                payloadVersion: TaskSamples.Contracts.GenerateReportTaskPayloadV2.PayloadVersion,
                 payloadJson: versionedPayload)
             .ConfigureAwait(false);
         IReadOnlyList<TaskRunLease> versionedClaim = await application.ClaimAsync(
@@ -372,7 +372,7 @@ public sealed class TaskRuntimeIntegrationTests
         Assert.Equal(renewalRunId, reclaimedAfterRenewedExpiry[0].RunId);
         Assert.Single(versionedClaim);
         Assert.Equal(versionedRunId, versionedClaim[0].RunId);
-        Assert.Equal(TaskSamples.Contracts.TaskSamplesModuleMetadata.GenerateReportTaskPayloadVersion2, versionedClaim[0].PayloadVersion);
+        Assert.Equal(TaskSamples.Contracts.GenerateReportTaskPayloadV2.PayloadVersion, versionedClaim[0].PayloadVersion);
         Assert.Contains(timedOutRuns, run => run.RunId == timeoutRunId);
         Assert.Equal(TaskRunStatus.TimedOut, timedOut.Status);
         Assert.True(retryTimedOut.IsSuccess);

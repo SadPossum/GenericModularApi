@@ -2,6 +2,7 @@ namespace Shared.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Messaging;
+using Shared.Tenancy;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -26,6 +27,75 @@ public sealed class IntegrationEventSubscriptionTests
         Assert.Equal("catalog-item-created-projection", subscription.HandlerName);
         Assert.Equal(typeof(TestIntegrationEvent), subscription.EventType);
         Assert.Equal(typeof(TestIntegrationEventHandler), subscription.HandlerType);
+    }
+
+    [Fact]
+    public void Registers_subscription_descriptor_from_event_and_handler_attributes()
+    {
+        ServiceCollection services = new();
+
+        services.AddIntegrationEventHandler<AttributedIntegrationEvent, AttributedIntegrationEventHandler>(
+            "ordering",
+            "catalog");
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        IIntegrationEventSubscriptionRegistry registry =
+            provider.GetRequiredService<IIntegrationEventSubscriptionRegistry>();
+
+        IntegrationEventSubscription subscription = Assert.Single(registry.Subscriptions);
+        Assert.Equal("ordering", subscription.ConsumerModule);
+        Assert.Equal("catalog-item-created-projection", subscription.HandlerName);
+        Assert.Equal("catalog", subscription.ProducerModule);
+        Assert.Equal("item-created", subscription.EventName);
+        Assert.Equal(1, subscription.Version);
+        Assert.Equal("gma.catalog.item-created.v1", subscription.Subject);
+        Assert.True(subscription.IsTenantScoped());
+    }
+
+    [Fact]
+    public void Attribute_registration_requires_event_metadata()
+    {
+        ServiceCollection services = new();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            services.AddIntegrationEventHandler<TestIntegrationEvent, AttributedTestIntegrationEventHandler>(
+                "ordering",
+                "catalog"));
+
+        Assert.Contains(nameof(IntegrationEventNameAttribute), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Attribute_registration_requires_event_version_metadata()
+    {
+        ServiceCollection services = new();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            services.AddIntegrationEventHandler<MissingVersionIntegrationEvent, MissingVersionIntegrationEventHandler>(
+                "ordering",
+                "catalog"));
+
+        Assert.Contains(nameof(IntegrationEventVersionAttribute), exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Integration_event_version_attribute_rejects_non_positive_versions()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new IntegrationEventVersionAttribute(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new IntegrationEventVersionAttribute(-1));
+    }
+
+    [Fact]
+    public void Attribute_registration_requires_handler_metadata()
+    {
+        ServiceCollection services = new();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            services.AddIntegrationEventHandler<AttributedIntegrationEvent, UnattributedAttributedIntegrationEventHandler>(
+                "ordering",
+                "catalog"));
+
+        Assert.Contains(nameof(IntegrationEventHandlerAttribute), exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -157,6 +227,60 @@ public sealed class IntegrationEventSubscriptionTests
     private sealed class TestIntegrationEventHandler : IIntegrationEventHandler<TestIntegrationEvent>
     {
         public Task HandleAsync(TestIntegrationEvent integrationEvent, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    [IntegrationEventHandler("catalog-item-created-projection")]
+    private sealed class AttributedTestIntegrationEventHandler : IIntegrationEventHandler<TestIntegrationEvent>
+    {
+        public Task HandleAsync(TestIntegrationEvent integrationEvent, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    [IntegrationEventName(AttributedIntegrationEvent.EventType)]
+    [IntegrationEventVersion(AttributedIntegrationEvent.EventVersion)]
+    [TenantScoped]
+    private sealed record AttributedIntegrationEvent(
+        Guid EventId,
+        string TenantId,
+        DateTimeOffset OccurredAtUtc) : IIntegrationEvent
+    {
+        public const string EventType = "item-created";
+        public const int EventVersion = 1;
+
+        public string EventName => EventType;
+        public int Version => EventVersion;
+    }
+
+    [IntegrationEventHandler("catalog-item-created-projection")]
+    private sealed class AttributedIntegrationEventHandler : IIntegrationEventHandler<AttributedIntegrationEvent>
+    {
+        public Task HandleAsync(AttributedIntegrationEvent integrationEvent, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class UnattributedAttributedIntegrationEventHandler : IIntegrationEventHandler<AttributedIntegrationEvent>
+    {
+        public Task HandleAsync(AttributedIntegrationEvent integrationEvent, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
+
+    [IntegrationEventName(MissingVersionIntegrationEvent.EventType)]
+    private sealed record MissingVersionIntegrationEvent(
+        Guid EventId,
+        string TenantId,
+        DateTimeOffset OccurredAtUtc) : IIntegrationEvent
+    {
+        public const string EventType = "missing-version";
+
+        public string EventName => EventType;
+        public int Version => 1;
+    }
+
+    [IntegrationEventHandler("missing-version-projection")]
+    private sealed class MissingVersionIntegrationEventHandler : IIntegrationEventHandler<MissingVersionIntegrationEvent>
+    {
+        public Task HandleAsync(MissingVersionIntegrationEvent integrationEvent, CancellationToken cancellationToken) =>
             Task.CompletedTask;
     }
 

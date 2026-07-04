@@ -442,11 +442,16 @@ $($persistenceServices -join "`r`n")
         Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}OutboxWriter.cs") @"
 namespace $Name.Persistence;
 
+using Microsoft.Extensions.Options;
 using Shared.Messaging.Infrastructure;
+using Shared.Runtime;
 using Shared.Runtime.Time;
 
-internal sealed class ${Name}OutboxWriter(${Name}DbContext dbContext, ISystemClock clock)
-    : EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);
+internal sealed class ${Name}OutboxWriter(
+    ${Name}DbContext dbContext,
+    ISystemClock clock,
+    IOptions<ApplicationIdentityOptions> applicationIdentity)
+    : EfOutboxWriter<${Name}DbContext>(dbContext, clock, applicationIdentity, ${Name}Migrations.Schema);
 "@
 
         Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}OutboxStore.cs") @"
@@ -465,27 +470,11 @@ namespace $Name.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Shared.Messaging.Infrastructure;
-using Shared.Naming;
 
 internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> builder)
-    {
-        builder.ToTable("outbox_messages");
-        builder.HasKey(message => message.Id);
-        builder.Property(message => message.Subject).HasMaxLength(OutboxMessage.SubjectMaxLength).IsRequired();
-        builder.Property(message => message.EventType).HasMaxLength(OutboxMessage.EventTypeMaxLength).IsRequired();
-        builder.Property(message => message.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
-        builder.Property(message => message.LockedBy).HasMaxLength(OutboxMessage.LockedByMaxLength);
-        builder.Property(message => message.Payload).IsRequired();
-        builder.HasIndex(message => new
-        {
-            message.ProcessedAtUtc,
-            message.NextAttemptAtUtc,
-            message.LockedUntilUtc,
-            message.CreatedAtUtc
-        });
-    }
+        => builder.ConfigureOutboxMessage();
 }
 "@
     }
@@ -508,23 +497,11 @@ namespace $Name.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Shared.Messaging.Infrastructure;
-using Shared.Naming;
 
 internal sealed class InboxMessageConfiguration : IEntityTypeConfiguration<InboxMessage>
 {
     public void Configure(EntityTypeBuilder<InboxMessage> builder)
-    {
-        builder.ToTable("inbox_messages");
-        builder.HasKey(message => new { message.Id, message.Handler });
-        builder.Property(message => message.Handler).HasMaxLength(InboxMessage.HandlerMaxLength).IsRequired();
-        builder.Property(message => message.Subject).HasMaxLength(InboxMessage.SubjectMaxLength).IsRequired();
-        builder.Property(message => message.EventType).HasMaxLength(InboxMessage.EventTypeMaxLength).IsRequired();
-        builder.Property(message => message.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
-        builder.Property(message => message.Status).HasConversion<int>().IsRequired();
-        builder.Property(message => message.LockedBy).HasMaxLength(InboxMessage.LockedByMaxLength);
-        builder.Property(message => message.LastError).HasMaxLength(InboxMessage.LastErrorMaxLength);
-        builder.HasIndex(message => new { message.Handler, message.Status });
-    }
+        => builder.ConfigureInboxMessage();
 }
 "@
     }

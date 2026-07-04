@@ -237,6 +237,7 @@ Rules:
 - consumers implement `IIntegrationEventHandler<TEvent>`;
 - each consuming module owns an inbox table and registers an `IInboxStore`;
 - consumer handlers update local module state or projections idempotently;
+- EF-backed modules map outbox rows through `ConfigureOutboxMessage(...)` and inbox rows through `ConfigureInboxMessage(...)` instead of repeating message keys, indexes, and length limits;
 - shared envelope/outbox/inbox record constructors validate event ids, subject shape, event versions, tenant ids, and handler/event names; do not bypass them with ad hoc anonymous transport payloads;
 - custom inbox stores return `InboxProcessResult` through its factories and never hand-build processing outcomes;
 - NATS stays behind infrastructure.

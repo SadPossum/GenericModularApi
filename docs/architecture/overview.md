@@ -54,6 +54,7 @@ src/
     Shared.Pagination/
     Shared.Persistence.EntityFrameworkCore/
     Shared.ProjectionRebuild/
+    Shared.ProjectionRebuild.EntityFrameworkCore/
     Shared.Runtime/
     Shared.Runtime.Infrastructure/
     Shared.Security/
@@ -356,6 +357,10 @@ Shared.ProjectionRebuild
   -> Shared.Observability.Infrastructure
   -> Shared.Runtime
   -> Shared.Tasks
+
+Shared.ProjectionRebuild.EntityFrameworkCore
+  -> Shared.Naming
+  -> Shared.ProjectionRebuild
 
 Shared.Results
   -> no project references

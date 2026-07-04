@@ -8,6 +8,7 @@ These are temporary working notes for the projection rebuild slice. Keep useful 
 - Add a narrow shared projection rebuild package for operational contracts and orchestration only.
 - Let `TaskRuntime` own run lifecycle, retries, cancellation, worker leases, admin enqueue/list/get/cancel/retry, and progress display.
 - Let the consuming module own projection repair state and checkpoint persistence because it owns the projection table.
+- Keep checkpoint and transaction-boundary contracts in `Shared.ProjectionRebuild` and EF persistence helpers in `Shared.ProjectionRebuild.EntityFrameworkCore` so non-EF modules can use the rebuild loop without taking EF dependencies.
 - The first concrete implementation is `Ordering` rebuilding its local catalog item projection from a `Catalog.Contracts` export source.
 
 ## Architecture Decisions
@@ -18,6 +19,8 @@ These are temporary working notes for the projection rebuild slice. Keep useful 
 - `Ordering.Persistence` implements the Ordering projection writer and checkpoint store because both write Ordering-owned tables.
 - Rebuild checkpoint stores are module-qualified and resolved through a registry, mirroring the outbox writer registry pattern.
 - Checkpoints are keyed by task run id plus projection name and tenant id. Retrying the same task run resumes from the last persisted cursor.
+- EF-backed checkpoint stores inherit `EfProjectionRebuildCheckpointStore<TDbContext,TState>` and checkpoint rows inherit `ProjectionRebuildCheckpointState`. This removes repeated save/load/mapping code while preserving module-owned schemas, migrations, and explicit DI registration.
+- Ordering registers `OrderingProjectionRebuildTransactionBoundary` over `OrderingDbContext`, so each catalog projection write batch and checkpoint save share one EF transaction. Modules opt in only when writer and checkpoint effects share a transaction-capable store.
 - Rebuild writes use idempotent upserts. A retry after a persisted checkpoint should continue from the next cursor, while a retry without a checkpoint should safely reprocess from the start.
 - The first implementation uses keyset paging by normalized Catalog SKU. It avoids offset paging for large tables and avoids loading whole projections into memory.
 - Live event handlers stay enabled. Both event handlers and rebuild writer use the same idempotent projection write path.
@@ -56,6 +59,7 @@ These are temporary working notes for the projection rebuild slice. Keep useful 
 - Ordering persistence:
   - `OrderingProjectionRebuildCheckpoint`
   - `OrderingProjectionRebuildCheckpointStore`
+  - `OrderingProjectionRebuildTransactionBoundary`
   - `CatalogItemProjectionRebuildWriter`
   - migration for `ordering.projection_rebuild_checkpoints`
 
@@ -65,13 +69,13 @@ These are temporary working notes for the projection rebuild slice. Keep useful 
 - The current task progress message is useful but not enough for production resume because payloads are not mutated and handlers do not receive previous progress. A durable consumer-owned checkpoint table closes that gap.
 - `CatalogItemProjectionRepository` already has idempotent single-row upsert. Prefer reusing that path from the rebuild writer so live event behavior and rebuild behavior stay aligned.
 - Existing architecture tests already compare task metadata to handler registrations. Adding Ordering task metadata and registration should automatically get coverage there.
-- Focused unit tests now cover shared runner behavior, checkpoint resume, cursor override, failed writer behavior, bounded metrics, Catalog export contracts, Ordering task registration, and Ordering checkpoint state.
+- Focused unit tests now cover shared runner behavior, checkpoint resume, cursor override, failed writer behavior, optional transaction-boundary wrapping, bounded metrics, the shared EF checkpoint adapter, Catalog export contracts, Ordering task registration, and Ordering checkpoint state.
 - A Docker-backed integration test composes TaskRuntime, Catalog, and Ordering explicitly, applies migrations, seeds Catalog, runs the real worker, and verifies Ordering projections plus checkpoints across SQL Server and PostgreSQL.
+- The separate projection rebuild store refactor scratch note was folded into this page and the durable architecture docs. Keep future findings here only while they are actively being worked.
 
 ## Future Audit Targets
 
 - Consider a dedicated projection-rebuild admin front door only after multiple modules need nicer operator UX than the generic TaskRuntime enqueue command.
-- Consider a shared EF checkpoint base only after a second module implements a checkpoint table; avoid abstracting the first table too early.
 - Consider streaming source reads only if keyset batches become insufficient for very large exports.
 - Consider high-water mark catch-up support if a future projection cannot tolerate event/rebuild race windows through idempotent upserts alone.
 - Consider a tombstone/full-rebuild policy once a projection needs to remove destination rows that no longer exist in the source.

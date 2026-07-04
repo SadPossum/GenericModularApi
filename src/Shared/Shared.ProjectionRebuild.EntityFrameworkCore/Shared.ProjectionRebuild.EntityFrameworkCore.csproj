@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />
+  </ItemGroup>
+</Project>

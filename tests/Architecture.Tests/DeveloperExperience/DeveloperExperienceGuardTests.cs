@@ -3058,50 +3058,52 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Module_inbox_outbox_persistence_uses_shared_message_length_constants()
+    public void Module_inbox_outbox_persistence_uses_shared_message_configuration_helpers()
     {
         string repositoryRoot = FindRepositoryRoot();
         string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
-        Dictionary<string, string[]> expectedTokensByFileName = new()
+        Dictionary<string, string> expectedCallsByFileName = new()
         {
-            ["InboxMessageConfiguration.cs"] =
-            [
-                "InboxMessage.HandlerMaxLength",
-                "InboxMessage.SubjectMaxLength",
-                "InboxMessage.EventTypeMaxLength",
-                "TenantIds.MaxLength",
-                "InboxMessage.LockedByMaxLength",
-                "InboxMessage.LastErrorMaxLength"
-            ],
-            ["OutboxMessageConfiguration.cs"] =
-            [
-                "OutboxMessage.SubjectMaxLength",
-                "OutboxMessage.EventTypeMaxLength",
-                "TenantIds.MaxLength",
-                "OutboxMessage.LockedByMaxLength"
-            ]
+            ["InboxMessageConfiguration.cs"] = "ConfigureInboxMessage()",
+            ["OutboxMessageConfiguration.cs"] = "ConfigureOutboxMessage()"
         };
+        string[] repeatedMappingTokens =
+        [
+            "InboxMessage.HandlerMaxLength",
+            "InboxMessage.SubjectMaxLength",
+            "InboxMessage.EventTypeMaxLength",
+            "InboxMessage.LockedByMaxLength",
+            "InboxMessage.LastErrorMaxLength",
+            "OutboxMessage.SubjectMaxLength",
+            "OutboxMessage.EventTypeMaxLength",
+            "OutboxMessage.LockedByMaxLength"
+        ];
 
         string[] offenders = EnumerateSourceFiles(modulesRoot)
-            .Where(path => expectedTokensByFileName.ContainsKey(Path.GetFileName(path)))
+            .Where(path => expectedCallsByFileName.ContainsKey(Path.GetFileName(path)))
             .Where(path => !IsGeneratedMigrationSource(path))
             .SelectMany(path =>
             {
                 string source = File.ReadAllText(path);
+                string expectedCall = expectedCallsByFileName[Path.GetFileName(path)];
 
-                return expectedTokensByFileName[Path.GetFileName(path)]
-                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
-                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
+                return (source.Contains(expectedCall, StringComparison.Ordinal)
+                        ? Array.Empty<string>()
+                        : [$"{Path.GetRelativePath(repositoryRoot, path)} missing {expectedCall}"])
+                    .Concat(repeatedMappingTokens
+                        .Where(token => source.Contains(token, StringComparison.Ordinal))
+                        .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} repeats {token} instead of using shared messaging configuration helpers"));
             })
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        string[] scaffoldOffenders = expectedTokensByFileName
+        string[] scaffoldOffenders = expectedCallsByFileName
             .Values
-            .SelectMany(tokens => tokens)
-            .Distinct(StringComparer.Ordinal)
-            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
-            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Where(call => !scaffolder.Contains(call, StringComparison.Ordinal))
+            .Select(call => $"eng/new-module.ps1 missing {call}")
+            .Concat(repeatedMappingTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 repeats {token} instead of using shared messaging configuration helpers"))
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -3681,6 +3683,17 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj"
+                ]),
+            new(
+                "Shared.ProjectionRebuild.EntityFrameworkCore",
+                [
+                    "Microsoft.EntityFrameworkCore",
+                    "Microsoft.EntityFrameworkCore.Relational"
+                ],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"
                 ]),
             new(
                 "Shared.Runtime.Infrastructure",
@@ -5078,8 +5091,11 @@ public sealed partial class DeveloperExperienceGuardTests
         string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
         string[] requiredTokens =
         [
+            "using Microsoft.Extensions.Options;",
+            "using Shared.Runtime;",
             "using Shared.Runtime.Time;",
-            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);"
+            "IOptions<ApplicationIdentityOptions> applicationIdentity",
+            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, applicationIdentity, ${Name}Migrations.Schema);"
         ];
         string[] forbiddenTokens =
         [
@@ -5137,7 +5153,7 @@ public sealed partial class DeveloperExperienceGuardTests
             "using $Name.Contracts;",
             "public const string Schema = ${Name}ModuleMetadata.Schema;",
             ": EfDomainEventUnitOfWork<${Name}DbContext>(${Name}Migrations.Schema, dbContext, domainEventDispatcher)",
-            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, ${Name}Migrations.Schema);",
+            ": EfOutboxWriter<${Name}DbContext>(dbContext, clock, applicationIdentity, ${Name}Migrations.Schema);",
             ": EfOutboxStore<${Name}DbContext>(dbContext, options, ${Name}Migrations.Schema);",
             ": EfInboxStore<${Name}DbContext>(dbContext, clock, idGenerator, ${Name}Migrations.Schema)"
         ];
@@ -6236,6 +6252,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild.EntityFrameworkCore\Shared.ProjectionRebuild.EntityFrameworkCore.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),

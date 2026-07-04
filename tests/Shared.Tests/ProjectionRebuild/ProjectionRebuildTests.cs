@@ -1,9 +1,13 @@
 namespace Shared.Tests;
 
 using System.Diagnostics.Metrics;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Naming;
 using Shared.Observability;
 using Shared.ProjectionRebuild;
+using Shared.ProjectionRebuild.EntityFrameworkCore;
 using Shared.Runtime;
 using Shared.Runtime.Time;
 using Shared.Tasks;
@@ -89,6 +93,130 @@ public sealed class ProjectionRebuildTests
     }
 
     [Fact]
+    public void Registry_resolves_transaction_boundaries_by_normalized_module_and_rejects_duplicates()
+    {
+        RecordingTransactionBoundary boundary = new(" Ordering ");
+        using ServiceProvider provider = BuildProvider([], boundaries: [boundary]);
+        using IServiceScope scope = provider.CreateScope();
+        IProjectionRebuildTransactionBoundaryRegistry registry =
+            scope.ServiceProvider.GetRequiredService<IProjectionRebuildTransactionBoundaryRegistry>();
+
+        Assert.Same(boundary, registry.GetOptional("ordering"));
+        Assert.Null(registry.GetOptional("catalog"));
+
+        RecordingTransactionBoundary duplicate = new("ordering");
+        using ServiceProvider duplicateProvider = BuildProvider([], boundaries: [boundary, duplicate]);
+        using IServiceScope duplicateScope = duplicateProvider.CreateScope();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            duplicateScope.ServiceProvider.GetRequiredService<IProjectionRebuildTransactionBoundaryRegistry>());
+    }
+
+    [Fact]
+    public async Task Ef_checkpoint_store_saves_updates_and_reads_tenant_scoped_checkpoint_state()
+    {
+        await using TestProjectionDbContext dbContext = CreateProjectionDbContext();
+        TestProjectionCheckpointStore store = new(dbContext, "ordering", tenantScoped: true);
+        ProjectionRebuildCheckpointKey key = new(
+            "ordering",
+            RunId,
+            "catalog-item-projections",
+            "tenant-a");
+        ProjectionRebuildCheckpoint checkpoint = ProjectionRebuildCheckpoint.Start(1, Now, "sku-001");
+
+        await store.SaveAsync(key, checkpoint, CancellationToken.None);
+        ProjectionRebuildCheckpoint? saved = await store.GetAsync(key, CancellationToken.None);
+
+        Assert.Equal(checkpoint, saved);
+
+        ProjectionRebuildCheckpoint completed = checkpoint
+            .Advance("sku-002", 1, new ProjectionWriteResult(1), Now.AddSeconds(1))
+            .Complete(Now.AddSeconds(2));
+        await store.SaveAsync(key, completed, CancellationToken.None);
+
+        ProjectionRebuildCheckpoint? updated = await store.GetAsync(key, CancellationToken.None);
+        TestCheckpointState state = Assert.Single(await dbContext.Checkpoints.ToArrayAsync());
+        Assert.Equal(completed, updated);
+        Assert.Equal("tenant-a", state.TenantId);
+        Assert.Equal("catalog-item-projections", state.ProjectionName);
+        Assert.Equal(RunId, state.RunId);
+        Assert.Equal(1, await dbContext.Checkpoints.CountAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.GetAsync(
+            new ProjectionRebuildCheckpointKey("catalog", RunId, "catalog-item-projections", "tenant-a"),
+            CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveAsync(
+            new ProjectionRebuildCheckpointKey("ordering", RunId, "catalog-item-projections", tenantId: null),
+            checkpoint,
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Ef_checkpoint_store_can_use_global_scope_when_tenant_scope_is_disabled()
+    {
+        await using TestProjectionDbContext dbContext = CreateProjectionDbContext();
+        TestProjectionCheckpointStore store = new(dbContext, "reporting", tenantScoped: false);
+        ProjectionRebuildCheckpointKey key = new(
+            "reporting",
+            RunId,
+            "global-report-projection",
+            tenantId: null);
+        ProjectionRebuildCheckpoint checkpoint = ProjectionRebuildCheckpoint.Start(1, Now);
+
+        await store.SaveAsync(key, checkpoint, CancellationToken.None);
+
+        TestCheckpointState state = Assert.Single(await dbContext.Checkpoints.ToArrayAsync());
+        ProjectionRebuildCheckpoint? saved = await store.GetAsync(key, CancellationToken.None);
+        Assert.Equal(ProjectionRebuildCheckpointState.GlobalTenantScope, state.TenantId);
+        Assert.Equal(checkpoint, saved);
+    }
+
+    [Fact]
+    public void Ef_checkpoint_configuration_applies_common_key_and_lengths()
+    {
+        using TestProjectionDbContext dbContext = CreateProjectionDbContext();
+        Microsoft.EntityFrameworkCore.Metadata.IEntityType entityType =
+            dbContext.Model.FindEntityType(typeof(TestCheckpointState)) ??
+            throw new InvalidOperationException("Test checkpoint entity was not configured.");
+
+        Assert.Equal(
+            [
+                nameof(ProjectionRebuildCheckpointState.TenantId),
+                nameof(ProjectionRebuildCheckpointState.ProjectionName),
+                nameof(ProjectionRebuildCheckpointState.RunId)
+            ],
+            entityType.FindPrimaryKey()?.Properties.Select(property => property.Name));
+        Assert.Equal(
+            TenantIds.MaxLength,
+            entityType.FindProperty(nameof(ProjectionRebuildCheckpointState.TenantId))?.GetMaxLength());
+        Assert.Equal(
+            ProjectionRebuildCheckpointState.ProjectionNameMaxLength,
+            entityType.FindProperty(nameof(ProjectionRebuildCheckpointState.ProjectionName))?.GetMaxLength());
+        Assert.Equal(
+            ProjectionRebuildCheckpointState.CursorMaxLength,
+            entityType.FindProperty(nameof(ProjectionRebuildCheckpointState.Cursor))?.GetMaxLength());
+    }
+
+    [Fact]
+    public async Task Ef_transaction_boundary_normalizes_module_and_executes_operation()
+    {
+        await using TestProjectionDbContext dbContext = CreateProjectionDbContext();
+        TestProjectionTransactionBoundary boundary = new(dbContext, " Ordering ");
+        bool called = false;
+
+        int result = await boundary.ExecuteAsync(
+            _ =>
+            {
+                called = true;
+                return Task.FromResult(42);
+            },
+            CancellationToken.None);
+
+        Assert.True(called);
+        Assert.Equal(42, result);
+        Assert.Equal("ordering", boundary.ModuleName);
+    }
+
+    [Fact]
     public async Task Runner_processes_batches_persists_checkpoint_reports_progress_and_records_metrics()
     {
         List<MetricMeasurement> measurements = [];
@@ -138,6 +266,64 @@ public sealed class ProjectionRebuildTests
             (string?)measurement.Tags[ObservabilityTagNames.Operation] == "catalog-item-projections" &&
             (string?)measurement.Tags[ObservabilityTagNames.Result] == "success" &&
             !measurement.Tags.Keys.Any(key => key.Contains("tenant", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Fact]
+    public async Task Runner_executes_writer_and_checkpoint_save_inside_optional_transaction_boundary()
+    {
+        RecordingTransactionBoundary boundary = new("ordering");
+        RecordingCheckpointStore store = new("ordering", () => boundary.IsExecuting);
+        using ServiceProvider provider = BuildProvider([store], boundaries: [boundary]);
+        using IServiceScope scope = provider.CreateScope();
+        ProjectionRebuildRunner<string> runner =
+            scope.ServiceProvider.GetRequiredService<ProjectionRebuildRunner<string>>();
+        RecordingSource source = new(new ProjectionReadBatch<string>(["a"], "a", hasMore: false));
+        RecordingWriter writer = new(
+            snapshotCount => new ProjectionWriteResult(snapshotCount),
+            () => boundary.IsExecuting);
+
+        ProjectionRebuildSummary summary = await runner.RunAsync(
+            "ordering",
+            new ProjectionRebuildRequest("catalog-item-projections", 1),
+            source,
+            writer,
+            CreateContext(),
+            tenantScoped: true,
+            CancellationToken.None);
+
+        Assert.True(summary.Checkpoint.IsCompleted);
+        Assert.Equal(1, boundary.ExecutionCount);
+        Assert.Equal(1, boundary.CommitCount);
+        Assert.Equal(0, boundary.RollbackCount);
+        Assert.Equal(1, store.SaveCount);
+    }
+
+    [Fact]
+    public async Task Runner_rolls_back_optional_transaction_boundary_when_writer_reports_failed_rows()
+    {
+        RecordingTransactionBoundary boundary = new("ordering");
+        RecordingCheckpointStore store = new("ordering", () => boundary.IsExecuting);
+        using ServiceProvider provider = BuildProvider([store], boundaries: [boundary]);
+        using IServiceScope scope = provider.CreateScope();
+        ProjectionRebuildRunner<string> runner =
+            scope.ServiceProvider.GetRequiredService<ProjectionRebuildRunner<string>>();
+        RecordingSource source = new(new ProjectionReadBatch<string>(["a"], "a", hasMore: false));
+        RecordingWriter writer = new(_ => new ProjectionWriteResult(writtenCount: 0, failedCount: 1));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(
+            "ordering",
+            new ProjectionRebuildRequest("catalog-item-projections", 1),
+            source,
+            writer,
+            CreateContext(),
+            tenantScoped: true,
+            CancellationToken.None));
+
+        Assert.Equal(1, boundary.ExecutionCount);
+        Assert.Equal(0, boundary.CommitCount);
+        Assert.Equal(1, boundary.RollbackCount);
+        Assert.Equal(0, store.SaveCount);
+        Assert.Empty(store.Checkpoints);
     }
 
     [Fact]
@@ -243,7 +429,8 @@ public sealed class ProjectionRebuildTests
 
     private static ServiceProvider BuildProvider(
         IReadOnlyCollection<IProjectionRebuildCheckpointStore> stores,
-        RecordingReporter? reporter = null)
+        RecordingReporter? reporter = null,
+        IReadOnlyCollection<IProjectionRebuildTransactionBoundary>? boundaries = null)
     {
         ServiceCollection services = new();
         services.AddMetrics();
@@ -259,7 +446,23 @@ public sealed class ProjectionRebuildTests
             services.AddSingleton(store);
         }
 
+        foreach (IProjectionRebuildTransactionBoundary boundary in boundaries ?? [])
+        {
+            services.AddSingleton(boundary);
+        }
+
         return services.BuildServiceProvider(validateScopes: true);
+    }
+
+    private static TestProjectionDbContext CreateProjectionDbContext()
+    {
+        DbContextOptions<TestProjectionDbContext> options =
+            new DbContextOptionsBuilder<TestProjectionDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
+                .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+                .Options;
+
+        return new TestProjectionDbContext(options);
     }
 
     private static TaskExecutionContext CreateContext() =>
@@ -325,7 +528,9 @@ public sealed class ProjectionRebuildTests
         }
     }
 
-    private sealed class RecordingWriter(Func<int, ProjectionWriteResult> createResult)
+    private sealed class RecordingWriter(
+        Func<int, ProjectionWriteResult> createResult,
+        Func<bool>? canWrite = null)
         : IProjectionRebuildWriter<string>
     {
         public List<IReadOnlyList<string>> WrittenBatches { get; } = [];
@@ -335,13 +540,20 @@ public sealed class ProjectionRebuildTests
             IReadOnlyCollection<string> snapshots,
             CancellationToken cancellationToken)
         {
+            if (canWrite is not null && !canWrite())
+            {
+                throw new InvalidOperationException("Projection writer was not executed inside the expected transaction boundary.");
+            }
+
             string[] batch = snapshots.ToArray();
             this.WrittenBatches.Add(batch);
             return Task.FromResult(createResult(batch.Length));
         }
     }
 
-    private sealed class RecordingCheckpointStore(string moduleName) : IProjectionRebuildCheckpointStore
+    private sealed class RecordingCheckpointStore(
+        string moduleName,
+        Func<bool>? canSave = null) : IProjectionRebuildCheckpointStore
     {
         public string ModuleName { get; } = moduleName;
         public Dictionary<ProjectionRebuildCheckpointKey, ProjectionRebuildCheckpoint> Checkpoints { get; } = [];
@@ -360,6 +572,11 @@ public sealed class ProjectionRebuildTests
             ProjectionRebuildCheckpoint checkpoint,
             CancellationToken cancellationToken)
         {
+            if (canSave is not null && !canSave())
+            {
+                throw new InvalidOperationException("Projection checkpoint was not saved inside the expected transaction boundary.");
+            }
+
             this.Checkpoints[key] = checkpoint;
             this.SaveCount++;
             return Task.CompletedTask;
@@ -368,6 +585,71 @@ public sealed class ProjectionRebuildTests
         public void Seed(ProjectionRebuildCheckpointKey key, ProjectionRebuildCheckpoint checkpoint) =>
             this.Checkpoints[key] = checkpoint;
     }
+
+    private sealed class RecordingTransactionBoundary(string moduleName) : IProjectionRebuildTransactionBoundary
+    {
+        public string ModuleName { get; } = moduleName;
+        public bool IsExecuting { get; private set; }
+        public int ExecutionCount { get; private set; }
+        public int CommitCount { get; private set; }
+        public int RollbackCount { get; private set; }
+
+        public async Task<TResult> ExecuteAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(operation);
+
+            this.ExecutionCount++;
+            this.IsExecuting = true;
+
+            try
+            {
+                TResult result = await operation(cancellationToken).ConfigureAwait(false);
+                this.CommitCount++;
+                return result;
+            }
+            catch
+            {
+                this.RollbackCount++;
+                throw;
+            }
+            finally
+            {
+                this.IsExecuting = false;
+            }
+        }
+    }
+
+    private sealed class TestProjectionDbContext(DbContextOptions<TestProjectionDbContext> options) : DbContext(options)
+    {
+        public DbSet<TestCheckpointState> Checkpoints => this.Set<TestCheckpointState>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+            modelBuilder.Entity<TestCheckpointState>().ConfigureProjectionRebuildCheckpointState();
+    }
+
+    private sealed class TestProjectionCheckpointStore(
+        TestProjectionDbContext dbContext,
+        string moduleName,
+        bool tenantScoped)
+        : EfProjectionRebuildCheckpointStore<TestProjectionDbContext, TestCheckpointState>(
+            dbContext,
+            moduleName,
+            tenantScoped,
+            TestCheckpointState.CreateEmpty);
+
+    private sealed class TestCheckpointState : ProjectionRebuildCheckpointState
+    {
+        private TestCheckpointState() { }
+
+        public static TestCheckpointState CreateEmpty() => new();
+    }
+
+    private sealed class TestProjectionTransactionBoundary(
+        TestProjectionDbContext dbContext,
+        string moduleName)
+        : EfProjectionRebuildTransactionBoundary<TestProjectionDbContext>(dbContext, moduleName);
 
     private sealed class RecordingReporter : ITaskRuntimeReporter
     {

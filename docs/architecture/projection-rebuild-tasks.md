@@ -4,12 +4,14 @@ Projection rebuild tasks are the production mechanism for repairing or evolving 
 
 ## Implemented V1
 
-The first implementation adds a small shared projection rebuild helper in `Shared.ProjectionRebuild` plus a compiled Catalog-to-Ordering example:
+The first implementation adds a small shared projection rebuild helper in `Shared.ProjectionRebuild`, an optional EF adapter in `Shared.ProjectionRebuild.EntityFrameworkCore`, and a compiled Catalog-to-Ordering example:
 
 - `ProjectionRebuildRunner<TSnapshot>` owns the generic loop, checkpoint load/save, progress reporting, cooperative task control polling, and bounded metrics.
 - `IProjectionRebuildSource<TSnapshot>` reads authoritative source batches through an explicit contract.
 - `IProjectionRebuildWriter<TSnapshot>` writes or dry-runs idempotent consumer-owned projection batches.
 - `IProjectionRebuildCheckpointStore` is resolved by consumer module and persists checkpoints in that module's schema.
+- `ProjectionRebuildCheckpointState` and `EfProjectionRebuildCheckpointStore<TDbContext,TState>` remove repeated EF checkpoint boilerplate while preserving module-owned tables and migrations.
+- `IProjectionRebuildTransactionBoundary` is optional and module-qualified; EF-backed modules can register `EfProjectionRebuildTransactionBoundary<TDbContext>` when writer effects and checkpoint saves share the same module DbContext.
 - `Catalog.Contracts/Exports` exposes `CatalogItemProjectionExport` and `ICatalogItemProjectionExportSource`.
 - `Catalog.Persistence` implements the export source from Catalog's EF model.
 - `Ordering.Application` registers `rebuild-catalog-item-projections` as an explicit tenant-scoped task.
@@ -53,6 +55,9 @@ The shared framework should own repetitive operational behavior:
 - idempotent write orchestration;
 - metrics and task progress payloads.
 
+For EF-backed modules, `Shared.ProjectionRebuild.EntityFrameworkCore` owns the repeated checkpoint entity/store mapping shape. The module still provides a concrete checkpoint state type, maps it into its own schema, includes provider-specific migrations, and registers the store explicitly.
+When a projection writer and checkpoint store use the same DbContext, the module may register an EF transaction boundary so each write batch and its checkpoint save commit or roll back together. Modules that write through separate stores or external systems should leave the boundary unregistered and keep the writer idempotent.
+
 Tenant context remains owned by the task runtime. Tenant-scoped rebuild tasks declare tenant scope in `ModuleTaskDescriptor`; the worker sets `ITenantContextAccessor` before invoking the task handler.
 
 The owning module must still define the data semantics:
@@ -70,6 +75,8 @@ The owning module must still define the data semantics:
 - A rebuild task must not write another module's source tables.
 - Source modules expose data through contracts, export ports, event replay adapters, or read-only reporting adapters.
 - The default production path must be resumable and idempotent.
+- EF checkpoint helpers are optional adapter conveniences, not runtime discovery.
+- Transaction boundaries are explicit module registrations, not global behavior.
 - Reflection may reduce local registration boilerplate only when bounded to an explicitly supplied module assembly and guarded by metadata tests.
 - Host composition remains explicit. No default host starts rebuild workers implicitly.
 

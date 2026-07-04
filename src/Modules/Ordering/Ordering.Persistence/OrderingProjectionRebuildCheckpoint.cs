@@ -1,8 +1,9 @@
 namespace Ordering.Persistence;
 
+using Shared.Domain;
 using Shared.ProjectionRebuild;
 
-public sealed class OrderingProjectionRebuildCheckpoint : ProjectionRebuildCheckpointState
+public sealed class OrderingProjectionRebuildCheckpoint : ProjectionRebuildCheckpointState, ITenantScoped
 {
     private OrderingProjectionRebuildCheckpoint() { }
 

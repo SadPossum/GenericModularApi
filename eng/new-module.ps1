@@ -315,7 +315,11 @@ if ($Persistence) {
         $dbSets += '    public DbSet<InboxMessage> InboxMessages => this.Set<InboxMessage>();'
     }
 
-    $dbContextUsings = @('using Microsoft.EntityFrameworkCore;')
+    $dbContextUsings = @(
+        'using Microsoft.EntityFrameworkCore;',
+        'using Shared.Persistence.EntityFrameworkCore;',
+        'using Shared.Tenancy;'
+    )
     if ($Outbox -or $Inbox) {
         $dbContextUsings += 'using Shared.Messaging.Infrastructure;'
     }
@@ -326,7 +330,8 @@ if ($Persistence) {
         "    <ProjectReference Include=`"..\$Name.Domain\$Name.Domain.csproj`" />",
         '    <ProjectReference Include="..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj" />',
         '    <ProjectReference Include="..\..\..\Shared\Shared.Domain\Shared.Domain.csproj" />',
-        '    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />'
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />',
+        '    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />'
     )
     if ($Outbox -or $Inbox) {
         $persistenceProjectReferences += '    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />'
@@ -351,7 +356,8 @@ $($persistenceProjectReferences -join "`r`n")
     Write-GmaFile (Join-Path $moduleRoot "$Name.Persistence\${Name}DbContext.cs") @"
 namespace $Name.Persistence;
 
-$($dbContextUsings | Sort-Object | Get-Unique | Out-String)public sealed class ${Name}DbContext(DbContextOptions<${Name}DbContext> options) : DbContext(options)
+$($dbContextUsings | Sort-Object | Get-Unique | Out-String)public sealed class ${Name}DbContext(DbContextOptions<${Name}DbContext> options, ITenantContext tenantContext)
+    : TenantAwareDbContext<${Name}DbContext>(options, tenantContext)
 {
 $($dbSets -join "`r`n")
 
@@ -359,6 +365,7 @@ $($dbSets -join "`r`n")
     {
         modelBuilder.HasDefaultSchema(${Name}Migrations.Schema);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(${Name}DbContext).Assembly);
+        this.ApplyTenantConventions(modelBuilder);
     }
 }
 "@
@@ -542,7 +549,8 @@ public sealed class ${Name}SqlServerDesignTimeDbContextFactory : IDesignTimeDbCo
                 args,
                 ${Name}Migrations.SqlServerAssembly,
                 ${Name}Migrations.Schema,
-                ${Name}Migrations.HistoryTable));
+                ${Name}Migrations.HistoryTable),
+            new DesignTimeTenantContext());
     }
 }
 "@
@@ -583,7 +591,8 @@ public sealed class ${Name}PostgreSqlDesignTimeDbContextFactory : IDesignTimeDbC
                 args,
                 ${Name}Migrations.PostgreSqlAssembly,
                 ${Name}Migrations.Schema,
-                ${Name}Migrations.HistoryTable));
+                ${Name}Migrations.HistoryTable),
+            new DesignTimeTenantContext());
     }
 }
 "@

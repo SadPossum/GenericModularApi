@@ -3,15 +3,13 @@ namespace Auth.Persistence;
 using Auth.Domain.Aggregates;
 using Auth.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Shared.Persistence.EntityFrameworkCore;
 using Shared.Tenancy;
 using Shared.Messaging.Infrastructure;
 
 public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options, ITenantContext tenantContext)
-    : DbContext(options)
+    : TenantAwareDbContext<AuthDbContext>(options, tenantContext)
 {
-    private readonly bool tenantFilteringEnabled = tenantContext.IsEnabled;
-    private readonly string tenantId = tenantContext.TenantId ?? string.Empty;
-
     public DbSet<Member> Members => this.Set<Member>();
     public DbSet<MemberUsername> MemberUsernames => this.Set<MemberUsername>();
     public DbSet<MemberSession> MemberSessions => this.Set<MemberSession>();
@@ -22,14 +20,6 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options, ITena
     {
         modelBuilder.HasDefaultSchema(AuthMigrations.Schema);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AuthDbContext).Assembly);
-
-        modelBuilder.Entity<Member>()
-            .HasQueryFilter("TenantFilter", member => !this.tenantFilteringEnabled || member.TenantId == this.tenantId);
-
-        modelBuilder.Entity<MemberUsername>()
-            .HasQueryFilter("TenantFilter", username => !this.tenantFilteringEnabled || username.TenantId == this.tenantId);
-
-        modelBuilder.Entity<MemberSession>()
-            .HasQueryFilter("TenantFilter", session => !this.tenantFilteringEnabled || session.TenantId == this.tenantId);
+        this.ApplyTenantConventions(modelBuilder);
     }
 }

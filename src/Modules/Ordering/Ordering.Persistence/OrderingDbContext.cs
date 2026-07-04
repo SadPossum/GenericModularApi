@@ -2,15 +2,13 @@ namespace Ordering.Persistence;
 
 using Microsoft.EntityFrameworkCore;
 using Ordering.Domain.Aggregates;
+using Shared.Persistence.EntityFrameworkCore;
 using Shared.Tenancy;
 using Shared.Messaging.Infrastructure;
 
 public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> options, ITenantContext tenantContext)
-    : DbContext(options)
+    : TenantAwareDbContext<OrderingDbContext>(options, tenantContext)
 {
-    private readonly bool tenantFilteringEnabled = tenantContext.IsEnabled;
-    private readonly string tenantId = tenantContext.TenantId ?? string.Empty;
-
     public DbSet<Order> Orders => this.Set<Order>();
     public DbSet<CatalogItemProjection> CatalogItemProjections => this.Set<CatalogItemProjection>();
     public DbSet<OrderingProjectionRebuildCheckpoint> ProjectionRebuildCheckpoints =>
@@ -21,12 +19,6 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
     {
         modelBuilder.HasDefaultSchema(OrderingMigrations.Schema);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OrderingDbContext).Assembly);
-
-        modelBuilder.Entity<Order>()
-            .HasQueryFilter("TenantFilter", order => !this.tenantFilteringEnabled || order.TenantId == this.tenantId);
-        modelBuilder.Entity<CatalogItemProjection>()
-            .HasQueryFilter("TenantFilter", item => !this.tenantFilteringEnabled || item.TenantId == this.tenantId);
-        modelBuilder.Entity<OrderingProjectionRebuildCheckpoint>()
-            .HasQueryFilter("TenantFilter", checkpoint => !this.tenantFilteringEnabled || checkpoint.TenantId == this.tenantId);
+        this.ApplyTenantConventions(modelBuilder);
     }
 }

@@ -1,6 +1,5 @@
 namespace Auth.Persistence.Configurations;
 
-using Shared.Naming;
 using Auth.Domain.Entities;
 using Auth.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +17,6 @@ internal sealed class MemberUsernameConfiguration : IEntityTypeConfiguration<Mem
 
         builder.Property(username => username.MemberId)
             .HasConversion(id => id.Value, value => new MemberId(value));
-
-        builder.Property(username => username.TenantId)
-            .HasMaxLength(TenantIds.MaxLength)
-            .IsRequired();
 
         builder.Property(username => username.Value)
             .HasMaxLength(MemberUsername.ValueMaxLength)

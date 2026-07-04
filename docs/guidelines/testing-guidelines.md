@@ -123,6 +123,13 @@ Use integration tests for:
 - infrastructure adapters.
 - admin CLI flows that cross RBAC, tenancy, module application handlers, and persistence.
 
+Tenant convention tests should prove both read and write isolation:
+
+- the shared EF helper applies `TenantFilter` dynamically per `DbContext` tenant, not from a stale first-built model;
+- `ITenantScoped` mapped entities have a required `TenantId` with `TenantIds.MaxLength`;
+- `TenantAwareDbContext<TContext>` rejects invalid, unnormalized, and mismatched tenant ids before commit;
+- global or runtime/control-plane records are intentionally exempted and documented.
+
 Integration tests should use migrations:
 
 ```csharp

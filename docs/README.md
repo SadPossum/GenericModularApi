@@ -24,6 +24,8 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Tasks and Daemons](architecture/tasks-and-daemons.md)
 - [Projection Rebuild Tasks](architecture/projection-rebuild-tasks.md)
 - [Projection Rebuild Implementation Notes](architecture/projection-rebuild-implementation-notes.md)
+- [Tenant Model Conventions Task](architecture/tenant-model-conventions-task.md)
+- [Tenant Model Conventions Implementation Notes](architecture/tenant-model-conventions-implementation-notes.md)
 - [Production Readiness Backlog](architecture/production-readiness-backlog.md)
 - [Architecture Hardening Notes](architecture/audit-hardening-notes.md)
 - [Architecture Audit Follow-Up Notes](architecture/audit-follow-up-notes.md)

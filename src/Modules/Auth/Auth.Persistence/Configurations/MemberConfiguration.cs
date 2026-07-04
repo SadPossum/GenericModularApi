@@ -1,6 +1,5 @@
 namespace Auth.Persistence.Configurations;
 
-using Shared.Naming;
 using Auth.Domain.Aggregates;
 using Auth.Domain.Enums;
 using Auth.Domain.ValueObjects;
@@ -16,10 +15,6 @@ internal sealed class MemberConfiguration : IEntityTypeConfiguration<Member>
 
         builder.Property(member => member.Id)
             .HasConversion(id => id.Value, value => new MemberId(value));
-
-        builder.Property(member => member.TenantId)
-            .HasMaxLength(TenantIds.MaxLength)
-            .IsRequired();
 
         builder.Property(member => member.PasswordHash)
             .HasMaxLength(Member.PasswordHashMaxLength)

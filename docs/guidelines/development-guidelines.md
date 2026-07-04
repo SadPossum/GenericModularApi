@@ -207,6 +207,10 @@ Before writing tenant-scoped code, answer:
 
 Use `TenantIds` in domain, application, infrastructure, and front-door code when accepting or storing a tenant id from aggregates, headers, commands, events, or configuration. Tenant ids are trimmed, case-preserving, capped at 128 characters, and reject whitespace or control characters to match persistence mappings.
 
+Tenant-owned models should make ownership visible with `TenantAggregateRoot<TId>`, `TenantEntity<TId>`, or a direct `ITenantScoped` implementation. Do not hide tenancy behind shadow EF properties or host-side reflection. Tenant-aware EF modules should inherit `TenantAwareDbContext<TContext>` and call `ApplyTenantConventions(modelBuilder)` so `TenantId` mapping, the named `TenantFilter`, and write-side tenant guards stay centralized.
+
+Infrastructure records that contain tenant ids are not automatically tenant-owned. Outbox, inbox, task runtime, audit, and projection-control tables should be classified deliberately before applying tenant filters.
+
 If yes, tests must cover tenant isolation.
 
 ## Persistence
@@ -218,6 +222,7 @@ Rules:
 - keep `Microsoft.EntityFrameworkCore.Design` and `IDesignTimeDbContextFactory<TContext>` in provider-specific migration projects, not runtime persistence projects;
 - add migrations with `eng/add-migration.ps1 -Module <Module> -Provider SqlServer|PostgreSql -Name <Name>`;
 - run `eng/check-migrations.ps1 -NoBuild` after EF mapping changes so SQL Server and PostgreSQL snapshots stay aligned with the model;
+- use `TenantAwareDbContext<TContext>` plus `ApplyTenantConventions(modelBuilder)` for tenant-scoped EF entities;
 - index tenant-scoped read paths with the tenant id first when queries filter by tenant and sort or join by another column;
 - no cross-module foreign keys;
 - do not use `EnsureCreated` in integration tests;

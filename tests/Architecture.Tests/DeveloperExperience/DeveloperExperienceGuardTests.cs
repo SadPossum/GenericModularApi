@@ -1,5 +1,11 @@
 namespace Architecture.Tests;
 
+using Auth.Persistence;
+using Catalog.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Ordering.Persistence;
+using Shared.Domain;
 using Shared.Naming;
 using System.Reflection;
 using System.Text.Json;
@@ -10,6 +16,7 @@ using Shared.Cqrs;
 using Shared.Observability;
 using Shared.Results;
 using Shared.Messaging.Infrastructure;
+using Shared.Persistence.EntityFrameworkCore;
 using Xunit;
 
 [Trait("Category", "Architecture")]
@@ -3118,7 +3125,6 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             [Path.Combine("Catalog", "Catalog.Persistence", "Configurations", "CatalogItemConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "CatalogItem.SkuMaxLength",
                 "CatalogItem.NameMaxLength",
                 "CatalogItem.CurrencyLength",
@@ -3127,7 +3133,6 @@ public sealed partial class DeveloperExperienceGuardTests
             ],
             [Path.Combine("Ordering", "Ordering.Persistence", "Configurations", "OrderConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "Order.CatalogSkuMaxLength",
                 "Order.CatalogItemNameMaxLength",
                 "Order.CurrencyLength",
@@ -3136,7 +3141,6 @@ public sealed partial class DeveloperExperienceGuardTests
             ],
             [Path.Combine("Ordering", "Ordering.Persistence", "Configurations", "CatalogItemProjectionConfiguration.cs")] =
             [
-                "TenantIds.MaxLength",
                 "Order.CatalogSkuMaxLength",
                 "Order.CatalogItemNameMaxLength",
                 "Order.CurrencyLength",
@@ -3156,6 +3160,132 @@ public sealed partial class DeveloperExperienceGuardTests
                     .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}");
             })
             .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Tenant_aware_module_dbcontexts_use_shared_tenant_conventions()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string scaffolder = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "new-module.ps1"));
+        Dictionary<string, string[]> expectedTokensByPath = new()
+        {
+            [Path.Combine("Auth", "Auth.Persistence", "AuthDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<AuthDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
+            ],
+            [Path.Combine("Catalog", "Catalog.Persistence", "CatalogDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<CatalogDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
+            ],
+            [Path.Combine("Ordering", "Ordering.Persistence", "OrderingDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<OrderingDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
+            ]
+        };
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = expectedTokensByPath
+            .SelectMany(item =>
+            {
+                string path = Path.Combine(modulesRoot, item.Key);
+                string source = File.ReadAllText(path);
+
+                return item.Value
+                    .Where(token => !source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)} missing {token}")
+                    .Concat(source.Contains(".HasQueryFilter(\"TenantFilter\"", StringComparison.Ordinal)
+                        ? [$"{Path.GetRelativePath(repositoryRoot, path)} still declares tenant filters manually"]
+                        : Array.Empty<string>());
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        string[] scaffoldRequiredTokens =
+        [
+            "using Shared.Persistence.EntityFrameworkCore;",
+            "using Shared.Tenancy;",
+            @"Shared\Shared.Tenancy\Shared.Tenancy.csproj",
+            "ITenantContext tenantContext",
+            ": TenantAwareDbContext<${Name}DbContext>(options, tenantContext)",
+            "this.ApplyTenantConventions(modelBuilder);",
+            "new DesignTimeTenantContext()"
+        ];
+        string[] scaffoldOffenders = scaffoldRequiredTokens
+            .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
+            .Select(token => $"eng/new-module.ps1 missing {token}")
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders.Concat(scaffoldOffenders));
+    }
+
+    [Fact]
+    public void Tenant_scoped_module_entities_have_convention_filters_and_tenant_length()
+    {
+        IEntityType[] entityTypes = CreateTenantConventionModelEntityTypes();
+        string[] offenders = entityTypes
+            .Where(type => typeof(ITenantScoped).IsAssignableFrom(type.ClrType))
+            .SelectMany(type =>
+            {
+                List<string> failures = [];
+                if (type.FindProperty(nameof(ITenantScoped.TenantId))?.GetMaxLength() != TenantIds.MaxLength)
+                {
+                    failures.Add($"{type.ClrType.FullName} TenantId is not configured with TenantIds.MaxLength");
+                }
+
+                if (!type.GetDeclaredQueryFilters().Any(filter =>
+                        string.Equals(filter.Key, TenantFilterNames.TenantFilter, StringComparison.Ordinal)))
+                {
+                    failures.Add($"{type.ClrType.FullName} is missing named {TenantFilterNames.TenantFilter}");
+                }
+
+                return failures;
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Persisted_tenant_convention_entities_are_classified_or_documented_infrastructure_exceptions()
+    {
+        HashSet<Type> allowedInfrastructureExceptions =
+        [
+            typeof(InboxMessage),
+            typeof(OutboxMessage)
+        ];
+        string[] offenders = CreateTenantConventionModelEntityTypes()
+            .Where(type => !typeof(ITenantScoped).IsAssignableFrom(type.ClrType))
+            .Where(type => type.ClrType.GetCustomAttribute<GlobalEntityAttribute>() is null)
+            .Where(type => type.ClrType.GetCustomAttribute<DisableTenantFilterAttribute>() is null)
+            .Where(type => !allowedInfrastructureExceptions.Contains(type.ClrType))
+            .Select(type => $"{type.ClrType.FullName} is not tenant-scoped, global, tenant-filter-disabled, or an allowed infrastructure exception")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Tenant_filter_disable_attributes_have_reasons()
+    {
+        string[] offenders = ArchitectureCatalog.ModuleBoundaryAssemblies
+            .Append(typeof(TenantFilterNames).Assembly)
+            .Append(typeof(ITenantScoped).Assembly)
+            .SelectMany(assembly => assembly.GetTypes())
+            .Select(type => new
+            {
+                Type = type,
+                Attribute = type.GetCustomAttribute<DisableTenantFilterAttribute>()
+            })
+            .Where(item => item.Attribute is not null && string.IsNullOrWhiteSpace(item.Attribute.Reason))
+            .Select(item => item.Type.FullName ?? item.Type.Name)
+            .Order(StringComparer.Ordinal)
             .ToArray();
 
         Assert.Empty(offenders);
@@ -6152,6 +6282,32 @@ public sealed partial class DeveloperExperienceGuardTests
                    NormalizePath($@"..\{moduleName}.Infrastructure.JwtBearer\{moduleName}.Infrastructure.JwtBearer.csproj"),
                    StringComparison.OrdinalIgnoreCase);
     }
+
+    private static IEntityType[] CreateTenantConventionModelEntityTypes()
+    {
+        using AuthDbContext auth = new(
+            CreateTenantConventionOptions<AuthDbContext>(),
+            new DesignTimeTenantContext());
+        using CatalogDbContext catalog = new(
+            CreateTenantConventionOptions<CatalogDbContext>(),
+            new DesignTimeTenantContext());
+        using OrderingDbContext ordering = new(
+            CreateTenantConventionOptions<OrderingDbContext>(),
+            new DesignTimeTenantContext());
+
+        return auth.Model.GetEntityTypes()
+            .Concat(catalog.Model.GetEntityTypes())
+            .Concat(ordering.Model.GetEntityTypes())
+            .Where(entityType => !entityType.IsOwned())
+            .ToArray();
+    }
+
+    private static DbContextOptions<TContext> CreateTenantConventionOptions<TContext>()
+        where TContext : DbContext =>
+        new DbContextOptionsBuilder<TContext>()
+            .UseSqlServer(
+                "Server=(localdb)\\mssqllocaldb;Database=TenantConventionArchitectureTests;Trusted_Connection=True;TrustServerCertificate=True")
+            .Options;
 
     private static bool IsAllowedAdminCliProjectReference(string moduleName, string referencePath)
     {

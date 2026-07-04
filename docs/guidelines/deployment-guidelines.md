@@ -78,6 +78,8 @@ Never use checked-in development JWT signing keys, refresh-token peppers, or dat
 
 Do not auto-apply migrations from `Host.Api` startup.
 
+Build deployable production artifacts from `main` or an explicit release tag. The `dev` branch is the normal integration branch for in-progress feature work and can be used for local or staging validation, but it is not the default production baseline.
+
 Recommended deployment flow:
 
 1. Build artifact.

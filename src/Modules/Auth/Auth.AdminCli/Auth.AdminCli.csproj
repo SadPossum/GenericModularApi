@@ -11,7 +11,9 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Administration\Shared.Administration.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
   </ItemGroup>
 </Project>

@@ -78,6 +78,7 @@ Shared.Messaging
 Shared.Messaging.Infrastructure
 Shared.Messaging.Nats
 Shared.Messaging.Nats.Aspire
+Shared.ModuleComposition
 Shared.Modules
 Shared.Naming
 Shared.Numerics

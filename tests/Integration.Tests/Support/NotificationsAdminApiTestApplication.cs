@@ -21,10 +21,13 @@ using Notifications.Domain.Aggregates;
 using Notifications.Persistence;
 using Shared.Administration;
 using Shared.Administration.Api;
+using Shared.Application.Events.Infrastructure;
 using Shared.Api.Security;
-using Shared.Infrastructure;
+using Shared.Cqrs.Infrastructure;
+using Shared.Runtime.Infrastructure;
 using Shared.Security;
 using Shared.Tenancy;
+using Shared.Tenancy.Infrastructure;
 using DomainNotificationSeverity = Notifications.Domain.ValueObjects.NotificationSeverity;
 
 internal sealed class NotificationsAdminApiTestApplication : IAsyncDisposable
@@ -58,7 +61,10 @@ internal sealed class NotificationsAdminApiTestApplication : IAsyncDisposable
             ["Caching:Enabled"] = "false"
         });
 
-        builder.AddSharedInfrastructure();
+        builder.AddTenancyInfrastructure();
+        builder.AddRuntimeInfrastructure();
+        builder.AddApplicationEventsInfrastructure();
+        builder.AddCqrsInfrastructure();
         builder.Services.AddSharedAdministrationApi(builder.Configuration);
         builder.Services.AddAdministrationApplication(builder.Configuration);
         builder.Services.AddApiSecurityDefaults();

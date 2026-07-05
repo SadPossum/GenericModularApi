@@ -2,6 +2,16 @@
 
 This is an implementation task brief for a future architecture slice. It should be handed to an agent together with the current repository checkout.
 
+## Implementation Status
+
+Initial slice implemented:
+
+- `Shared.ModuleComposition` owns validated profile/feature/module requirement primitives and host validation extensions.
+- Auth exposes `AuthProfile.Global(...)` and `AuthProfile.TenantScoped()` through public contracts and profile-aware API/Admin API/Admin CLI front doors.
+- Tenancy exposes a default profile that provides `tenancy.context` and `tenancy.header-resolution`; shared tenancy infrastructure provides the baseline `tenancy.context` service for non-HTTP/admin composition.
+- Runtime hosts validate composition explicitly with `ValidateModuleComposition()`.
+- Follow-up slices can expand profiles to Catalog, Ordering, Notifications, TaskRuntime, messaging/outbox, and worker capabilities when their optional compositions need fail-fast validation.
+
 ## Summary
 
 Add a generic shared composition-feature model so modules can declare what they provide, what they require, and which profile is being composed.

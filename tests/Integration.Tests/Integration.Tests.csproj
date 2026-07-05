@@ -64,6 +64,8 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration\Shared.Administration.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Application.Events.Infrastructure\Shared.Application.Events.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />
@@ -84,6 +86,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Security\Shared.Security.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Pagination\Shared.Pagination.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Naming\Shared.Naming.csproj" />
   </ItemGroup>

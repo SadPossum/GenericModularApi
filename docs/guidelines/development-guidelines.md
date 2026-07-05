@@ -50,6 +50,7 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | HTTP admin adapter | `Shared.Administration.Api` |
 | CLI admin adapter | `Shared.Administration.Cli` |
 | Shared module metadata | `Shared.Modules` |
+| Shared composition profiles and feature validation | `Shared.ModuleComposition` |
 | Shared permission metadata | `Shared.Authorization` |
 | Shared naming primitives | `Shared.Naming` |
 | Shared numeric primitives | `Shared.Numerics` |

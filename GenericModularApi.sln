@@ -125,10 +125,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{929E11CE-B
 		docs\architecture\administration.md = docs\architecture\administration.md
 		docs\architecture\audit-follow-up-notes.md = docs\architecture\audit-follow-up-notes.md
 		docs\architecture\audit-hardening-notes.md = docs\architecture\audit-hardening-notes.md
+		docs\architecture\background-worker-host-task.md = docs\architecture\background-worker-host-task.md
 		docs\architecture\caching.md = docs\architecture\caching.md
 		docs\architecture\cqrs-and-domain-events.md = docs\architecture\cqrs-and-domain-events.md
 		docs\architecture\messaging-and-outbox.md = docs\architecture\messaging-and-outbox.md
 		docs\architecture\messaging-consumers.md = docs\architecture\messaging-consumers.md
+		docs\architecture\module-composition-features-task.md = docs\architecture\module-composition-features-task.md
 		docs\architecture\metadata-attribute-pipeline-task.md = docs\architecture\metadata-attribute-pipeline-task.md
 		docs\architecture\metadata-attributes-refactor-notes.md = docs\architecture\metadata-attributes-refactor-notes.md
 		docs\architecture\module-descriptor-builder-refactor-notes.md = docs\architecture\module-descriptor-builder-refactor-notes.md
@@ -384,6 +386,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.Admin.Contracts", "src\Modules\Notifications\Notifications.Admin.Contracts\Notifications.Admin.Contracts.csproj", "{EC0E1475-B273-4CDB-A843-8BE1751CAC0A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Notifications.AdminApi", "src\Modules\Notifications\Notifications.AdminApi\Notifications.AdminApi.csproj", "{B13743CA-31A8-4FE6-80E5-F964C9307494}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.ModuleComposition", "src\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj", "{1C9B6AB1-8670-4E65-A6F3-E20E79274821}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1811,6 +1815,18 @@ Global
 		{B13743CA-31A8-4FE6-80E5-F964C9307494}.Release|x64.Build.0 = Release|Any CPU
 		{B13743CA-31A8-4FE6-80E5-F964C9307494}.Release|x86.ActiveCfg = Release|Any CPU
 		{B13743CA-31A8-4FE6-80E5-F964C9307494}.Release|x86.Build.0 = Release|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Debug|x64.Build.0 = Debug|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Debug|x86.Build.0 = Debug|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Release|x64.ActiveCfg = Release|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Release|x64.Build.0 = Release|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Release|x86.ActiveCfg = Release|Any CPU
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1956,5 +1972,6 @@ Global
 		{644AFBB4-8CB8-4FD3-80F3-725E4484C2B1} = {1652FDBE-FD70-10D2-8806-7EAA51A58284}
 		{EC0E1475-B273-4CDB-A843-8BE1751CAC0A} = {DE9DAF8A-E684-0FD3-FFDC-40D3E3158533}
 		{B13743CA-31A8-4FE6-80E5-F964C9307494} = {DE9DAF8A-E684-0FD3-FFDC-40D3E3158533}
+		{1C9B6AB1-8670-4E65-A6F3-E20E79274821} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 	EndGlobalSection
 EndGlobal

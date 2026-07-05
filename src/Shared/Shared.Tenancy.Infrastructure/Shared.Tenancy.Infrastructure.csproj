@@ -4,6 +4,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />
     <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
   </ItemGroup>

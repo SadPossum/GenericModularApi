@@ -21,42 +21,6 @@ public sealed class NotificationSeverityJsonConverter : JsonConverter<Notificati
         writer.WriteStringValue(NotificationContractEnumJson.FormatSeverity(value));
 }
 
-public sealed class NotificationBroadcastAudienceJsonConverter : JsonConverter<NotificationBroadcastAudience>
-{
-    public override NotificationBroadcastAudience Read(
-        ref Utf8JsonReader reader,
-        Type typeToConvert,
-        JsonSerializerOptions options) =>
-        NotificationContractEnumJson.ReadString(
-            ref reader,
-            "Notification broadcast audience",
-            NotificationContractEnumJson.ParseAudience);
-
-    public override void Write(
-        Utf8JsonWriter writer,
-        NotificationBroadcastAudience value,
-        JsonSerializerOptions options) =>
-        writer.WriteStringValue(NotificationContractEnumJson.FormatAudience(value));
-}
-
-public sealed class NotificationBroadcastRecipientKindJsonConverter : JsonConverter<NotificationBroadcastRecipientKind>
-{
-    public override NotificationBroadcastRecipientKind Read(
-        ref Utf8JsonReader reader,
-        Type typeToConvert,
-        JsonSerializerOptions options) =>
-        NotificationContractEnumJson.ReadString(
-            ref reader,
-            "Notification broadcast recipient kind",
-            NotificationContractEnumJson.ParseRecipientKind);
-
-    public override void Write(
-        Utf8JsonWriter writer,
-        NotificationBroadcastRecipientKind value,
-        JsonSerializerOptions options) =>
-        writer.WriteStringValue(NotificationContractEnumJson.FormatRecipientKind(value));
-}
-
 internal static class NotificationContractEnumJson
 {
     public static TEnum ReadString<TEnum>(

@@ -15,12 +15,21 @@ public static class AdminCliModuleExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        if (HasModule<TModule>(builder.Services))
+        return HasModule(builder.Services, typeof(TModule))
+            ? builder
+            : AddAdminModule(builder, new TModule());
+    }
+
+    public static IHostApplicationBuilder AddAdminModule(this IHostApplicationBuilder builder, IAdminCliModule module)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(module);
+
+        if (HasModule(builder.Services, module.GetType()))
         {
             return builder;
         }
 
-        TModule module = new();
         string moduleName = NormalizeModuleName(module.Name, module.GetType());
         EnsureModuleNameAvailable(builder.Services, moduleName, module.GetType());
 
@@ -134,10 +143,9 @@ public static class AdminCliModuleExtensions
         }
     }
 
-    private static bool HasModule<TModule>(IServiceCollection services)
-        where TModule : IAdminCliModule =>
+    private static bool HasModule(IServiceCollection services, Type moduleType) =>
         services.Any(descriptor =>
             descriptor.ServiceType == typeof(IAdminCliModule) &&
-            (descriptor.ImplementationType == typeof(TModule) ||
-             descriptor.ImplementationInstance is TModule));
+            (descriptor.ImplementationType == moduleType ||
+             descriptor.ImplementationInstance?.GetType() == moduleType));
 }

@@ -1,5 +1,6 @@
 using Administration.AdminApi;
 using Auth.AdminApi;
+using Auth.Contracts;
 using ServiceDefaults;
 using Shared.Administration.Api;
 using Shared.Api.OpenApi;
@@ -11,6 +12,7 @@ using Shared.Infrastructure;
 using Shared.Logging.Serilog;
 using Shared.Messaging.Infrastructure;
 using Shared.Messaging.Nats.Aspire;
+using Shared.ModuleComposition;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -25,10 +27,11 @@ builder.AddConfiguredNatsJetStreamMessaging();
 builder.Services.AddApiSecurityDefaults();
 
 builder.AddAdminApiModule<AdministrationAdminApiModule>();
-builder.AddAdminApiModule<AuthAdminApiModule>();
+builder.AddAuthAdminApiModule(AuthProfile.TenantScoped());
 
 builder.AddServiceDefaults();
 builder.AddSharedOpenApi();
+builder.ValidateModuleComposition();
 
 WebApplication app = builder.Build();
 

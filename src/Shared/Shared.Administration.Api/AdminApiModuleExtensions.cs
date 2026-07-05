@@ -13,12 +13,21 @@ public static class AdminApiModuleExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        if (HasModule<TModule>(builder.Services))
+        return HasModule(builder.Services, typeof(TModule))
+            ? builder
+            : AddAdminApiModule(builder, new TModule());
+    }
+
+    public static IHostApplicationBuilder AddAdminApiModule(this IHostApplicationBuilder builder, IAdminApiModule module)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(module);
+
+        if (HasModule(builder.Services, module.GetType()))
         {
             return builder;
         }
 
-        TModule module = new();
         string moduleName = NormalizeModuleName(module.Name, module.GetType());
         EnsureModuleNameAvailable(builder.Services, moduleName, module.GetType());
 
@@ -114,10 +123,9 @@ public static class AdminApiModuleExtensions
         }
     }
 
-    private static bool HasModule<TModule>(IServiceCollection services)
-        where TModule : IAdminApiModule =>
+    private static bool HasModule(IServiceCollection services, Type moduleType) =>
         services.Any(descriptor =>
             descriptor.ServiceType == typeof(IAdminApiModule) &&
-            (descriptor.ImplementationType == typeof(TModule) ||
-             descriptor.ImplementationInstance is TModule));
+            (descriptor.ImplementationType == moduleType ||
+             descriptor.ImplementationInstance?.GetType() == moduleType));
 }

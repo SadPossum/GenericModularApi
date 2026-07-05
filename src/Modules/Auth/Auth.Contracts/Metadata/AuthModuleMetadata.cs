@@ -2,6 +2,7 @@ namespace Auth.Contracts;
 
 using Shared.Authorization;
 using Shared.Messaging;
+using Shared.ModuleComposition;
 using Shared.Modules;
 
 public static class AuthModuleMetadata
@@ -12,6 +13,7 @@ public static class AuthModuleMetadata
     public static ModuleDescriptor Descriptor { get; } = ModuleDescriptor
         .Create(Name)
         .WithSchema(Schema)
+        .WithProfiles([AuthProfile.Global().Descriptor, AuthProfile.TenantScoped().Descriptor])
         .WithPermissions([
             new ModulePermissionDescriptor(AuthAdminPermissionCodes.MembersRead, "Read Auth members.", tenantScoped: true),
             new ModulePermissionDescriptor(AuthAdminPermissionCodes.MembersCreate, "Create Auth members.", tenantScoped: true),

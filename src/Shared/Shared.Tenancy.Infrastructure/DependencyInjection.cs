@@ -5,12 +5,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Shared.ModuleComposition;
 
 public static class DependencyInjection
 {
     public static IHostApplicationBuilder AddTenancyInfrastructure(this IHostApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        builder.ProvideFeature(TenancyCompositionFeatures.ContextProvided("Shared.Tenancy.Infrastructure"));
 
         if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(TenancyInfrastructureRegistrationMarker)))
         {

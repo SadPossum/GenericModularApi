@@ -17,6 +17,7 @@ public static class OrderingDomainErrors
     public static readonly Error CatalogItemCurrencyInvalid = new("Ordering.CatalogItemCurrencyInvalid", "The catalog item currency must be a three-letter code.");
     public static readonly Error QuantityMustBePositive = new("Ordering.QuantityMustBePositive", "The order quantity must be greater than zero.");
     public static readonly Error OrderTotalNotSupported = new("Ordering.OrderTotalNotSupported", "The order total must fit the configured decimal precision.");
+    public static readonly Error OrderNotFound = new("Ordering.OrderNotFound", "The order was not found.");
     public static readonly Error CatalogItemUnknown = new("Ordering.CatalogItemUnknown", "The catalog item is unknown to Ordering.");
     public static readonly Error CatalogItemDiscontinued = new("Ordering.CatalogItemDiscontinued", "The catalog item is discontinued.");
     public static readonly Error CatalogItemStatusUnknown = new("Ordering.CatalogItemStatusUnknown", "The catalog item status is unknown to Ordering.");

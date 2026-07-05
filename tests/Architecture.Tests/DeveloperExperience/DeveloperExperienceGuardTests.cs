@@ -4,6 +4,7 @@ using Auth.Persistence;
 using Catalog.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Notifications.Persistence;
 using Ordering.Persistence;
 using Shared.Domain;
 using Shared.Naming;
@@ -779,6 +780,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(Path.Combine("src", "Modules", "Administration", "Administration.Persistence", "AdminDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Auth", "Auth.Persistence", "AuthDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Catalog", "Catalog.Persistence", "CatalogDbContext.cs")),
+            NormalizePath(Path.Combine("src", "Modules", "Notifications", "Notifications.Persistence", "NotificationsDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Ordering", "Ordering.Persistence", "OrderingDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "TaskRuntime", "TaskRuntime.Persistence", "TaskRuntimeDbContext.cs"))
         };
@@ -1622,12 +1624,8 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
-    public void Public_boundary_enums_define_unknown_zero_except_documented_operational_state()
+    public void Public_boundary_enums_define_unknown_zero()
     {
-        Type[] operationalZeroDefaultExceptions =
-        [
-            typeof(InboxMessageStatus)
-        ];
         Assembly[] boundaryAssemblies = ArchitectureCatalog.ModuleProjects
             .Where(project => project.Kind is ModuleProjectKind.Contracts or ModuleProjectKind.Domain)
             .Select(project => project.Assembly)
@@ -1645,15 +1643,31 @@ public sealed partial class DeveloperExperienceGuardTests
             .SelectMany(assembly => assembly
                 .GetTypes()
                 .Where(type => type is { IsEnum: true, IsPublic: true })
-                .Except(operationalZeroDefaultExceptions)
                 .Where(type => !string.Equals(Enum.GetName(type, 0), "Unknown", StringComparison.Ordinal))
                 .Select(type => type.FullName ?? type.Name))
             .Order(StringComparer.Ordinal)
             .ToArray();
 
         Assert.Empty(offenders);
-        Assert.Equal(0, (int)InboxMessageStatus.Pending);
-        Assert.DoesNotContain("Unknown", Enum.GetNames<InboxMessageStatus>());
+    }
+
+    [Fact]
+    public void Module_contract_enums_own_json_wire_converters()
+    {
+        string[] offenders = ArchitectureCatalog.ModuleProjects
+            .Where(project => project.Kind == ModuleProjectKind.Contracts)
+            .SelectMany(project => project.Assembly.GetTypes())
+            .Where(type => type is { IsEnum: true, IsPublic: true })
+            .Where(type => !type.GetCustomAttributes(inherit: false)
+                .Any(attribute => string.Equals(
+                    attribute.GetType().FullName,
+                    "System.Text.Json.Serialization.JsonConverterAttribute",
+                    StringComparison.Ordinal)))
+            .Select(type => type.FullName ?? type.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 
     [Fact]
@@ -2029,6 +2043,79 @@ public sealed partial class DeveloperExperienceGuardTests
             .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Domain", StringComparison.Ordinal))
             .Where(path => PositionalGuidIdValueObjectPattern().IsMatch(File.ReadAllText(path)))
             .Select(path => Path.GetRelativePath(repositoryRoot, path))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Module_domain_semantic_options_are_not_string_backed()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
+        string[] offenders = EnumerateSourceFiles(modulesRoot)
+            .Where(path => string.Equals(FindOwningProjectName(path)?.Split('.').LastOrDefault(), "Domain", StringComparison.Ordinal))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .Select(path => new
+            {
+                Path = path,
+                Source = File.ReadAllText(path)
+            })
+            .SelectMany(item => StringBackedSemanticDomainValueObjectPattern()
+                .Matches(item.Source)
+                .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{match.Groups["name"].Value}")
+                .Concat(SemanticDomainStringMemberPattern()
+                    .Matches(item.Source)
+                    .Select(match => $"{Path.GetRelativePath(repositoryRoot, item.Path)}::{match.Groups["name"].Value}")))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Semantic_contract_fields_are_typed_at_boundaries()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src"))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                if (IsAllowedSemanticStringBoundary(relativePath))
+                {
+                    return [];
+                }
+
+                string source = File.ReadAllText(path);
+                return SemanticBoundaryStringPropertyPattern()
+                    .Matches(source)
+                    .Select(match => $"{relativePath} exposes string {match.Groups["name"].Value}; use an enum or explicit value object/code-list.")
+                    .Concat(SemanticBoundaryRecordParameterPattern()
+                        .Matches(source)
+                        .Select(match => $"{relativePath} exposes string {match.Groups["name"].Value}; use an enum or explicit value object/code-list."));
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Semantic_enum_mappers_do_not_collapse_unknown_values_to_meaningful_states()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] offenders = EnumerateSourceFiles(Path.Combine(repositoryRoot, "src"))
+            .Where(path => !IsGeneratedMigrationSource(path))
+            .SelectMany(path =>
+            {
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                string source = File.ReadAllText(path);
+                return MeaningfulSemanticDefaultSwitchArmPattern()
+                    .Matches(source)
+                    .Select(match => $"{relativePath} maps a default enum arm to {match.Groups["value"].Value}; return Unknown or failure instead.");
+            })
             .Order(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -3222,6 +3309,11 @@ public sealed partial class DeveloperExperienceGuardTests
             [
                 ": TenantAwareDbContext<OrderingDbContext>(options, tenantContext)",
                 "this.ApplyTenantConventions(modelBuilder);"
+            ],
+            [Path.Combine("Notifications", "Notifications.Persistence", "NotificationsDbContext.cs")] =
+            [
+                ": TenantAwareDbContext<NotificationsDbContext>(options, tenantContext)",
+                "this.ApplyTenantConventions(modelBuilder);"
             ]
         };
         string modulesRoot = Path.Combine(repositoryRoot, "src", "Modules");
@@ -3378,6 +3470,13 @@ public sealed partial class DeveloperExperienceGuardTests
             Path.Combine(sharedRoot, "Shared.Pagination", "Shared.Pagination.csproj"),
             Path.Combine(sharedRoot, "Shared.Security", "Shared.Security.csproj")
         ];
+        string notificationsProjectPath = Path.Combine(sharedRoot, "Shared.Notifications", "Shared.Notifications.csproj");
+        XDocument notificationsProject = XDocument.Load(notificationsProjectPath);
+        HashSet<string> allowedNotificationsProjectReferences = new(StringComparer.OrdinalIgnoreCase)
+        {
+            @"..\Shared.Modules\Shared.Modules.csproj",
+            @"..\Shared.Naming\Shared.Naming.csproj"
+        };
         string modulesProjectPath = Path.Combine(sharedRoot, "Shared.Modules", "Shared.Modules.csproj");
         XDocument modulesProject = XDocument.Load(modulesProjectPath);
         HashSet<string> allowedModulesProjectReferences = new(StringComparer.OrdinalIgnoreCase)
@@ -3448,6 +3547,18 @@ public sealed partial class DeveloperExperienceGuardTests
             .Where(element => element.Name.LocalName is "PackageReference" or "FrameworkReference")
             .Select(element => $"{Path.GetRelativePath(repositoryRoot, modulesProjectPath)}->{element.Name.LocalName}:{element.Attribute("Include")?.Value}")
             .ToArray();
+        string[] notificationReferenceOffenders = notificationsProject
+            .Descendants("ProjectReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => !string.IsNullOrWhiteSpace(reference))
+            .Where(reference => !allowedNotificationsProjectReferences.Contains(reference!))
+            .Select(reference => $"{Path.GetRelativePath(repositoryRoot, notificationsProjectPath)}->ProjectReference:{reference}")
+            .ToArray();
+        string[] notificationPackageOrFrameworkOffenders = notificationsProject
+            .Descendants()
+            .Where(element => element.Name.LocalName is "PackageReference" or "FrameworkReference")
+            .Select(element => $"{Path.GetRelativePath(repositoryRoot, notificationsProjectPath)}->{element.Name.LocalName}:{element.Attribute("Include")?.Value}")
+            .ToArray();
         string[] applicationPackageOffenders = applicationProject
             .Descendants("PackageReference")
             .Select(element => element.Attribute("Include")?.Value)
@@ -3466,6 +3577,8 @@ public sealed partial class DeveloperExperienceGuardTests
             .Concat(domainPackageOrFrameworkOffenders)
             .Concat(modulesReferenceOffenders)
             .Concat(modulesPackageOrFrameworkOffenders)
+            .Concat(notificationReferenceOffenders)
+            .Concat(notificationPackageOrFrameworkOffenders)
             .Concat(applicationReferenceOffenders)
             .Concat(applicationPackageOffenders)
             .Concat(applicationFrameworkOffenders)
@@ -3817,6 +3930,65 @@ public sealed partial class DeveloperExperienceGuardTests
                 [@"..\Shared.Naming\Shared.Naming.csproj"]),
             new("Shared.Naming", [], [], []),
             new("Shared.Numerics", [], [], []),
+            new(
+                "Shared.Notifications",
+                [],
+                [],
+                [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj"
+                ]),
+            new(
+                "Shared.Notifications.Cqrs",
+                [
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Cqrs\Shared.Cqrs.csproj",
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Results\Shared.Results.csproj"
+                ]),
+            new(
+                "Shared.Notifications.Api",
+                [],
+                ["Microsoft.AspNetCore.App"],
+                [
+                    @"..\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared.Notifications\Shared.Notifications.csproj",
+                    @"..\Shared.Security\Shared.Security.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Notifications.Infrastructure",
+                [
+                    "Microsoft.Extensions.DependencyInjection",
+                    "Microsoft.Extensions.Hosting",
+                    "Microsoft.Extensions.Logging.Abstractions",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions"
+                ],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Notifications\Shared.Notifications.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj"
+                ]),
+            new(
+                "Shared.Notifications.SignalR",
+                ["Microsoft.AspNetCore.Authentication.JwtBearer"],
+                ["Microsoft.AspNetCore.App"],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Notifications\Shared.Notifications.csproj",
+                    @"..\Shared.Runtime\Shared.Runtime.csproj",
+                    @"..\Shared.Security\Shared.Security.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
             new(
                 "Shared.Observability",
                 [],
@@ -4282,7 +4454,10 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
-                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj"
+                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj",
+                    @"..\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj",
+                    @"..\Shared\Shared.Notifications.Cqrs\Shared.Notifications.Cqrs.csproj",
+                    @"..\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj"
                 ]),
             new(
                 Path.Combine("ServiceDefaults", "ServiceDefaults.csproj"),
@@ -6267,6 +6442,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild.Tasks\Shared.ProjectionRebuild.Tasks.csproj"),
@@ -6301,6 +6477,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Api\Shared.Api.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Security\Shared.Security.csproj"),
@@ -6353,10 +6530,14 @@ public sealed partial class DeveloperExperienceGuardTests
         using OrderingDbContext ordering = new(
             CreateTenantConventionOptions<OrderingDbContext>(),
             new DesignTimeTenantContext());
+        using NotificationsDbContext notifications = new(
+            CreateTenantConventionOptions<NotificationsDbContext>(),
+            new DesignTimeTenantContext());
 
         return auth.Model.GetEntityTypes()
             .Concat(catalog.Model.GetEntityTypes())
             .Concat(ordering.Model.GetEntityTypes())
+            .Concat(notifications.Model.GetEntityTypes())
             .Where(entityType => !entityType.IsOwned())
             .ToArray();
     }
@@ -6431,6 +6612,10 @@ public sealed partial class DeveloperExperienceGuardTests
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(
                    normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(
@@ -6469,6 +6654,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ProjectionRebuild.EntityFrameworkCore\Shared.ProjectionRebuild.EntityFrameworkCore.csproj"),
@@ -6802,6 +6988,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string source = File.ReadAllText(sourcePath);
 
         if (fileName.EndsWith("IntegrationEvent.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("NotificationNames.cs", StringComparison.Ordinal) ||
             fileName.EndsWith("IntegrationSubjects.cs", StringComparison.Ordinal))
         {
             return "Events";
@@ -6818,6 +7005,16 @@ public sealed partial class DeveloperExperienceGuardTests
             return "Tasks";
         }
 
+        if (source.Contains(": IUserNotificationPayload", StringComparison.Ordinal))
+        {
+            return "Notifications";
+        }
+
+        if (source.Contains(": JsonConverter<", StringComparison.Ordinal))
+        {
+            return "Serialization";
+        }
+
         if (fileName.EndsWith("ModuleMetadata.cs", StringComparison.Ordinal) ||
             fileName.EndsWith("PermissionCodes.cs", StringComparison.Ordinal) ||
             fileName.EndsWith("ContractLimits.cs", StringComparison.Ordinal))
@@ -6825,7 +7022,10 @@ public sealed partial class DeveloperExperienceGuardTests
             return "Metadata";
         }
 
-        if (source.Contains("public enum ", StringComparison.Ordinal))
+        if (source.Contains("public enum ", StringComparison.Ordinal) ||
+            fileName.EndsWith("UserIds.cs", StringComparison.Ordinal) ||
+            (fileName.EndsWith("Names.cs", StringComparison.Ordinal) &&
+             source.Contains("ToWireName(", StringComparison.Ordinal)))
         {
             return "Types";
         }
@@ -6984,6 +7184,18 @@ public sealed partial class DeveloperExperienceGuardTests
         string[] segments = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         return segments.Contains("bin", StringComparer.OrdinalIgnoreCase) ||
                segments.Contains("obj", StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAllowedSemanticStringBoundary(string relativePath)
+    {
+        string normalized = NormalizePath(relativePath);
+        string[] allowed =
+        [
+            Path.Combine("src", "Modules", "Administration", "Administration.Persistence", "Entities", "AdminAuditEntry.cs"),
+            Path.Combine("src", "Modules", "Auth", "Auth.Infrastructure", "JwtSettings.cs")
+        ];
+
+        return allowed.Any(path => string.Equals(normalized, path, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool HasPathSegment(string path, string segment)
@@ -7207,6 +7419,21 @@ public sealed partial class DeveloperExperienceGuardTests
 
     [GeneratedRegex(@"\brecord\s+struct\s+[A-Za-z_][A-Za-z0-9_]*Id\s*\(\s*Guid\s+Value\s*\)", RegexOptions.Multiline)]
     private static partial Regex PositionalGuidIdValueObjectPattern();
+
+    [GeneratedRegex(@"public\s+readonly\s+record\s+struct\s+(?<name>[A-Za-z_][A-Za-z0-9_]*(?:Status|State|Severity|Audience|Kind|Type|Result|Mode|Provider))\b[\s\S]*?public\s+string\s+Value\s*\{", RegexOptions.Multiline)]
+    private static partial Regex StringBackedSemanticDomainValueObjectPattern();
+
+    [GeneratedRegex(@"^\s*(?:public|private|protected|internal)\s+string\s+(?<name>Status|State|Severity|Audience|Kind|Type|Result|Mode|Provider|status|state|severity|audience|kind|type|result|mode|provider)\b", RegexOptions.Multiline)]
+    private static partial Regex SemanticDomainStringMemberPattern();
+
+    [GeneratedRegex(@"\bpublic\s+(?:required\s+)?string\??\s+(?<name>Status|State|Severity|Audience|RecipientKind|Kind|Type|Result|Mode|Provider|Scope)\s*\{\s*get\b", RegexOptions.Multiline)]
+    private static partial Regex SemanticBoundaryStringPropertyPattern();
+
+    [GeneratedRegex(@"\brecord\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\bstring\??\s+(?<name>Status|State|Severity|Audience|RecipientKind|Kind|Type|Result|Mode|Provider|Scope)\b", RegexOptions.Singleline)]
+    private static partial Regex SemanticBoundaryRecordParameterPattern();
+
+    [GeneratedRegex(@"_\s*=>\s*(?<value>(?:[A-Za-z_][A-Za-z0-9_.]*\.)?(?:Info|Success|Warning|Error|Active|Disabled|Submitted|Discontinued|TenantUsers|TenantAdmins|PlatformUsers|PlatformAdmins|User|Admin|Pending|Queued|Processed|Succeeded))\b", RegexOptions.Multiline)]
+    private static partial Regex MeaningfulSemanticDefaultSwitchArmPattern();
 
     [GeneratedRegex(@"([A-Z]+)([A-Z][a-z])")]
     private static partial Regex AcronymBoundaryPattern();

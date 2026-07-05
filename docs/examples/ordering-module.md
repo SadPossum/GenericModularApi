@@ -22,6 +22,7 @@ Ordering.Application
 Ordering.Persistence
 Ordering.Persistence.SqlServerMigrations
 Ordering.Persistence.PostgreSqlMigrations
+Ordering.Api
 ```
 
 ## Catalog Dependency
@@ -84,6 +85,18 @@ Default hosts do not register Catalog, Ordering, or the projection worker group.
 
 Creating an order requires a known active catalog item projection. Unknown or discontinued catalog items are rejected.
 Ordering validates duplicated projection data before creating an order: SKU and name must fit local persistence limits, currency must be a three-letter code, and price must be positive and fit mapped decimal precision without rounding. Order totals must also fit mapped decimal precision. This keeps copied data explicit and prevents a bad producer event or manual projection repair from becoming a late EF failure.
+
+## Public API
+
+`Ordering.Api` maps tenant-scoped authenticated endpoints under `/api/orders`:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/orders` | List orders. |
+| `GET` | `/api/orders/{orderId}` | Get one order. |
+| `POST` | `/api/orders` | Place an order for a projected Catalog item. |
+
+The API is optional and not registered by default. It composes only Ordering application and persistence; it does not call Catalog synchronously.
 
 ## Consumers
 

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Shared.Notifications\Shared.Notifications.csproj" />
+    <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\Shared.Runtime\Shared.Runtime.csproj" />
+    <ProjectReference Include="..\Shared.Security\Shared.Security.csproj" />
+    <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />
+  </ItemGroup>
+</Project>

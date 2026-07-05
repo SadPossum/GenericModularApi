@@ -1,5 +1,8 @@
 namespace Auth.Contracts;
 
+using System.Text.Json.Serialization;
+
+[JsonConverter(typeof(UsernameTypeJsonConverter))]
 public enum UsernameType
 {
     Unknown = 0,

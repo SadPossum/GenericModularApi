@@ -22,8 +22,15 @@ using Catalog.Api;
 using Catalog.Contracts;
 using Catalog.Domain.Aggregates;
 using Catalog.Persistence;
+using Notifications.Admin.Contracts;
+using Notifications.AdminApi;
+using Notifications.Api;
+using Notifications.Contracts;
+using Notifications.Domain.Aggregates;
+using Notifications.Persistence;
 using Host.AdminApi;
 using Host.AdminCli;
+using Ordering.Api;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Persistence;
@@ -68,6 +75,15 @@ internal static class ArchitectureCatalog
         new("Catalog", "Catalog.Domain", ModuleProjectKind.Domain, typeof(CatalogItem).Assembly),
         new("Catalog", "Catalog.Persistence", ModuleProjectKind.Persistence, typeof(Catalog.Persistence.DependencyInjection).Assembly),
 
+        new("Notifications", "Notifications.Api", ModuleProjectKind.Api, typeof(NotificationsModule).Assembly),
+        new("Notifications", "Notifications.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(NotificationsAdminPermissions).Assembly),
+        new("Notifications", "Notifications.AdminApi", ModuleProjectKind.AdminApi, typeof(NotificationsAdminApiModule).Assembly),
+        new("Notifications", "Notifications.Application", ModuleProjectKind.Application, typeof(Notifications.Application.DependencyInjection).Assembly),
+        new("Notifications", "Notifications.Contracts", ModuleProjectKind.Contracts, typeof(NotificationsModuleMetadata).Assembly),
+        new("Notifications", "Notifications.Domain", ModuleProjectKind.Domain, typeof(UserNotification).Assembly),
+        new("Notifications", "Notifications.Persistence", ModuleProjectKind.Persistence, typeof(Notifications.Persistence.DependencyInjection).Assembly),
+
+        new("Ordering", "Ordering.Api", ModuleProjectKind.Api, typeof(OrderingModule).Assembly),
         new("Ordering", "Ordering.Application", ModuleProjectKind.Application, typeof(Ordering.Application.DependencyInjection).Assembly),
         new("Ordering", "Ordering.Contracts", ModuleProjectKind.Contracts, typeof(OrderingModuleMetadata).Assembly),
         new("Ordering", "Ordering.Domain", ModuleProjectKind.Domain, typeof(Order).Assembly),
@@ -92,6 +108,7 @@ internal static class ArchitectureCatalog
         AuthModuleMetadata.Descriptor,
         AdministrationModuleMetadata.Descriptor,
         CatalogModuleMetadata.Descriptor,
+        NotificationsModuleMetadata.Descriptor,
         OrderingModuleMetadata.Descriptor,
         TaskRuntimeModuleMetadata.Descriptor,
         TaskSamplesModuleMetadata.Descriptor,

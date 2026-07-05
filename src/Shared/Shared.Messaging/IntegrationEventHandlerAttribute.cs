@@ -6,6 +6,7 @@ using Shared.Modules;
 public sealed class IntegrationEventHandlerAttribute(string handlerName) : Attribute
 {
     public string HandlerName { get; } = IntegrationEventNaming.NormalizeHandlerName(handlerName, nameof(handlerName));
+    public bool RequiresExplicitProducerBinding { get; init; }
 
     public static IntegrationEventHandlerAttribute GetRequired(Type handlerType)
     {

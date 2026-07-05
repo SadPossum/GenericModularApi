@@ -29,6 +29,7 @@ public static class DependencyInjection
                 OrderingMigrations.HistoryTable));
 
         builder.Services.TryAddScoped<IOrderRepository, OrderRepository>();
+        builder.Services.TryAddScoped<IOrderReadRepository, OrderReadRepository>();
         builder.Services.TryAddScoped<ICatalogItemProjectionRepository, CatalogItemProjectionRepository>();
         builder.Services.TryAddScoped<IProjectionRebuildWriter<CatalogItemProjectionExport>, CatalogItemProjectionRebuildWriter>();
         builder.Services.TryAddEnumerable([

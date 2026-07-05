@@ -10,17 +10,23 @@ using Shared.Infrastructure;
 using Shared.Logging.Serilog;
 using Shared.Messaging.Infrastructure;
 using Shared.Messaging.Nats.Aspire;
+using Shared.Notifications.Api;
+using Shared.Notifications.Cqrs;
+using Shared.Notifications.SignalR;
 using Tenancy.Api;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseConfiguredSerilog();
 
+builder.AddUserNotificationsCqrs();
 builder.AddRedisCaching();
 builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging();
+builder.AddUserNotificationServerSentEvents();
+builder.AddUserNotificationSignalR();
 builder.Services.AddApiSecurityDefaults();
 
 builder.AddModule<TenancyModule>();
@@ -40,5 +46,7 @@ app.UseAuthorization();
 
 app.MapDefaultEndpoints();
 app.MapModules();
+app.MapUserNotificationServerSentEvents();
+app.MapUserNotificationSignalR();
 
 app.Run();

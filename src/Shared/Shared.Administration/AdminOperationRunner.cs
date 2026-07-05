@@ -36,7 +36,7 @@ internal sealed class AdminOperationRunner(
             string? auditError = await this.RecordAuditAsync(
                 context,
                 tenantId,
-                AdminAuditResults.Denied,
+                AdminAuditResult.Denied,
                 AdminErrors.TenantInvalid.Code,
                 cancellationToken).ConfigureAwait(false);
 
@@ -51,7 +51,7 @@ internal sealed class AdminOperationRunner(
             string? auditError = await this.RecordAuditAsync(
                 context,
                 tenantId,
-                AdminAuditResults.Denied,
+                AdminAuditResult.Denied,
                 context.PreAuthorizationError.Code,
                 cancellationToken).ConfigureAwait(false);
 
@@ -66,7 +66,7 @@ internal sealed class AdminOperationRunner(
             string? auditError = await this.RecordAuditAsync(
                 context,
                 tenantId,
-                AdminAuditResults.Denied,
+                AdminAuditResult.Denied,
                 AdminErrors.TenantRequired.Code,
                 cancellationToken).ConfigureAwait(false);
 
@@ -103,7 +103,7 @@ internal sealed class AdminOperationRunner(
             string? auditError = await this.RecordAuditAsync(
                 context,
                 tenantId,
-                AdminAuditResults.Denied,
+                AdminAuditResult.Denied,
                 AdminErrors.Unauthorized.Code,
                 cancellationToken).ConfigureAwait(false);
 
@@ -132,7 +132,7 @@ internal sealed class AdminOperationRunner(
         string? resultAuditError = await this.RecordAuditAsync(
             context,
             tenantId,
-            result.IsSuccess ? AdminAuditResults.Succeeded : AdminAuditResults.Failed,
+            result.IsSuccess ? AdminAuditResult.Succeeded : AdminAuditResult.Failed,
             result.IsSuccess ? null : result.Error.Code,
             cancellationToken).ConfigureAwait(false);
 
@@ -153,7 +153,7 @@ internal sealed class AdminOperationRunner(
         string? auditError = await this.RecordAuditAsync(
             context,
             tenantId,
-            AdminAuditResults.Failed,
+            AdminAuditResult.Failed,
             AdminErrors.OperationFailed.Code,
             cancellationToken).ConfigureAwait(false);
 
@@ -184,7 +184,7 @@ internal sealed class AdminOperationRunner(
     private async Task<string?> RecordAuditAsync(
         AdminOperationContext context,
         string? tenantId,
-        string result,
+        AdminAuditResult result,
         string? errorCode,
         CancellationToken cancellationToken)
     {

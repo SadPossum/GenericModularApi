@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Notifications.Persistence;
 using Ordering.Persistence;
 using Shared.Administration;
 using Shared.Api.Security;
@@ -98,6 +99,14 @@ public sealed class ModuleRegistrationIdempotencyTests
                 (typeof(IUnitOfWork), "AdminUnitOfWork"),
                 (typeof(IAdminAuditSink), "AdminAuditSink")
             ]);
+        AssertPersistenceRegistration(
+            builder => builder.AddNotificationsPersistence(),
+            typeof(NotificationsDbContext),
+            [
+                (typeof(IUnitOfWork), "NotificationsUnitOfWork"),
+                (typeof(Shared.Notifications.IUserNotificationHistoryWriter), "NotificationHistoryWriter"),
+                (typeof(IInboxStore), "NotificationsInboxStore")
+            ]);
     }
 
     [Fact]
@@ -110,6 +119,7 @@ public sealed class ModuleRegistrationIdempotencyTests
         builder.AddCatalogPersistence();
         builder.AddOrderingPersistence();
         builder.AddAdministrationPersistence();
+        builder.AddNotificationsPersistence();
 
         Assert.Single(builder.Services, descriptor =>
             descriptor.ServiceType == typeof(IValidateOptions<PersistenceOptions>) &&

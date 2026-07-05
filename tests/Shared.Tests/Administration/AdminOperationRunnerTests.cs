@@ -57,7 +57,8 @@ public sealed class AdminOperationRunnerTests
         Assert.Equal(idGenerator.Id, record.Id);
         Assert.Equal(clock.UtcNow, record.CreatedAtUtc);
         Assert.Equal("tenant-a", record.TenantId);
-        Assert.Equal("denied", record.Result);
+        Assert.Equal(AdminAuditResult.Denied, record.Result);
+        Assert.Equal(AdminAuditResults.Denied, record.ResultName);
         Assert.Equal(AdminErrors.TenantClaimMismatch.Code, record.ErrorCode);
     }
 
@@ -91,7 +92,7 @@ public sealed class AdminOperationRunnerTests
         Assert.Equal(0, actionExecutions);
 
         AdminAuditRecord record = Assert.Single(audit.Records);
-        Assert.Equal("denied", record.Result);
+        Assert.Equal(AdminAuditResult.Denied, record.Result);
         Assert.Equal(AdminErrors.TenantInvalid.Code, record.ErrorCode);
         Assert.Null(tenantContext.TenantId);
     }
@@ -117,7 +118,7 @@ public sealed class AdminOperationRunnerTests
         Assert.Equal(AdminErrors.OperationFailed, result.Result.Error);
 
         AdminAuditRecord record = Assert.Single(audit.Records);
-        Assert.Equal("failed", record.Result);
+        Assert.Equal(AdminAuditResult.Failed, record.Result);
         Assert.Equal(AdminErrors.OperationFailed.Code, record.ErrorCode);
     }
 
@@ -142,7 +143,7 @@ public sealed class AdminOperationRunnerTests
         Assert.Equal(AdminErrors.OperationFailed, result.Result.Error);
 
         AdminAuditRecord record = Assert.Single(audit.Records);
-        Assert.Equal("failed", record.Result);
+        Assert.Equal(AdminAuditResult.Failed, record.Result);
         Assert.Equal(AdminErrors.OperationFailed.Code, record.ErrorCode);
     }
 
@@ -173,7 +174,7 @@ public sealed class AdminOperationRunnerTests
         Assert.Equal(0, actionExecutions);
 
         AdminAuditRecord record = Assert.Single(audit.Records);
-        Assert.Equal("failed", record.Result);
+        Assert.Equal(AdminAuditResult.Failed, record.Result);
         Assert.Equal(AdminErrors.OperationFailed.Code, record.ErrorCode);
     }
 

@@ -5,7 +5,9 @@
     <ProjectReference Include="..\Catalog.Persistence\Catalog.Persistence.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Security\Shared.Security.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
   </ItemGroup>
 </Project>

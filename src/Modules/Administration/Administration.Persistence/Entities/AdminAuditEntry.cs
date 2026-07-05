@@ -15,7 +15,7 @@ public sealed class AdminAuditEntry
         this.TenantId = record.TenantId;
         this.Operation = record.Operation;
         this.Permission = record.Permission;
-        this.Result = record.Result;
+        this.Result = record.ResultName;
         this.ErrorCode = record.ErrorCode;
         this.CreatedAtUtc = record.CreatedAtUtc;
     }

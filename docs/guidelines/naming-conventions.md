@@ -81,6 +81,11 @@ Shared.Messaging.Nats.Aspire
 Shared.Modules
 Shared.Naming
 Shared.Numerics
+Shared.Notifications
+Shared.Notifications.Cqrs
+Shared.Notifications.Infrastructure
+Shared.Notifications.Api
+Shared.Notifications.SignalR
 Shared.Observability
 Shared.Observability.Infrastructure
 Shared.Pagination
@@ -201,7 +206,9 @@ Active = 1
 Disabled = 2
 ```
 
-Keep existing numeric values stable once the enum is persisted, published in an API/event contract, or bound from configuration. Handlers and option validators should reject unsupported input values explicitly; mapping code must not collapse unknown values into meaningful business states such as `Active` or real providers such as `SqlServer`, `Memory`, or `Redis`.
+Keep existing numeric values stable once the enum is persisted, published in an API/event contract, or bound from configuration. If a persisted enum must be renumbered, add provider-specific compatibility migrations that remap existing rows in the same change. Handlers and option validators should reject unsupported input values explicitly; mapping code must not collapse unknown values into meaningful business states such as `Active` or real providers such as `SqlServer`, `Memory`, or `Redis`.
+
+Public module contract enums own stable lowercase or kebab-case wire names through a module-local `*Names` helper and `[JsonConverter]`. Keep converter code in the owning `.Contracts` package so API, CLI JSON output, integration events, and tests agree without host-wide JSON settings.
 
 Subjects:
 
@@ -216,6 +223,17 @@ gma.auth.member-registered.v1
 ```
 
 Use lowercase kebab-case for the `{application-namespace}`, `{module}`, `{event}`, and integration-event consumer handler-name segments. The default application namespace is `gma`; set `ApplicationIdentity:Namespace` to the product or bounded system name before creating production NATS streams, cache keys, or dashboards. Module contracts should expose stable logical event names and subject factory methods rather than embedding physical provider subjects by hand. Subscription metadata is validated at composition time, so invalid subject shapes such as extra dots, spaces, or zero-padded versions should fail before a host starts consumers.
+
+## Notifications
+
+Notification names use lowercase dotted segments:
+
+```text
+catalog.item-updated
+task-runtime.run-completed
+```
+
+Keep the name stable and increment the notification payload version when a client-incompatible payload change is introduced. Physical delivery paths and SignalR client method names are host adapter configuration, not module contract names.
 
 ## Endpoints
 

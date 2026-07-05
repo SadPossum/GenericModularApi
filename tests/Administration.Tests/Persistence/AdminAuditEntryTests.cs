@@ -52,7 +52,7 @@ public sealed class AdminAuditEntryTests
         Assert.Equal(record.TenantId, entry.TenantId);
         Assert.Equal(record.Operation, entry.Operation);
         Assert.Equal(record.Permission, entry.Permission);
-        Assert.Equal(record.Result, entry.Result);
+        Assert.Equal(record.ResultName, entry.Result);
         Assert.Equal(record.ErrorCode, entry.ErrorCode);
         Assert.Equal(record.CreatedAtUtc, entry.CreatedAtUtc);
     }

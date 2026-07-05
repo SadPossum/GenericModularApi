@@ -28,7 +28,8 @@ public sealed class AdminAuditRecordTests
         Assert.Equal("tenant-a", record.TenantId);
         Assert.Equal("auth.members.list", record.Operation);
         Assert.Equal("auth.members.read", record.Permission);
-        Assert.Equal(AdminAuditResults.Succeeded, record.Result);
+        Assert.Equal(AdminAuditResult.Succeeded, record.Result);
+        Assert.Equal(AdminAuditResults.Succeeded, record.ResultName);
         Assert.Equal("Auth.Error", record.ErrorCode);
         Assert.Equal(CreatedAtUtc, record.CreatedAtUtc);
     }
@@ -43,14 +44,35 @@ public sealed class AdminAuditRecordTests
     }
 
     [Theory]
-    [InlineData("Succeeded", "succeeded")]
-    [InlineData("denied", "denied")]
-    [InlineData(" FAILED ", "failed")]
-    public void Constructor_accepts_known_result_values(string input, string expected)
+    [InlineData("Succeeded", AdminAuditResult.Succeeded, "succeeded")]
+    [InlineData("denied", AdminAuditResult.Denied, "denied")]
+    [InlineData(" FAILED ", AdminAuditResult.Failed, "failed")]
+    public void Constructor_accepts_known_result_values(
+        string input,
+        AdminAuditResult expected,
+        string expectedWireName)
     {
         AdminAuditRecord record = Create(result: input);
 
         Assert.Equal(expected, record.Result);
+        Assert.Equal(expectedWireName, record.ResultName);
+    }
+
+    [Fact]
+    public void Constructor_accepts_known_result_enum()
+    {
+        AdminAuditRecord record = new(
+            Id,
+            "actor",
+            "tenant-a",
+            "auth.members.list",
+            "auth.members.read",
+            AdminAuditResult.Denied,
+            null,
+            CreatedAtUtc);
+
+        Assert.Equal(AdminAuditResult.Denied, record.Result);
+        Assert.Equal(AdminAuditResults.Denied, record.ResultName);
     }
 
     [Fact]
@@ -94,6 +116,15 @@ public sealed class AdminAuditRecordTests
     public void Constructor_rejects_unknown_result()
     {
         Assert.Throws<ArgumentException>(() => Create(result: "maybe"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new AdminAuditRecord(
+            Id,
+            "actor",
+            "tenant-a",
+            "auth.members.list",
+            "auth.members.read",
+            AdminAuditResult.Unknown,
+            null,
+            CreatedAtUtc));
     }
 
     [Fact]

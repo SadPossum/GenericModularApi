@@ -33,6 +33,10 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Modules\Shared.Modules.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Notifications\Shared.Notifications.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Cqrs\Shared.Notifications.Cqrs.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Numerics\Shared.Numerics.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Observability\Shared.Observability.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />

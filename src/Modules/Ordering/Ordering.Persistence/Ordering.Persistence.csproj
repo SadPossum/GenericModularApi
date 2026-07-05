@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.ProjectionRebuild.EntityFrameworkCore\Shared.ProjectionRebuild.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.ProjectionRebuild\Shared.ProjectionRebuild.csproj" />

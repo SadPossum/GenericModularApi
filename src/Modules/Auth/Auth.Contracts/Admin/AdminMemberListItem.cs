@@ -3,7 +3,7 @@ namespace Auth.Contracts;
 public sealed record AdminMemberListItem(
     Guid MemberId,
     string TenantId,
-    string Status,
+    MemberStatus Status,
     string? ActiveUsername,
     DateTimeOffset RegisteredAtUtc,
     int ActiveSessionCount);

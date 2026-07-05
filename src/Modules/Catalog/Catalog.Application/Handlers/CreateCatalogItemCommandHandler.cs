@@ -44,7 +44,7 @@ internal sealed class CreateCatalogItemCommandHandler(
         }
 
         CatalogItem item = itemResult.Value;
-        if (await repository.SkuExistsAsync(item.Sku, excludingItemId: null, cancellationToken).ConfigureAwait(false))
+        if (await repository.SkuExistsAsync(item.Sku.Value, excludingItemId: null, cancellationToken).ConfigureAwait(false))
         {
             return Result.Failure<CatalogItemDto>(CatalogDomainErrors.SkuAlreadyExists);
         }

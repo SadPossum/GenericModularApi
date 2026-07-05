@@ -2,8 +2,8 @@ namespace Ordering.Domain.Aggregates;
 
 using Shared.Naming;
 using Ordering.Domain.Errors;
+using Ordering.Domain.ValueObjects;
 using Shared.Domain.Models;
-using Shared.Numerics;
 using Shared.Results;
 
 public sealed class Order : TenantAggregateRoot<Guid>
@@ -21,15 +21,29 @@ public sealed class Order : TenantAggregateRoot<Guid>
     {
     }
 
-    public Guid CatalogItemId { get; private set; }
-    public string CatalogSku { get; private set; } = string.Empty;
-    public string CatalogItemName { get; private set; } = string.Empty;
-    public decimal UnitPrice { get; private set; }
-    public string Currency { get; private set; } = string.Empty;
-    public int Quantity { get; private set; }
-    public decimal Total { get; private set; }
+    private Guid catalogItemId;
+    private string catalogSku = string.Empty;
+    private string catalogItemName = string.Empty;
+    private decimal unitPrice;
+    private string currency = string.Empty;
+
+    public OrderCatalogItemSnapshot CatalogItem =>
+        OrderCatalogItemSnapshot.Create(
+            this.catalogItemId,
+            this.catalogSku,
+            this.catalogItemName,
+            this.unitPrice,
+            this.currency).Value;
+    public OrderQuantity Quantity { get; private set; }
+    public OrderAmount Total { get; private set; }
     public OrderState Status { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
+
+    public Guid CatalogItemId => this.catalogItemId;
+    public string CatalogSku => this.catalogSku;
+    public string CatalogItemName => this.catalogItemName;
+    public decimal UnitPrice => this.unitPrice;
+    public string Currency => this.currency;
 
     public static Result<Order> Create(
         Guid id,
@@ -57,31 +71,38 @@ public sealed class Order : TenantAggregateRoot<Guid>
             return Result.Failure<Order>(OrderingDomainErrors.TenantInvalid);
         }
 
-        if (quantity <= 0)
+        Result<OrderQuantity> quantityResult = OrderQuantity.Create(quantity);
+        if (quantityResult.IsFailure)
         {
-            return Result.Failure<Order>(OrderingDomainErrors.QuantityMustBePositive);
+            return Result.Failure<Order>(quantityResult.Error);
         }
 
-        Result validation = ValidateCatalogSnapshot(catalogItemId, catalogSku, catalogItemName, unitPrice, currency);
-        if (validation.IsFailure)
+        Result<OrderCatalogItemSnapshot> catalogSnapshot = OrderCatalogItemSnapshot.Create(
+            catalogItemId,
+            catalogSku,
+            catalogItemName,
+            unitPrice,
+            currency);
+        if (catalogSnapshot.IsFailure)
         {
-            return Result.Failure<Order>(validation.Error);
+            return Result.Failure<Order>(catalogSnapshot.Error);
         }
 
-        if (!TryCalculateTotal(unitPrice, quantity, out decimal total))
+        Result<OrderAmount> total = CalculateTotal(catalogSnapshot.Value.UnitPrice, quantityResult.Value);
+        if (total.IsFailure)
         {
-            return Result.Failure<Order>(OrderingDomainErrors.OrderTotalNotSupported);
+            return Result.Failure<Order>(total.Error);
         }
 
         Order order = new(id, normalizedTenantId)
         {
-            CatalogItemId = catalogItemId,
-            CatalogSku = NormalizeCatalogSku(catalogSku),
-            CatalogItemName = NormalizeCatalogItemName(catalogItemName),
-            UnitPrice = unitPrice,
-            Currency = NormalizeCurrency(currency),
-            Quantity = quantity,
-            Total = total,
+            catalogItemId = catalogSnapshot.Value.CatalogItemId,
+            catalogSku = catalogSnapshot.Value.Sku,
+            catalogItemName = catalogSnapshot.Value.Name,
+            unitPrice = catalogSnapshot.Value.UnitPrice.Value,
+            currency = catalogSnapshot.Value.Currency,
+            Quantity = quantityResult.Value,
+            Total = total.Value,
             Status = OrderState.Submitted,
             CreatedAtUtc = nowUtc
         };
@@ -96,73 +117,40 @@ public sealed class Order : TenantAggregateRoot<Guid>
         decimal unitPrice,
         string? currency)
     {
-        if (catalogItemId == Guid.Empty)
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogItemRequired);
-        }
+        Result<OrderCatalogItemSnapshot> snapshot = OrderCatalogItemSnapshot.Create(
+            catalogItemId,
+            catalogSku,
+            catalogItemName,
+            unitPrice,
+            currency);
 
-        string normalizedSku = NormalizeCatalogSku(catalogSku);
-        if (string.IsNullOrWhiteSpace(normalizedSku))
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogSkuRequired);
-        }
-
-        if (normalizedSku.Length > CatalogSkuMaxLength)
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogSkuTooLong);
-        }
-
-        string normalizedName = NormalizeCatalogItemName(catalogItemName);
-        if (string.IsNullOrWhiteSpace(normalizedName))
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogItemNameRequired);
-        }
-
-        if (normalizedName.Length > CatalogItemNameMaxLength)
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogItemNameTooLong);
-        }
-
-        if (unitPrice <= 0)
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogItemPriceMustBePositive);
-        }
-
-        if (!DecimalPrecision.Fits(unitPrice, AmountPrecision, AmountScale))
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogItemPriceNotSupported);
-        }
-
-        string normalizedCurrency = NormalizeCurrency(currency);
-        if (normalizedCurrency.Length != CurrencyLength)
-        {
-            return Result.Failure(OrderingDomainErrors.CatalogItemCurrencyInvalid);
-        }
-
-        return Result.Success();
+        return snapshot.IsSuccess ? Result.Success() : Result.Failure(snapshot.Error);
     }
 
-    private static bool TryCalculateTotal(decimal unitPrice, int quantity, out decimal total)
+    private static Result<OrderAmount> CalculateTotal(OrderAmount unitPrice, OrderQuantity quantity)
     {
+        decimal total;
         try
         {
-            total = unitPrice * quantity;
+            total = unitPrice.Value * quantity.Value;
         }
         catch (OverflowException)
         {
-            total = 0;
-            return false;
+            return Result.Failure<OrderAmount>(OrderingDomainErrors.OrderTotalNotSupported);
         }
 
-        return DecimalPrecision.Fits(total, AmountPrecision, AmountScale);
+        return OrderAmount.Create(
+            total,
+            OrderingDomainErrors.OrderTotalNotSupported,
+            OrderingDomainErrors.OrderTotalNotSupported);
     }
 
     public static string NormalizeCatalogSku(string? catalogSku) =>
-        string.IsNullOrWhiteSpace(catalogSku) ? string.Empty : catalogSku.Trim().ToUpperInvariant();
+        OrderCatalogItemSnapshot.NormalizeSku(catalogSku);
 
     public static string NormalizeCatalogItemName(string? catalogItemName) =>
-        string.IsNullOrWhiteSpace(catalogItemName) ? string.Empty : catalogItemName.Trim();
+        OrderCatalogItemSnapshot.NormalizeName(catalogItemName);
 
     public static string NormalizeCurrency(string? currency) =>
-        string.IsNullOrWhiteSpace(currency) ? string.Empty : currency.Trim().ToUpperInvariant();
+        OrderCatalogItemSnapshot.NormalizeCurrency(currency);
 }

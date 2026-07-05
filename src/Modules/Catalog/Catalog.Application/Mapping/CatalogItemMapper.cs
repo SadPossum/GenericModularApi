@@ -6,7 +6,13 @@ using Catalog.Domain.Aggregates;
 internal static class CatalogItemMapper
 {
     public static CatalogItemDto ToDto(CatalogItem item) =>
-        new(item.Id, item.Sku, item.Name, item.Price, item.Currency, ToContractStatus(item.Status));
+        new(
+            item.Id,
+            item.Sku.Value,
+            item.Name.Value,
+            item.Price.Value,
+            item.Currency.Value,
+            ToContractStatus(item.Status));
 
     public static CatalogItemStatus ToContractStatus(CatalogItemState status) =>
         status switch

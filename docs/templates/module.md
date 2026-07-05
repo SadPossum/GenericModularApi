@@ -24,7 +24,7 @@ Remove projects that do not exist.
 
 ## Public Contracts
 
-List public request/response DTOs, enums, admin permission code strings, module metadata, and integration events.
+List public request/response DTOs, enums, admin permission code strings, module metadata, integration events, and public user notification payloads.
 Keep one public contract type per file in `<Module>.Contracts`.
 Place public contract files in the standard folders:
 
@@ -33,6 +33,7 @@ Place public contract files in the standard folders:
 - `Events/` for integration event payloads and subject constants.
 - `Exports/` for producer-owned projection rebuild/backfill snapshots and source ports.
 - `Metadata/` for `<Module>ModuleMetadata`, `*PermissionCodes`, and `*ContractLimits`.
+- `Serialization/` for owner-package JSON converters for public contract enums and other stable wire types.
 - `Types/` for public enum-like or code-list types.
 
 Confirm the public contracts `.csproj` references `Shared.Modules` for module metadata, `Shared.Authorization` for permission metadata, `Shared.Messaging` for integration events/subscriptions, `Shared.Caching` for cache metadata, and `Shared.Tasks` for task metadata/contracts only when those capabilities are declared. Public contracts should avoid `Shared.Application.Composition` and `Shared.Cqrs`; keep CQRS commands/queries and paging helpers in the module application boundary. Optional producer `.Contracts` references are allowed. Keep package and framework references out.
@@ -128,7 +129,7 @@ If the module has a persistence project, keep both SQL Server and PostgreSQL mig
 Confirm that EF design-time factories and `Microsoft.EntityFrameworkCore.Design` live only in provider-specific migration projects.
 Confirm that provider-specific migration projects reference only the owning `<Module>.Persistence` project.
 Confirm that persistence DI extension methods reject null receivers, call `AddPersistenceOptions(builder.Configuration)`, use `TryAddModuleDbContext`, and register UoW/outbox/inbox services through `TryAddEnumerable`.
-Confirm that persisted enum numeric values are stable and that public contract/domain-state enums use `Unknown = 0`.
+Confirm that persisted enum numeric values are stable, public contract/domain-state enums use `Unknown = 0`, and public contract enums have owning-package wire-name helpers plus `[JsonConverter]` tests.
 
 ## Integration Events
 
@@ -138,6 +139,20 @@ Confirm that persisted enum numeric values are stable and that public contract/d
 
 Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type.
 Confirm subject constants or accessors render through `IntegrationEventNaming` or module subject factory methods, with `gma` only as the default `ApplicationIdentity:Namespace`.
+
+## Notifications
+
+List user-facing notification payloads or durable notification request events, names, versions, intended recipients, tenant scope, and whether delivery is best-effort only or backed by another durable fact.
+
+| Notification | Name | Version | Recipient | Durable source |
+| --- | --- | --- | --- | --- |
+| `CatalogItemUpdatedNotification` | `catalog.item-updated` | `1` | tenant user | `UpdateCatalogItemCommand` enqueues request, CQRS bridge flushes after commit |
+
+For best-effort live delivery, confirm notification payloads implement `IUserNotificationPayload`, use `NotificationNameAttribute`, `NotificationVersionAttribute`, and `NotificationDescriptionAttribute`, and are declared in module metadata through `ModuleDescriptor.Create(...).WithUserNotification<TPayload>().Build()`. Transactional command handlers may enqueue through `IUserNotificationRequestQueue`; front doors/workers may publish through `IUserNotificationPublisher` only after committed state is safe to expose. Module code should reference only `Shared.Notifications`; `Shared.Notifications.Cqrs`, SSE, SignalR, and ASP.NET streaming adapters belong to host/front-door composition.
+
+For guaranteed notification history, publish `UserNotificationRequestedIntegrationEvent` from `Notifications.Contracts` through the producing module's own outbox. The producing module may reference `Notifications.Contracts` but must not reference `Notifications.Application`, `Notifications.Domain`, `Notifications.Persistence`, `Notifications.Api`, or `Notifications.AdminApi`. Add an explicit producer subscription in the Notifications module/host composition, for example `AddUserNotificationRequestSubscription(<ProducerModuleMetadata>.Name)`; do not write notification history directly.
+
+Do not put passwords, access tokens, refresh tokens, token hashes, raw secrets, tenant-private authorization decisions, or large payload blobs in notifications.
 
 ## Inbound Subscriptions
 

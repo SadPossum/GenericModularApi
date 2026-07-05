@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Catalog.Contracts\Catalog.Contracts.csproj" />
     <ProjectReference Include="..\Catalog.Domain\Catalog.Domain.csproj" />
+    <ProjectReference Include="..\..\Notifications\Notifications.Contracts\Notifications.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Caching\Shared.Caching.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />

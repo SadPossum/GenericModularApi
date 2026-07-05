@@ -34,10 +34,10 @@ internal sealed class CatalogItemReadRepository(CatalogDbContext dbContext) : IC
     private static CatalogItemDto Map(CatalogItem item) =>
         new(
             item.Id,
-            item.Sku,
-            item.Name,
-            item.Price,
-            item.Currency,
+            item.Sku.Value,
+            item.Name.Value,
+            item.Price.Value,
+            item.Currency.Value,
             MapStatus(item.Status));
 
     private static CatalogItemStatus MapStatus(CatalogItemState status) =>

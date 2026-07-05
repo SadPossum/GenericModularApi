@@ -36,9 +36,9 @@ public sealed class CatalogItemAggregateTests
             " usd ");
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("SKU-1", result.Value.Sku);
-        Assert.Equal("Catalog item", result.Value.Name);
-        Assert.Equal("USD", result.Value.Currency);
+        Assert.Equal("SKU-1", result.Value.Sku.Value);
+        Assert.Equal("Catalog item", result.Value.Name.Value);
+        Assert.Equal("USD", result.Value.Currency.Value);
     }
 
     [Fact]

@@ -87,6 +87,11 @@ public class InboxMessage
 
     public void MarkProcessing(string workerId, DateTimeOffset nowUtc)
     {
+        if (this.Status == InboxMessageStatus.Unknown)
+        {
+            throw new InvalidOperationException("Inbox message status is unknown.");
+        }
+
         if (this.Status == InboxMessageStatus.Processed)
         {
             throw new InvalidOperationException("Processed inbox messages cannot be processed again.");

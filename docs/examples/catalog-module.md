@@ -4,7 +4,7 @@ Catalog is a compiled optional example module. It is not registered in `Host.Api
 
 ## Purpose
 
-Catalog demonstrates stored tenant-scoped domain data, CQRS commands and queries, provider-split EF persistence, explicit cache-aside reads, admin CLI/API front doors, and integration events through outbox.
+Catalog demonstrates stored tenant-scoped domain data, CQRS commands and queries, provider-split EF persistence, explicit cache-aside reads, admin CLI/API front doors, durable notification requests, and integration events through outbox.
 
 ## Projects
 
@@ -21,7 +21,7 @@ Catalog.AdminCli
 Catalog.AdminApi
 ```
 
-`Catalog.Contracts` follows the standard contract folders: `Api/` for item DTO/list contracts, `Events/` for item integration events and subjects, `Exports/` for projection rebuild/export contracts, `Metadata/` for module metadata, limits, and permission code strings, and `Types/` for `CatalogItemStatus`.
+`Catalog.Contracts` follows the standard contract folders: `Api/` for item DTO/list contracts, `Events/` for item integration events, notification event names, and subjects, `Exports/` for projection rebuild/export contracts, `Metadata/` for module metadata, limits, and permission code strings, and `Types/` for `CatalogItemStatus`.
 
 ## Domain
 
@@ -76,8 +76,27 @@ catalog.items.discontinue
 | `CatalogItemCreatedIntegrationEvent` | `{application-namespace}.catalog.item-created.v1` |
 | `CatalogItemUpdatedIntegrationEvent` | `{application-namespace}.catalog.item-updated.v1` |
 | `CatalogItemDiscontinuedIntegrationEvent` | `{application-namespace}.catalog.item-discontinued.v1` |
+| `UserNotificationRequestedIntegrationEvent` | `{application-namespace}.catalog.user-notification-requested.v1` |
 
 Events are written by domain-event handlers through the module outbox. The local default namespace is `gma`; `CatalogIntegrationSubjects` can render the same logical events under a configured application namespace.
+
+## User Notifications
+
+Catalog demonstrates producer-owned durable notification requests by referencing `Notifications.Contracts` only. `UpdateCatalogItemCommand` can publish `UserNotificationRequestedIntegrationEvent` through the Catalog outbox when the authenticated caller id is supplied by the public API front door.
+
+| Notification request | Name | Version | Published by |
+| --- | --- | --- | --- |
+| `UserNotificationRequestedIntegrationEvent` | `catalog-item-updated` | `1` | `UpdateCatalogItemCommand` through Catalog outbox |
+
+The physical subject remains Catalog-owned:
+
+```text
+{application-namespace}.catalog.user-notification-requested.v1
+```
+
+The optional `Notifications` module does not subscribe to Catalog by default. If a host composes Catalog/outbox publishing but not the Notifications consumer, the Catalog update still commits and the notification request remains a normal outbox/integration event; no notification history row is created until a consuming runtime explicitly calls `AddUserNotificationRequestSubscription(CatalogModuleMetadata.Name)` and starts the NATS consumer loop.
+
+SignalR and SSE remain host-selected live adapters. Catalog does not reference `Notifications.Application`, `Notifications.Domain`, `Notifications.Persistence`, `Notifications.Api`, `Notifications.AdminApi`, `Shared.Notifications.Cqrs`, `Shared.Notifications.Api`, `Shared.Notifications.SignalR`, or SignalR packages.
 
 ## Projection Export
 

@@ -1,5 +1,6 @@
 namespace Catalog.Contracts;
 
+using Notifications.Contracts;
 using Shared.Authorization;
 using Shared.Caching;
 using Shared.Messaging;
@@ -25,6 +26,7 @@ public static class CatalogModuleMetadata
         .WithPublishedEvent<CatalogItemCreatedIntegrationEvent>()
         .WithPublishedEvent<CatalogItemUpdatedIntegrationEvent>()
         .WithPublishedEvent<CatalogItemDiscontinuedIntegrationEvent>()
+        .WithPublishedEvent<UserNotificationRequestedIntegrationEvent>()
         .WithCacheEntries([
             new ModuleCacheDescriptor(ItemsCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
             new ModuleCacheDescriptor(ItemCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),

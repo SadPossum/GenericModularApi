@@ -21,6 +21,10 @@ public static class ObservabilityInstrumentNames
     public const string CacheBackendFailures = ApplicationNamespaces.Default + ".cache.backend.failures";
     public const string CacheInvalidationFailures = ApplicationNamespaces.Default + ".cache.invalidation.failures";
 
+    public const string NotificationsPublished = ApplicationNamespaces.Default + ".notifications.published";
+    public const string NotificationsDelivered = ApplicationNamespaces.Default + ".notifications.delivered";
+    public const string NotificationsDeliveryDuration = ApplicationNamespaces.Default + ".notifications.delivery.duration";
+
     public const string TaskClaimed = ApplicationNamespaces.Default + ".tasks.claimed";
     public const string TaskCompleted = ApplicationNamespaces.Default + ".tasks.completed";
     public const string TaskDuration = ApplicationNamespaces.Default + ".tasks.duration";
@@ -69,6 +73,15 @@ public static class ObservabilityInstrumentNames
 
     public static string CacheInvalidationFailuresFor(string applicationNamespace) =>
         Create(applicationNamespace, "cache.invalidation.failures");
+
+    public static string NotificationsPublishedFor(string applicationNamespace) =>
+        Create(applicationNamespace, "notifications.published");
+
+    public static string NotificationsDeliveredFor(string applicationNamespace) =>
+        Create(applicationNamespace, "notifications.delivered");
+
+    public static string NotificationsDeliveryDurationFor(string applicationNamespace) =>
+        Create(applicationNamespace, "notifications.delivery.duration");
 
     public static string TaskClaimedFor(string applicationNamespace) =>
         Create(applicationNamespace, "tasks.claimed");

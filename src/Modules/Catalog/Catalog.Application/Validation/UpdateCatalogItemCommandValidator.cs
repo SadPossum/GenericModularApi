@@ -1,6 +1,7 @@
 namespace Catalog.Application.Validation;
 
 using Catalog.Application.Commands;
+using Notifications.Contracts;
 using Shared.Cqrs;
 
 internal sealed class UpdateCatalogItemCommandValidator : ICommandValidator<UpdateCatalogItemCommand>
@@ -30,6 +31,12 @@ internal sealed class UpdateCatalogItemCommandValidator : ICommandValidator<Upda
         if (string.IsNullOrWhiteSpace(command.Currency))
         {
             yield return "Currency is required.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.NotificationUserId) &&
+            !NotificationRecipientUserIds.TryNormalize(command.NotificationUserId, out _))
+        {
+            yield return "Notification user id is invalid.";
         }
     }
 }

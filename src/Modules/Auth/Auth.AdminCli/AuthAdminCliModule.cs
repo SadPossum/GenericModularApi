@@ -91,7 +91,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                             [
                                 ("MemberId", item => item.MemberId.ToString()),
                                 ("Username", item => item.ActiveUsername ?? string.Empty),
-                                ("Status", item => item.Status),
+                                ("Status", item => MemberStatusNames.ToWireName(item.Status)),
                                 ("Sessions", item => item.ActiveSessionCount.ToString(System.Globalization.CultureInfo.InvariantCulture))
                             ]);
                     }
@@ -136,7 +136,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                             [
                                 ("MemberId", item => item.MemberId.ToString()),
                                 ("Username", item => item.ActiveUsername ?? string.Empty),
-                                ("Status", item => item.Status),
+                                ("Status", item => MemberStatusNames.ToWireName(item.Status)),
                                 ("ActiveSessions", item => item.ActiveSessionCount.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                                 ("RegisteredAtUtc", item => item.RegisteredAtUtc.ToString("O", System.Globalization.CultureInfo.InvariantCulture))
                             ]);

@@ -2,6 +2,7 @@ namespace Catalog.Persistence.Repositories;
 
 using Catalog.Application.Ports;
 using Catalog.Domain.Aggregates;
+using Catalog.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 internal sealed class CatalogItemRepository(CatalogDbContext dbContext) : ICatalogItemRepository
@@ -16,10 +17,13 @@ internal sealed class CatalogItemRepository(CatalogDbContext dbContext) : ICatal
             .FirstOrDefaultAsync(item => item.Id == itemId, cancellationToken)
             .ConfigureAwait(false);
 
-    public async Task<bool> SkuExistsAsync(string sku, Guid? excludingItemId, CancellationToken cancellationToken) =>
-        await dbContext.CatalogItems
+    public async Task<bool> SkuExistsAsync(string sku, Guid? excludingItemId, CancellationToken cancellationToken)
+    {
+        CatalogSku normalizedSku = CatalogSku.Create(sku).Value;
+        return await dbContext.CatalogItems
             .AnyAsync(
-                item => item.Sku == sku && (excludingItemId == null || item.Id != excludingItemId.Value),
+                item => item.Sku == normalizedSku && (excludingItemId == null || item.Id != excludingItemId.Value),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
 }

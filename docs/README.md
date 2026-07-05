@@ -13,20 +13,26 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 
 - [Architecture Overview](architecture/overview.md)
 - [Module System](architecture/module-system.md)
+- [Module Composition Features And Profiles Task](architecture/module-composition-features-task.md)
 - [CQRS and Domain Events](architecture/cqrs-and-domain-events.md)
 - [Persistence and Tenancy](architecture/persistence-and-tenancy.md)
 - [Metadata Attribute Pipeline Refactor Task](architecture/metadata-attribute-pipeline-task.md)
 - [Messaging and Outbox](architecture/messaging-and-outbox.md)
 - [Messaging Consumers](architecture/messaging-consumers.md)
+- [Background Worker Host Task](architecture/background-worker-host-task.md)
+- [Notifications and Streaming](architecture/notifications-and-streaming.md)
 - [Module Descriptor Builder Refactor Notes](architecture/module-descriptor-builder-refactor-notes.md)
 - [Metadata Attributes Refactor Notes](architecture/metadata-attributes-refactor-notes.md)
 - [Shared Dependency Boundary Refactor Notes](architecture/shared-dependency-boundary-refactor-notes.md)
 - [Observability](architecture/observability.md)
 - [Caching](architecture/caching.md)
 - [Administration](architecture/administration.md)
+- [Shared Access Policy Foundation](architecture/shared-access-policy-foundation.md)
 - [Tasks and Daemons](architecture/tasks-and-daemons.md)
 - [Projection Rebuild Tasks](architecture/projection-rebuild-tasks.md)
 - [Projection Rebuild Implementation Notes](architecture/projection-rebuild-implementation-notes.md)
+- [Notifications and Streaming Implementation Notes](architecture/notifications-streaming-implementation-notes.md)
+- [Semantic Enum Refactor Notes](architecture/semantic-enum-refactor-notes.md)
 - [Tenant Model Conventions Task](architecture/tenant-model-conventions-task.md)
 - [Tenant Model Conventions Implementation Notes](architecture/tenant-model-conventions-implementation-notes.md)
 - [Production Readiness Backlog](architecture/production-readiness-backlog.md)
@@ -38,6 +44,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Auth Module](modules/auth.md)
 - [Tenancy Module](modules/tenancy.md)
 - [Administration Module](modules/administration.md)
+- [Notifications Module](modules/notifications.md)
 
 ## Examples
 
@@ -73,6 +80,8 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [0008 Optional Tasks and Daemons Foundation](adr/0008-optional-tasks-and-daemons-foundation.md)
 - [0009 Configurable Application Identity](adr/0009-configurable-application-identity.md)
 - [0010 Projection Rebuild Tasks](adr/0010-projection-rebuild-tasks.md)
+- [0011 Optional User Notifications and Streaming](adr/0011-optional-user-notifications-and-streaming.md)
+- [0012 Optional Notifications Module](adr/0012-optional-notifications-module.md)
 
 ## Documentation Rules
 

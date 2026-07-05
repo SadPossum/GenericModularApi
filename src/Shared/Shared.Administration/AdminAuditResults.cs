@@ -8,7 +8,7 @@ public static class AdminAuditResults
     public const string Denied = "denied";
     public const string Failed = "failed";
 
-    public static string Normalize(string result)
+    public static AdminAuditResult Parse(string result)
     {
         if (string.IsNullOrWhiteSpace(result))
         {
@@ -19,8 +19,19 @@ public static class AdminAuditResults
 
         return normalized switch
         {
-            Succeeded or Denied or Failed => normalized,
+            Succeeded => AdminAuditResult.Succeeded,
+            Denied => AdminAuditResult.Denied,
+            Failed => AdminAuditResult.Failed,
             _ => throw new ArgumentException("Admin audit result is not supported.", nameof(result))
         };
     }
+
+    public static string ToWireName(AdminAuditResult result) =>
+        result switch
+        {
+            AdminAuditResult.Succeeded => Succeeded,
+            AdminAuditResult.Denied => Denied,
+            AdminAuditResult.Failed => Failed,
+            _ => throw new ArgumentOutOfRangeException(nameof(result), result, "Admin audit result is invalid.")
+        };
 }

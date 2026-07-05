@@ -69,11 +69,22 @@ public sealed class CatalogModule : IModule
         items.MapPut("/{itemId:guid}", async (
             Guid itemId,
             CatalogItemWriteRequest request,
+            HttpContext httpContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
-            (await dispatcher.SendAsync(
-                new UpdateCatalogItemCommand(itemId, request.Sku, request.Name, request.Price, request.Currency),
-                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
+        {
+            Result<CatalogItemDto> result = await dispatcher.SendAsync(
+                new UpdateCatalogItemCommand(
+                    itemId,
+                    request.Sku,
+                    request.Name,
+                    request.Price,
+                    request.Currency,
+                    CatalogUserNotifications.GetCurrentUserId(httpContext)),
+                cancellationToken).ConfigureAwait(false);
+
+            return result.ToHttpResult(PublicErrorStatusCodes);
+        })
             .RequireTenant()
             .RequireAuthorization();
 

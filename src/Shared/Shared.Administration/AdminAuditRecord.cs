@@ -13,7 +13,7 @@ public sealed record AdminAuditRecord
         string? tenantId,
         string operation,
         string permission,
-        string result,
+        AdminAuditResult result,
         string? errorCode,
         DateTimeOffset createdAtUtc)
     {
@@ -31,9 +31,30 @@ public sealed record AdminAuditRecord
             : TenantIds.Normalize(tenantId);
         this.Operation = AdminOperation.Create(operation, normalizedPermission).Name;
         this.Permission = normalizedPermission.Code;
-        this.Result = AdminAuditResults.Normalize(result);
+        this.Result = RequireKnownResult(result);
         this.ErrorCode = NormalizeErrorCode(errorCode);
         this.CreatedAtUtc = createdAtUtc;
+    }
+
+    public AdminAuditRecord(
+        Guid id,
+        string actorId,
+        string? tenantId,
+        string operation,
+        string permission,
+        string result,
+        string? errorCode,
+        DateTimeOffset createdAtUtc)
+        : this(
+            id,
+            actorId,
+            tenantId,
+            operation,
+            permission,
+            AdminAuditResults.Parse(result),
+            errorCode,
+            createdAtUtc)
+    {
     }
 
     public Guid Id { get; }
@@ -41,9 +62,16 @@ public sealed record AdminAuditRecord
     public string? TenantId { get; }
     public string Operation { get; }
     public string Permission { get; }
-    public string Result { get; }
+    public AdminAuditResult Result { get; }
     public string? ErrorCode { get; }
     public DateTimeOffset CreatedAtUtc { get; }
+
+    public string ResultName => AdminAuditResults.ToWireName(this.Result);
+
+    private static AdminAuditResult RequireKnownResult(AdminAuditResult result) =>
+        result is not AdminAuditResult.Unknown && Enum.IsDefined(result)
+            ? result
+            : throw new ArgumentOutOfRangeException(nameof(result), result, "Admin audit result is invalid.");
 
     private static string? NormalizeErrorCode(string? errorCode)
     {

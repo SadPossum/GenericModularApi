@@ -11,6 +11,8 @@ Current dependencies:
 - ASP.NET Core hosting environment
 - secret/config provider for JWT signing key and connection strings
 - Redis only when `Caching:Enabled=true` and `Caching:Provider=Redis`
+- SignalR/SSE notification streaming only when `Notifications:Enabled=true`
+- notification history tables only when the optional `Notifications` module is composed
 
 ## Configuration
 
@@ -25,7 +27,7 @@ Required production configuration:
 - `Auth:RefreshTokens:Pepper`
 - `Auth:RefreshTokenLifetimeDays`
 
-Administration bootstrap, tenancy, admin API, outbox, NATS JetStream, NATS consumer, caching, Redis, observability, JWT, and refresh-token settings are validated at startup. Persistence settings are validated when a persisted module is composed. Treat validation failures as deployment misconfiguration rather than runtime warnings.
+Administration bootstrap, tenancy, admin API, outbox, NATS JetStream, NATS consumer, notifications, caching, Redis, observability, JWT, and refresh-token settings are validated at startup. Persistence settings are validated when a persisted module is composed. Treat validation failures as deployment misconfiguration rather than runtime warnings.
 
 Recommended production configuration:
 
@@ -71,6 +73,15 @@ Recommended production configuration:
 - `Administration:Api:RequireTenantClaimMatch`
 - `Administration:Api:AllowGeneratedPasswordResponses`
 - optional `Auth:Jwt:Issuer` and `Auth:Jwt:Audience` only when they must differ from `ApplicationIdentity:DisplayName`
+- `Notifications:Enabled`
+- `Notifications:SubscriberQueueCapacity`
+- `Notifications:MaximumPayloadBytes`
+- `Notifications:Sse:Enabled`
+- `Notifications:Sse:StreamPath`
+- `Notifications:Sse:HeartbeatInterval`
+- `Notifications:SignalR:Enabled`
+- `Notifications:SignalR:HubPath`
+- `Notifications:SignalR:ClientMethodName`
 
 Never use checked-in development JWT signing keys, refresh-token peppers, or database passwords in production. Auth option classes intentionally have no secret defaults; local placeholders live only in development configuration. The JWT signing key and refresh-token pepper are both validated for minimum shape at startup, but secret rotation and storage are still deployment responsibilities.
 
@@ -115,6 +126,22 @@ When enabling Redis:
 - keep TTLs bounded so failed invalidation self-recovers;
 - disable L1 or shorten local TTL for entries that need faster cross-node coherence;
 - never use cache contents for authorization or tenant resolution.
+
+## Notifications
+
+Notifications are disabled by default and are best-effort front-door delivery. They do not replace outbox/NATS for durable integration facts.
+
+When enabling notifications:
+
+- compose `AddUserNotificationsCqrs()` in hosts whose command handlers enqueue notification requests;
+- confirm clients use authenticated SSE at `Notifications:Sse:StreamPath` or SignalR at `Notifications:SignalR:HubPath`;
+- keep `Notifications:MaximumPayloadBytes` small enough to prevent accidental large live payloads;
+- size `Notifications:SubscriberQueueCapacity` for the expected number of slow clients;
+- do not use notification delivery as the only record of an operation;
+- monitor `{ApplicationIdentity:Namespace}.notifications.published`, `{ApplicationIdentity:Namespace}.notifications.delivered`, and delivery failures;
+- for multiple API instances, use sticky sessions, an explicit SignalR backplane/Azure SignalR slice, or persisted history/replay if missed live messages are not acceptable.
+- if composing the `Notifications` module, run its provider-specific migrations and treat history as a user-facing read model, not the source of authorization or business truth;
+- if using durable notification requests, compose the Notifications consumer runtime and verify producer modules publish `{ApplicationIdentity:Namespace}.{producer-module}.user-notification-requested.v1` through their outbox.
 
 ## Outbox Publisher
 

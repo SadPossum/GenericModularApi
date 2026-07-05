@@ -6,6 +6,8 @@ using Auth.Domain.Aggregates;
 using Auth.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Shared.Pagination;
+using ContractMemberStatus = Auth.Contracts.MemberStatus;
+using DomainMemberStatus = Auth.Domain.Enums.MemberStatus;
 
 internal sealed class AdminMemberReadRepository(AuthDbContext dbContext) : IAdminMemberReadRepository
 {
@@ -31,7 +33,7 @@ internal sealed class AdminMemberReadRepository(AuthDbContext dbContext) : IAdmi
             .Select(member => new AdminMemberListItem(
                 member.Id.Value,
                 member.TenantId,
-                member.Status.ToString(),
+                ToContractStatus(member.Status),
                 GetActiveUsername(member),
                 member.RegisteredAtUtc,
                 member.Sessions.Count(session => session.IsActive)))
@@ -55,7 +57,7 @@ internal sealed class AdminMemberReadRepository(AuthDbContext dbContext) : IAdmi
             : new AdminMemberDetails(
                 member.Id.Value,
                 member.TenantId,
-                member.Status.ToString(),
+                ToContractStatus(member.Status),
                 GetActiveUsername(member),
                 member.RegisteredAtUtc,
                 member.DisabledAtUtc,
@@ -70,4 +72,12 @@ internal sealed class AdminMemberReadRepository(AuthDbContext dbContext) : IAdmi
             .OrderBy(username => username.UsernameType)
             .Select(username => username.Value)
             .FirstOrDefault();
+
+    private static ContractMemberStatus ToContractStatus(DomainMemberStatus status) =>
+        status switch
+        {
+            DomainMemberStatus.Active => ContractMemberStatus.Active,
+            DomainMemberStatus.Disabled => ContractMemberStatus.Disabled,
+            _ => ContractMemberStatus.Unknown
+        };
 }

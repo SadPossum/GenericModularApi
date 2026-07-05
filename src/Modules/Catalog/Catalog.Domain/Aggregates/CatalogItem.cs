@@ -3,8 +3,8 @@ namespace Catalog.Domain.Aggregates;
 using Shared.Naming;
 using Catalog.Domain.Errors;
 using Catalog.Domain.Events;
+using Catalog.Domain.ValueObjects;
 using Shared.Domain.Models;
-using Shared.Numerics;
 using Shared.Results;
 
 public sealed class CatalogItem : TenantAggregateRoot<Guid>
@@ -22,10 +22,10 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
     {
     }
 
-    public string Sku { get; private set; } = string.Empty;
-    public string Name { get; private set; } = string.Empty;
-    public decimal Price { get; private set; }
-    public string Currency { get; private set; } = string.Empty;
+    public CatalogSku Sku { get; private set; }
+    public CatalogItemName Name { get; private set; }
+    public CatalogPrice Price { get; private set; }
+    public CurrencyCode Currency { get; private set; }
     public CatalogItemState Status { get; private set; } = CatalogItemState.Active;
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset? UpdatedAtUtc { get; private set; }
@@ -51,18 +51,18 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
             return Result.Failure<CatalogItem>(CatalogDomainErrors.DomainEventIdRequired);
         }
 
-        Result validation = Validate(tenantId, sku, name, price, currency);
-        if (validation.IsFailure)
+        Result<CatalogItemValues> values = CatalogItemValues.Create(tenantId, sku, name, price, currency);
+        if (values.IsFailure)
         {
-            return Result.Failure<CatalogItem>(validation.Error);
+            return Result.Failure<CatalogItem>(values.Error);
         }
 
-        CatalogItem item = new(id, TenantIds.Normalize(tenantId))
+        CatalogItem item = new(id, values.Value.TenantId)
         {
-            Sku = NormalizeSku(sku),
-            Name = NormalizeName(name),
-            Price = price,
-            Currency = NormalizeCurrency(currency),
+            Sku = values.Value.Sku,
+            Name = values.Value.Name,
+            Price = values.Value.Price,
+            Currency = values.Value.Currency,
             CreatedAtUtc = nowUtc
         };
 
@@ -71,10 +71,10 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
             nowUtc,
             item.Id,
             item.TenantId,
-            item.Sku,
-            item.Name,
-            item.Price,
-            item.Currency));
+            item.Sku.Value,
+            item.Name.Value,
+            item.Price.Value,
+            item.Currency.Value));
 
         return Result.Success(item);
     }
@@ -98,16 +98,16 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
             return Result.Failure(CatalogDomainErrors.DomainEventIdRequired);
         }
 
-        Result validation = Validate(this.TenantId, sku, name, price, currency);
-        if (validation.IsFailure)
+        Result<CatalogItemValues> values = CatalogItemValues.Create(this.TenantId, sku, name, price, currency);
+        if (values.IsFailure)
         {
-            return validation;
+            return Result.Failure(values.Error);
         }
 
-        this.Sku = NormalizeSku(sku);
-        this.Name = NormalizeName(name);
-        this.Price = price;
-        this.Currency = NormalizeCurrency(currency);
+        this.Sku = values.Value.Sku;
+        this.Name = values.Value.Name;
+        this.Price = values.Value.Price;
+        this.Currency = values.Value.Currency;
         this.UpdatedAtUtc = nowUtc;
 
         this.RaiseDomainEvent(new CatalogItemUpdatedDomainEvent(
@@ -115,10 +115,10 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
             nowUtc,
             this.Id,
             this.TenantId,
-            this.Sku,
-            this.Name,
-            this.Price,
-            this.Currency,
+            this.Sku.Value,
+            this.Name.Value,
+            this.Price.Value,
+            this.Currency.Value,
             this.Status));
 
         return Result.Success();
@@ -146,74 +146,13 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
             nowUtc,
             this.Id,
             this.TenantId,
-            this.Sku));
+            this.Sku.Value));
 
         return Result.Success();
     }
 
     public static string NormalizeSku(string? sku) =>
-        string.IsNullOrWhiteSpace(sku) ? string.Empty : sku.Trim().ToUpperInvariant();
-
-    private static string NormalizeName(string? name) =>
-        string.IsNullOrWhiteSpace(name) ? string.Empty : name.Trim();
-
-    private static string NormalizeCurrency(string? currency) =>
-        string.IsNullOrWhiteSpace(currency) ? string.Empty : currency.Trim().ToUpperInvariant();
-
-    private static Result Validate(string tenantId, string? sku, string? name, decimal price, string? currency)
-    {
-        if (string.IsNullOrWhiteSpace(tenantId))
-        {
-            return Result.Failure(CatalogDomainErrors.TenantRequired);
-        }
-
-        if (!TenantIds.TryNormalize(tenantId, out _))
-        {
-            return Result.Failure(CatalogDomainErrors.TenantInvalid);
-        }
-
-        string normalizedSku = NormalizeSku(sku);
-        if (string.IsNullOrWhiteSpace(normalizedSku))
-        {
-            return Result.Failure(CatalogDomainErrors.SkuRequired);
-        }
-
-        if (normalizedSku.Length > SkuMaxLength)
-        {
-            return Result.Failure(CatalogDomainErrors.SkuTooLong);
-        }
-
-        string normalizedName = NormalizeName(name);
-        if (string.IsNullOrWhiteSpace(normalizedName))
-        {
-            return Result.Failure(CatalogDomainErrors.NameRequired);
-        }
-
-        if (normalizedName.Length > NameMaxLength)
-        {
-            return Result.Failure(CatalogDomainErrors.NameTooLong);
-        }
-
-        if (price <= 0)
-        {
-            return Result.Failure(CatalogDomainErrors.PriceMustBePositive);
-        }
-
-        if (!DecimalPrecision.Fits(price, PricePrecision, PriceScale))
-        {
-            return Result.Failure(CatalogDomainErrors.PriceNotSupported);
-        }
-
-        string normalizedCurrency = NormalizeCurrency(currency);
-        if (string.IsNullOrWhiteSpace(normalizedCurrency))
-        {
-            return Result.Failure(CatalogDomainErrors.CurrencyRequired);
-        }
-
-        return normalizedCurrency.Length == CurrencyLength
-            ? Result.Success()
-            : Result.Failure(CatalogDomainErrors.CurrencyInvalid);
-    }
+        CatalogSku.Normalize(sku);
 
     private Result EnsureCanDiscontinue() =>
         this.Status switch
@@ -227,4 +166,61 @@ public sealed class CatalogItem : TenantAggregateRoot<Guid>
         this.Status is CatalogItemState.Active or CatalogItemState.Discontinued
             ? Result.Success()
             : Result.Failure(CatalogDomainErrors.ItemStatusUnknown);
+
+    private sealed record CatalogItemValues(
+        string TenantId,
+        CatalogSku Sku,
+        CatalogItemName Name,
+        CatalogPrice Price,
+        CurrencyCode Currency)
+    {
+        public static Result<CatalogItemValues> Create(
+            string tenantId,
+            string? sku,
+            string? name,
+            decimal price,
+            string? currency)
+        {
+            if (string.IsNullOrWhiteSpace(tenantId))
+            {
+                return Result.Failure<CatalogItemValues>(CatalogDomainErrors.TenantRequired);
+            }
+
+            if (!TenantIds.TryNormalize(tenantId, out string? normalizedTenantId))
+            {
+                return Result.Failure<CatalogItemValues>(CatalogDomainErrors.TenantInvalid);
+            }
+
+            Result<CatalogSku> skuResult = CatalogSku.Create(sku);
+            if (skuResult.IsFailure)
+            {
+                return Result.Failure<CatalogItemValues>(skuResult.Error);
+            }
+
+            Result<CatalogItemName> nameResult = CatalogItemName.Create(name);
+            if (nameResult.IsFailure)
+            {
+                return Result.Failure<CatalogItemValues>(nameResult.Error);
+            }
+
+            Result<CatalogPrice> priceResult = CatalogPrice.Create(price);
+            if (priceResult.IsFailure)
+            {
+                return Result.Failure<CatalogItemValues>(priceResult.Error);
+            }
+
+            Result<CurrencyCode> currencyResult = CurrencyCode.Create(currency);
+            if (currencyResult.IsFailure)
+            {
+                return Result.Failure<CatalogItemValues>(currencyResult.Error);
+            }
+
+            return Result.Success(new CatalogItemValues(
+                normalizedTenantId,
+                skuResult.Value,
+                nameResult.Value,
+                priceResult.Value,
+                currencyResult.Value));
+        }
+    }
 }

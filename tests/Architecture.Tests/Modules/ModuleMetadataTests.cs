@@ -11,6 +11,7 @@ using Shared.Authorization;
 using Shared.Caching;
 using Shared.Messaging;
 using Shared.Modules;
+using Shared.Notifications;
 using Shared.Tasks;
 using Shared.Tenancy;
 using Xunit;
@@ -59,6 +60,10 @@ public sealed partial class ModuleMetadataTests
                 "Shared.Messaging",
                 ["GetPublishedEvents", "GetSubscriptions", "WithPublishedEvent", "WithPublishedEvents", "WithSubscription", "WithSubscriptions"]),
             new(
+                typeof(ModuleDescriptorNotificationExtensions),
+                "Shared.Notifications",
+                ["GetUserNotifications", "WithUserNotification", "WithUserNotifications"]),
+            new(
                 typeof(ModuleDescriptorTaskExtensions),
                 "Shared.Tasks",
                 ["GetTasks", "WithTask", "WithTasks"])
@@ -81,6 +86,7 @@ public sealed partial class ModuleMetadataTests
             new(typeof(ModuleCacheEntriesDescriptor), "caching.entries"),
             new(typeof(ModulePublishedEventsDescriptor), "messaging.published-events"),
             new(typeof(ModuleSubscriptionsDescriptor), "messaging.subscriptions"),
+            new(typeof(ModuleNotificationsDescriptor), "notifications.user"),
             new(typeof(ModuleTasksDescriptor), "tasks.handlers")
         ];
         string[] keys = expectedFeatures
@@ -636,12 +642,7 @@ public sealed partial class ModuleMetadataTests
             .ToArray();
 
         string[] missingMetadata = eventContracts
-            .Where(contract =>
-                !descriptors.TryGetValue(contract.ModuleName, out ModuleDescriptor? descriptor) ||
-                !descriptor.GetPublishedEvents().Any(publishedEvent =>
-                    string.Equals(publishedEvent.EventType, contract.EventName, StringComparison.Ordinal) &&
-                    publishedEvent.Version == contract.Version &&
-                    string.Equals(publishedEvent.Subject, contract.Subject, StringComparison.Ordinal)))
+            .Where(contract => !EventContractHasPublisher(contract, descriptors.Values))
             .Select(contract => $"{contract.ModuleName}:{contract.EventType.FullName}:{contract.Subject}")
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -651,11 +652,7 @@ public sealed partial class ModuleMetadataTests
                 ModuleName = descriptor.Name,
                 PublishedEvent = publishedEvent,
             }))
-            .Where(item => !eventContracts.Any(contract =>
-                string.Equals(contract.ModuleName, item.ModuleName, StringComparison.Ordinal) &&
-                string.Equals(contract.EventName, item.PublishedEvent.EventType, StringComparison.Ordinal) &&
-                contract.Version == item.PublishedEvent.Version &&
-                string.Equals(contract.Subject, item.PublishedEvent.Subject, StringComparison.Ordinal)))
+            .Where(item => !PublishedEventHasContract(item.ModuleName, item.PublishedEvent, eventContracts))
             .Select(item => $"{item.ModuleName}:{item.PublishedEvent.EventType}:{item.PublishedEvent.Subject}")
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -774,6 +771,11 @@ public sealed partial class ModuleMetadataTests
                     return handlerOffenders;
                 }
 
+                if (item.Attribute.RequiresExplicitProducerBinding)
+                {
+                    return handlerOffenders;
+                }
+
                 if (!descriptors.TryGetValue(item.ModuleName, out ModuleDescriptor? descriptor) ||
                     !descriptor.GetSubscriptions().Any(subscription =>
                         string.Equals(subscription.HandlerName, item.Attribute.HandlerName, StringComparison.Ordinal)))
@@ -839,6 +841,30 @@ public sealed partial class ModuleMetadataTests
 
         Assert.Empty(offenders);
     }
+
+    private static bool EventContractHasPublisher(
+        IntegrationEventContract contract,
+        IEnumerable<ModuleDescriptor> descriptors) =>
+        descriptors.Any(descriptor => descriptor
+            .GetPublishedEvents()
+            .Any(publishedEvent => PublishedEventMatchesContract(descriptor.Name, publishedEvent, contract)));
+
+    private static bool PublishedEventHasContract(
+        string publisherModule,
+        ModuleIntegrationEventDescriptor publishedEvent,
+        IEnumerable<IntegrationEventContract> contracts) =>
+        contracts.Any(contract => PublishedEventMatchesContract(publisherModule, publishedEvent, contract));
+
+    private static bool PublishedEventMatchesContract(
+        string publisherModule,
+        ModuleIntegrationEventDescriptor publishedEvent,
+        IntegrationEventContract contract) =>
+        string.Equals(contract.EventName, publishedEvent.EventType, StringComparison.Ordinal) &&
+        contract.Version == publishedEvent.Version &&
+        string.Equals(
+            IntegrationEventNaming.CreateSubject("gma", publisherModule, contract.EventName, contract.Version),
+            publishedEvent.Subject,
+            StringComparison.Ordinal);
 
     private static IntegrationEventContract CreateIntegrationEventContract(string moduleName, Type eventType)
     {
@@ -949,6 +975,7 @@ public sealed partial class ModuleMetadataTests
                 "username" => "user@example.com",
                 "reason" => "support request",
                 "name" => "Sample item",
+                "payloadJson" => "{}",
                 _ => "sample"
             };
         }

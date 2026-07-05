@@ -55,7 +55,7 @@ Authorization: Bearer <access-token>
 - `Admin/` admin member projection/response records used by CLI and admin HTTP flows;
 - `Events/` integration event payloads and subject constants;
 - `Metadata/` module metadata, permission code strings, and contract limits;
-- `Types/` public enum-like contract types such as `UsernameType`.
+- `Types/` public enum-like contract types such as `UsernameType` and `MemberStatus`.
 
 These types are the public surface of the module.
 

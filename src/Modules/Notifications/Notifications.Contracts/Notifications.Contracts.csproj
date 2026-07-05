@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Shared.Authorization\Shared.Authorization.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Modules\Shared.Modules.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+  </ItemGroup>
+</Project>

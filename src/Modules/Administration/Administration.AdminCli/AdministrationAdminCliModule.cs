@@ -298,7 +298,7 @@ public sealed class AdministrationAdminCliModule : IAdminCliModule
                     null,
                     operation.Name,
                     operation.Permission.Code,
-                    result.IsSuccess ? AdminAuditResults.Succeeded : AdminAuditResults.Failed,
+                    result.IsSuccess ? AdminAuditResult.Succeeded : AdminAuditResult.Failed,
                     result.IsSuccess ? null : result.Error.Code,
                     clock.UtcNow),
                 cancellationToken).ConfigureAwait(false);

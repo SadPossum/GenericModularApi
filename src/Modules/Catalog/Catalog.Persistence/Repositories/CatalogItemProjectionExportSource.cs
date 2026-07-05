@@ -18,9 +18,7 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
         IQueryable<CatalogItem> query = dbContext.CatalogItems.AsNoTracking();
         if (normalizedCursor is not null)
         {
-#pragma warning disable CA1309
-            query = query.Where(item => string.Compare(item.Sku, normalizedCursor) > 0);
-#pragma warning restore CA1309
+            query = this.ApplyCursor(query, normalizedCursor);
         }
 
         List<CatalogItem> rows = await query
@@ -31,7 +29,7 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
 
         bool hasMore = rows.Count > request.BatchSize;
         CatalogItem[] page = rows.Take(request.BatchSize).ToArray();
-        string? nextCursor = page.Length == 0 ? null : page[^1].Sku;
+        string? nextCursor = page.Length == 0 ? null : page[^1].Sku.Value;
 
         return new ProjectionReadBatch<CatalogItemProjectionExport>(
             page.Select(Map).ToArray(),
@@ -43,10 +41,10 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
         new(
             item.TenantId,
             item.Id,
-            item.Sku,
-            item.Name,
-            item.Price,
-            item.Currency,
+            item.Sku.Value,
+            item.Name.Value,
+            item.Price.Value,
+            item.Currency.Value,
             MapStatus(item.Status));
 
     private static CatalogItemStatus MapStatus(CatalogItemState status) =>
@@ -56,6 +54,35 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
             CatalogItemState.Discontinued => CatalogItemStatus.Discontinued,
             _ => CatalogItemStatus.Unknown
         };
+
+    private IQueryable<CatalogItem> ApplyCursor(IQueryable<CatalogItem> query, string normalizedCursor)
+    {
+        if (dbContext.Database.IsSqlServer())
+        {
+            return dbContext.CatalogItems
+                .FromSqlInterpolated($"""
+                    SELECT *
+                    FROM [catalog].[items]
+                    WHERE [Sku] > {normalizedCursor}
+                    """)
+                .AsNoTracking();
+        }
+
+        if (dbContext.Database.IsNpgsql())
+        {
+            return dbContext.CatalogItems
+                .FromSqlInterpolated($"""
+                    SELECT *
+                    FROM "catalog"."items"
+                    WHERE "Sku" > {normalizedCursor}
+                    """)
+                .AsNoTracking();
+        }
+
+#pragma warning disable CA1309
+        return query.Where(item => string.Compare(item.Sku.Value, normalizedCursor) > 0);
+#pragma warning restore CA1309
+    }
 
     private static string? NormalizeCursor(string? cursor) =>
         string.IsNullOrWhiteSpace(cursor)

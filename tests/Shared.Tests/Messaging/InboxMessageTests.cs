@@ -116,6 +116,15 @@ public sealed class InboxMessageTests
     }
 
     [Fact]
+    public void Mark_processing_rejects_unknown_status()
+    {
+        InboxMessage message = (InboxMessage)Activator.CreateInstance(typeof(InboxMessage), nonPublic: true)!;
+
+        Assert.Equal(InboxMessageStatus.Unknown, message.Status);
+        Assert.Throws<InvalidOperationException>(() => message.MarkProcessing("worker-1", DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
     public void Completion_transitions_reject_default_timestamps()
     {
         InboxMessage processed = CreateMessage();

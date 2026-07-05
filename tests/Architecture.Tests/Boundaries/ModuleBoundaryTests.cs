@@ -21,6 +21,9 @@ public sealed class ModuleBoundaryTests
         "Shared.Logging.Serilog",
         "Shared.Messaging.Nats",
         "Shared.Messaging.Nats.Aspire",
+        "Shared.Notifications.Api",
+        "Shared.Notifications.Cqrs",
+        "Shared.Notifications.SignalR",
         "Shared.Persistence.EntityFrameworkCore"
     ];
 
@@ -122,6 +125,29 @@ public sealed class ModuleBoundaryTests
                 .GetReferencedAssemblies()
                 .Select(reference => reference.Name!)
                 .Where(referenceName => referenceName.StartsWith("NATS.", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.Empty(references);
+        }
+    }
+
+    [Fact]
+    public void Modules_do_not_depend_on_notification_front_door_adapters_or_signalr()
+    {
+        string[] forbiddenPrefixes =
+        [
+            "Microsoft.AspNetCore.SignalR",
+            "Shared.Notifications.Api",
+            "Shared.Notifications.Cqrs",
+            "Shared.Notifications.SignalR"
+        ];
+
+        foreach (Assembly assembly in ArchitectureCatalog.ModuleBoundaryAssemblies)
+        {
+            string[] references = assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name!)
+                .Where(referenceName => forbiddenPrefixes.Any(referenceName.StartsWith))
                 .ToArray();
 
             Assert.Empty(references);

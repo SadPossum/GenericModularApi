@@ -73,6 +73,47 @@ public sealed class CatalogIntegrationEventContractTests
     }
 
     [Fact]
+    public void Catalog_item_status_json_uses_stable_string_names()
+    {
+        CatalogItemUpdatedIntegrationEvent integrationEvent = CreateUpdatedEvent(CatalogItemStatus.Discontinued);
+
+        string json = JsonSerializer.Serialize(integrationEvent, JsonOptions);
+        CatalogItemUpdatedIntegrationEvent? deserialized =
+            JsonSerializer.Deserialize<CatalogItemUpdatedIntegrationEvent>(json, JsonOptions);
+
+        Assert.Contains("\"status\":\"discontinued\"", json, StringComparison.Ordinal);
+        Assert.NotNull(deserialized);
+        Assert.Equal(CatalogItemStatus.Discontinued, deserialized.Status);
+        Assert.Equal(
+            CatalogItemStatus.Active,
+            JsonSerializer.Deserialize<CatalogItemStatus>("\"Active\"", JsonOptions));
+    }
+
+    [Theory]
+    [InlineData(CatalogItemStatus.Active, "active")]
+    [InlineData(CatalogItemStatus.Discontinued, "discontinued")]
+    public void Catalog_item_status_names_use_stable_wire_names(CatalogItemStatus status, string expected)
+    {
+        Assert.Equal(expected, CatalogItemStatusNames.ToWireName(status));
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("\"unknown\"")]
+    [InlineData("\"archived\"")]
+    public void Catalog_item_status_json_rejects_numeric_or_unknown_values(string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<CatalogItemStatus>(json, JsonOptions));
+    }
+
+    [Fact]
+    public void Catalog_item_status_json_rejects_unknown_writes()
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Serialize(CatalogItemStatus.Unknown, JsonOptions));
+        Assert.Throws<JsonException>(() => JsonSerializer.Serialize((CatalogItemStatus)999, JsonOptions));
+    }
+
+    [Fact]
     public void Updated_event_maps_undefined_status_to_unknown()
     {
         CatalogItemUpdatedIntegrationEvent integrationEvent = CreateUpdatedEvent(status: (CatalogItemStatus)999);

@@ -59,6 +59,8 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared claim/security constants | `Shared.Security` |
 | Shared cache contracts | `Shared.Caching` |
 | Shared messaging contracts | `Shared.Messaging` |
+| Shared user notification contracts | `Shared.Notifications` |
+| Shared notification-to-CQRS bridge | `Shared.Notifications.Cqrs` |
 | Shared task contracts | `Shared.Tasks` |
 | Shared task-to-CQRS bridge | `Shared.Tasks.Cqrs` |
 | Shared projection rebuild contracts/runtime | `Shared.ProjectionRebuild` |
@@ -77,6 +79,9 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared cache-to-CQRS bridge | `Shared.Caching.Cqrs` |
 | Shared messaging runtime | `Shared.Messaging.Infrastructure` |
 | Shared NATS messaging transport | `Shared.Messaging.Nats` |
+| Shared notification runtime | `Shared.Notifications.Infrastructure` |
+| Shared notification SSE adapter | `Shared.Notifications.Api` |
+| Shared notification SignalR adapter | `Shared.Notifications.SignalR` |
 | Shared task runtime | `Shared.Tasks.Infrastructure` |
 | Shared EF persistence helpers | `Shared.Persistence.EntityFrameworkCore` |
 | Shared default tenancy runtime | `Shared.Tenancy.Infrastructure` |
@@ -140,6 +145,7 @@ Do not:
 - expose EF entities through contracts;
 - make application projects depend on `IHostApplicationBuilder` or `Microsoft.Extensions.Hosting`; expose `IServiceCollection` registration instead;
 - publish directly to NATS from domain or application code;
+- reference SignalR, SSE, or notification front-door adapter packages from modules;
 - reference NATS, Redis, Prometheus, OpenTelemetry exporters, Serilog sinks, or cache-backend packages from module projects;
 - call `Guid.NewGuid()`, `DateTimeOffset.UtcNow`, or `DateTime.UtcNow` from feature-module code; use `IIdGenerator` and `ISystemClock` instead;
 - let endpoints contain business rules.
@@ -179,7 +185,9 @@ If a module needs forward-compatible enum handling, make it deliberate: use `Unk
 
 If the project adopts custom enums, prefer one small shared pattern over per-module one-offs: define parsing, display name, persistence value, unknown/compatibility behavior, and architecture tests before any module relies on it.
 
-Provider/configuration enums should also reserve `Unknown = 0` when a bad or missing value could otherwise select a real backend. Option validators must reject `Unknown` and undefined numeric values unless the option is intentionally ignored because the whole concern is disabled.
+Public module contract enums should own their JSON converter and wire-name helper in the same `.Contracts` package. Do not rely on host-wide JSON enum options, because optional modules should keep stable API/event text values when composed in different hosts.
+
+Provider/configuration enums should also reserve `Unknown = 0` when a bad or missing value could otherwise select a real backend. Option validators must reject `Unknown` and undefined numeric values unless the option is intentionally ignored because the whole concern is disabled. Persisted enum renumbering requires provider-specific compatibility migrations and data backfills in the same change.
 
 When domain text fields have persistence limits, expose a named domain/application constant and validate before persistence. EF mappings should reference the same constant instead of duplicating raw lengths.
 
@@ -252,6 +260,28 @@ Rules:
 
 Do not inject a bare `IOutboxWriter` into application code. Multiple modules can be composed in one host, so writer selection must be module-qualified.
 
+## Notifications
+
+Rules:
+
+- use notifications only for front-door user delivery, not module-to-module command/query communication;
+- keep durable business facts in domain events, integration events, outbox, NATS, and inbox;
+- enqueue notification intent through `IUserNotificationRequestQueue` from transactional command handlers only for best-effort live delivery;
+- publish `UserNotificationRequestedIntegrationEvent` from `Notifications.Contracts` through the producing module outbox when notification history creation must be durable;
+- publish through `IUserNotificationPublisher` only from front doors, workers, or other code that is already safely outside the current database commit;
+- put reusable notification payload contracts in the owning module `.Contracts` project and make them implement `IUserNotificationPayload`;
+- put notification identity on the payload type with `NotificationNameAttribute`, `NotificationVersionAttribute`, and `NotificationDescriptionAttribute`;
+- keep notification names normalized to lowercase dotted segments such as `catalog.item-updated`;
+- do not include passwords, access tokens, refresh tokens, token hashes, or raw secrets in payloads, titles, or bodies;
+- do not rely on notifications for authorization, tenant resolution, or guaranteed delivery;
+- compose the optional `Notifications` module when users need persisted history or read/unread state;
+- treat shared-publisher notification history as durable only after a publish request reaches the shared publisher; use outbox/NATS/inbox and the Notifications request event for guaranteed creation from business facts;
+- do not reference `Shared.Notifications.Api`, `Shared.Notifications.SignalR`, SignalR packages, or ASP.NET streaming internals from modules;
+- compose `AddUserNotificationsCqrs()` in hosts whose command handlers enqueue notification requests;
+- compose `AddUserNotificationServerSentEvents()` and `AddUserNotificationSignalR()` only in hosts that need live user delivery.
+
+The CQRS bridge flushes queued notification requests only after a successful command result and unit-of-work commit. It is scoped, in-process, and best-effort; it prevents before-commit live sends, but it is not the authoritative durable business fact. The optional `Notifications` module stores history for publish requests that reach the publisher and can also consume durable `UserNotificationRequestedIntegrationEvent` messages through its inbox.
+
 ## Tasks And Daemons
 
 Rules:
@@ -317,6 +347,7 @@ Rules:
 - keep metric tags bounded;
 - do not add tenant, user, token, message, or request ids as metric tags;
 - keep Prometheus, Loki, Grafana, and OpenTelemetry exporter dependencies outside modules.
+- keep notification metrics bounded to module/operation/provider/result style tags; never tag tenant id, user id, notification id, or payload fields.
 - fail-open infrastructure paths should record metrics first and must not become fail-closed because a logging/export provider throws;
 - admin operation infrastructure must return shaped operation results for expected authorization/validation/action/audit outcomes even when logging fails.
 - CQRS logging must preserve the command/query result or original command/query exception even when logging scopes or log writes fail.
@@ -332,6 +363,7 @@ Rules:
 - Keep application-layer DI registration host-agnostic. Use `IServiceCollection`; pass `IConfiguration` only for application-owned options.
 - Use `AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly)` from module application registration for CQRS handlers, validators, and domain-event handlers. This is the project's only default reflection-based application registration convention.
 - Keep integration-event subscriptions explicit with `AddIntegrationEventHandler<TEvent,THandler>(consumerModule, producerModule)`; put event identity/version on the event contract through `EventType`/`EventVersion` constants plus `IntegrationEventNameAttribute` and `IntegrationEventVersionAttribute`, durable handler identity on the handler through `IntegrationEventHandlerAttribute`, and tenant behavior through `[TenantScoped]` from `Shared.Tenancy` when needed.
+- Keep user-notification metadata local to the notification payload through `NotificationNameAttribute`, `NotificationVersionAttribute`, and `NotificationDescriptionAttribute`; module descriptors should call `WithUserNotification<TPayload>()` rather than repeat names and versions.
 - Keep one application handler class per file under `<Module>.Application/Handlers`.
 - Keep one public contract type per file under `<Module>.Contracts`.
 - Add comments only when they explain non-obvious decisions.

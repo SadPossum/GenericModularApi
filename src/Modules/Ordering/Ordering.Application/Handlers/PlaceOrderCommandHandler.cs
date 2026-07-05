@@ -76,8 +76,8 @@ internal sealed class PlaceOrderCommandHandler(
             order.CatalogItemName,
             order.UnitPrice,
             order.Currency,
-            order.Quantity,
-            order.Total,
+            order.Quantity.Value,
+            order.Total.Value,
             OrderStatus.Submitted,
             order.CreatedAtUtc);
 }

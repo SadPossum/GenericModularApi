@@ -12,6 +12,7 @@ GenericModularApi is a modular monolith skeleton. It keeps deployment simple whi
 - Support shared-database tenancy from the start.
 - Keep metrics, logging, and tracing vendor-neutral inside modules.
 - Keep caching explicit, optional, tenant-safe, and provider-independent inside modules.
+- Keep user notifications optional and front-door focused; backend integration still goes through events/outbox/inbox.
 
 ## Current Shape
 
@@ -50,6 +51,11 @@ src/
     Shared.Modules/
     Shared.Naming/
     Shared.Numerics/
+    Shared.Notifications/
+    Shared.Notifications.Cqrs/
+    Shared.Notifications.Infrastructure/
+    Shared.Notifications.Api/
+    Shared.Notifications.SignalR/
     Shared.Observability/
     Shared.Observability.Infrastructure/
     Shared.Pagination/
@@ -103,6 +109,16 @@ src/
       Catalog.Admin.Contracts/
       Catalog.AdminCli/
       Catalog.AdminApi/
+    Notifications/
+      Notifications.Contracts/
+      Notifications.Domain/
+      Notifications.Application/
+      Notifications.Persistence/
+      Notifications.Persistence.SqlServerMigrations/
+      Notifications.Persistence.PostgreSqlMigrations/
+      Notifications.Api/
+      Notifications.Admin.Contracts/
+      Notifications.AdminApi/
     Ordering/
       Ordering.Contracts/
       Ordering.Domain/
@@ -128,6 +144,7 @@ src/
 tests/
   Shared.Tests/
   Auth.Tests/
+  Notifications.Tests/
   Architecture.Tests/
   Integration.Tests/
 ```
@@ -145,17 +162,22 @@ tests/
 Current host registration:
 
 ```csharp
+builder.AddUserNotificationsCqrs(); // post-commit flush for queued notification requests
 builder.AddRedisCaching(); // no-op unless Redis caching is enabled
 builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddConfiguredNatsJetStreamMessaging(); // no-op unless NATS publishing is enabled
+builder.AddUserNotificationServerSentEvents();
+builder.AddUserNotificationSignalR();
 builder.Services.AddApiSecurityDefaults(); // no default scheme; Auth or another adapter supplies one
 builder.AddModule<TenancyModule>();
 builder.AddModule<AuthModule>();
 builder.AddSharedOpenApi();
 app.UseSharedOpenApi(); // serves Swagger only in Development
 app.MapModules();
+app.MapUserNotificationServerSentEvents();
+app.MapUserNotificationSignalR();
 ```
 
 `Host.AdminCli` is a separate optional composition root for administrative commands:
@@ -340,6 +362,38 @@ Shared.Naming
 Shared.Numerics
   -> no project references
 
+Shared.Notifications
+  -> Shared.Modules
+  -> Shared.Naming
+
+Shared.Notifications.Cqrs
+  -> Shared.Cqrs
+  -> Shared.Cqrs.Infrastructure
+  -> Shared.Notifications.Infrastructure
+  -> Shared.Observability.Infrastructure
+  -> Shared.Results
+
+Shared.Notifications.Api
+  -> Shared.Api
+  -> Shared.Notifications
+  -> Shared.Security
+  -> Shared.Tenancy
+
+Shared.Notifications.Infrastructure
+  -> Shared.Naming
+  -> Shared.Notifications
+  -> Shared.Observability
+  -> Shared.Observability.Infrastructure
+  -> Shared.Runtime
+  -> Shared.Runtime.Infrastructure
+
+Shared.Notifications.SignalR
+  -> Shared.Naming
+  -> Shared.Notifications
+  -> Shared.Runtime
+  -> Shared.Security
+  -> Shared.Tenancy
+
 Shared.Observability
   -> Shared.Naming
 
@@ -453,6 +507,28 @@ Caching follows the same contract-first rule:
 module query handler -> IApplicationCache -> HybridCache -> optional Redis L2
 module command handler -> ICacheInvalidationQueue -> post-commit flush
 ```
+
+User notifications have two explicit paths. Best-effort live delivery follows a front-door rule with post-commit command requests:
+
+```text
+transactional command handler -> IUserNotificationRequestQueue
+  -> Shared.Notifications.Cqrs post-commit flush
+  -> IUserNotificationPublisher
+  -> in-process notification feed
+  -> optional SSE endpoint / optional SignalR hub
+```
+
+Durable notification history uses the optional Notifications module:
+
+```text
+source module command -> source module outbox
+  -> UserNotificationRequestedIntegrationEvent
+  -> NATS consumer
+  -> Notifications inbox + user_notifications
+  -> current-user/admin history stream
+```
+
+Durable backend facts still flow through domain events, outbox, NATS, and inbox. SignalR/SSE must not become a module integration path.
 
 Administration follows the same explicit front-door rule:
 

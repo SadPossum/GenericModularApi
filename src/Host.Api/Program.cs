@@ -1,4 +1,5 @@
 using Auth.Api;
+using Auth.Contracts;
 using ServiceDefaults;
 using Shared.Api.Modules;
 using Shared.Api.OpenApi;
@@ -10,6 +11,7 @@ using Shared.Infrastructure;
 using Shared.Logging.Serilog;
 using Shared.Messaging.Infrastructure;
 using Shared.Messaging.Nats.Aspire;
+using Shared.ModuleComposition;
 using Shared.Notifications.Api;
 using Shared.Notifications.Cqrs;
 using Shared.Notifications.SignalR;
@@ -30,11 +32,12 @@ builder.AddUserNotificationSignalR();
 builder.Services.AddApiSecurityDefaults();
 
 builder.AddModule<TenancyModule>();
-builder.AddModule<AuthModule>();
+builder.AddAuthModule(AuthProfile.TenantScoped());
 // module-scaffold:public-api-modules
 
 builder.AddServiceDefaults();
 builder.AddSharedOpenApi();
+builder.ValidateModuleComposition();
 
 WebApplication app = builder.Build();
 

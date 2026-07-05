@@ -9,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Tenancy;
+using Shared.ModuleComposition;
 using Shared.Tenancy;
 using Tenancy.Contracts;
 
@@ -18,6 +19,7 @@ public sealed class TenancyModule : IModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(TenancyProfiles.Default, "Tenancy.Api");
         builder.Services.Configure<TenantOptions>(builder.Configuration.GetSection(TenantOptions.SectionName));
         builder.Services.PostConfigure<TenantOptions>(options => options.Enabled = true);
         builder.Services.Replace(ServiceDescriptor.Scoped<TenantContext, TenantContext>());

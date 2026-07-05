@@ -4,6 +4,7 @@ using System.Reflection;
 using Shared.Authorization;
 using Shared.Caching;
 using Shared.Messaging;
+using Shared.ModuleComposition;
 using Shared.Modules;
 using Shared.Tasks;
 using Shared.Tenancy;
@@ -29,7 +30,12 @@ public sealed class ModuleDescriptorTests
             typeof(ModuleCacheEntriesDescriptor),
             typeof(ModuleCacheDescriptor),
             typeof(ModuleTasksDescriptor),
-            typeof(ModuleTaskDescriptor)
+            typeof(ModuleTaskDescriptor),
+            typeof(ModuleCompositionDescriptor),
+            typeof(ModuleProfileDescriptor),
+            typeof(ProvidedCompositionFeature),
+            typeof(RequiredCompositionFeature),
+            typeof(RequiredCompositionModule)
         ];
 
         string[] writableProperties = descriptorTypes
@@ -61,11 +67,13 @@ public sealed class ModuleDescriptorTests
         Assert.True(typeof(ModuleSubscriptionsDescriptor).IsSealed);
         Assert.True(typeof(ModuleCacheEntriesDescriptor).IsSealed);
         Assert.True(typeof(ModuleTasksDescriptor).IsSealed);
+        Assert.True(typeof(ModuleCompositionDescriptor).IsSealed);
         Assert.True(typeof(ModulePermissionsDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
         Assert.True(typeof(ModulePublishedEventsDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
         Assert.True(typeof(ModuleSubscriptionsDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
         Assert.True(typeof(ModuleCacheEntriesDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
         Assert.True(typeof(ModuleTasksDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
+        Assert.True(typeof(ModuleCompositionDescriptor).IsSubclassOf(typeof(ModuleDescriptorFeature)));
     }
 
     [Fact]
@@ -84,7 +92,12 @@ public sealed class ModuleDescriptorTests
             typeof(ModuleCacheEntriesDescriptor),
             typeof(ModuleCacheDescriptor),
             typeof(ModuleTasksDescriptor),
-            typeof(ModuleTaskDescriptor)
+            typeof(ModuleTaskDescriptor),
+            typeof(ModuleCompositionDescriptor),
+            typeof(ModuleProfileDescriptor),
+            typeof(ProvidedCompositionFeature),
+            typeof(RequiredCompositionFeature),
+            typeof(RequiredCompositionModule)
         ];
 
         string[] offenders = descriptorTypes
@@ -153,12 +166,16 @@ public sealed class ModuleDescriptorTests
                     " Search-Workers ",
                     metadata: [TenantScopeMetadataItem.Instance])
             ])
+            .WithProfile(new ModuleProfileDescriptor(
+                " Catalog ",
+                " Tenant-Scoped ",
+                provides: [new ProvidedCompositionFeature(new CompositionFeatureId(" Catalog.Items "), " catalog/tenant-scoped ")]))
             .Build();
 
         Assert.Equal("catalog", descriptor.Name);
         Assert.Equal("catalog", descriptor.Schema);
         Assert.Equal("catalog-admin", descriptor.AdminSurfaceName);
-        Assert.Equal(5, descriptor.Features.Count);
+        Assert.Equal(6, descriptor.Features.Count);
         Assert.Equal("catalog.items.read", Assert.Single(descriptor.GetPermissions()).Code);
         ModuleIntegrationEventDescriptor publishedEvent = Assert.Single(descriptor.GetPublishedEvents());
         Assert.Equal("catalog", publishedEvent.ModuleName);
@@ -169,6 +186,7 @@ public sealed class ModuleDescriptorTests
         Assert.Equal(["products"], Assert.Single(descriptor.GetCacheEntries()).Tags);
         Assert.Equal("rebuild-search", Assert.Single(descriptor.GetTasks()).Name);
         Assert.Equal("search-workers", Assert.Single(descriptor.GetTasks()).WorkerGroup);
+        Assert.Equal("tenant-scoped", Assert.Single(descriptor.GetCompositionProfiles()).ProfileName);
     }
 
     [Fact]
@@ -218,14 +236,17 @@ public sealed class ModuleDescriptorTests
                     "catalog-workers",
                     metadata: [TenantScopeMetadataItem.Instance])
             ])
+            .WithProfile(new ModuleProfileDescriptor("catalog", "default"))
+            .WithProfiles([new ModuleProfileDescriptor("catalog", "durable-events")])
             .Build();
 
-        Assert.Equal(5, descriptor.Features.Count);
+        Assert.Equal(6, descriptor.Features.Count);
         Assert.Equal(["catalog.items.read", "catalog.items.create"], descriptor.GetPermissions().Select(permission => permission.Code));
         Assert.Equal(["item-created", "item-updated"], descriptor.GetPublishedEvents().Select(item => item.EventType));
         Assert.Equal(["item-created-projection", "item-updated-projection"], descriptor.GetSubscriptions().Select(item => item.HandlerName));
         Assert.Equal(["item", "items"], descriptor.GetCacheEntries().Select(item => item.Name));
         Assert.Equal(["rebuild-item", "rebuild-items"], descriptor.GetTasks().Select(item => item.Name));
+        Assert.Equal(["default", "durable-events"], descriptor.GetCompositionProfiles().Select(item => item.ProfileName));
     }
 
     [Fact]
@@ -269,6 +290,7 @@ public sealed class ModuleDescriptorTests
         Assert.Throws<ArgumentException>(() => new ModuleSubscriptionsDescriptor([]));
         Assert.Throws<ArgumentException>(() => new ModuleCacheEntriesDescriptor([]));
         Assert.Throws<ArgumentException>(() => new ModuleTasksDescriptor([]));
+        Assert.Throws<ArgumentException>(() => new ModuleCompositionDescriptor([]));
     }
 
     [Fact]
@@ -281,6 +303,7 @@ public sealed class ModuleDescriptorTests
         Assert.Throws<ArgumentException>(() => builder.WithSubscriptions([]));
         Assert.Throws<ArgumentException>(() => builder.WithCacheEntries([]));
         Assert.Throws<ArgumentException>(() => builder.WithTasks([]));
+        Assert.Throws<ArgumentException>(() => builder.WithProfiles([]));
     }
 
     [Fact]

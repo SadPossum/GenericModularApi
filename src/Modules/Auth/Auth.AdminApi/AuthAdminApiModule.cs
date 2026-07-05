@@ -20,15 +20,25 @@ using Shared.Administration.Api;
 using Shared.Api.Results;
 using Shared.Api.Observability;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
+using Shared.Tenancy;
 using Shared.Results;
 
-public sealed class AuthAdminApiModule : IAdminApiModule
+public sealed class AuthAdminApiModule(AuthProfile profile) : IAdminApiModule
 {
+    private readonly AuthProfile profile = profile ?? throw new ArgumentNullException(nameof(profile));
+
+    public AuthAdminApiModule()
+        : this(AuthProfile.TenantScoped())
+    {
+    }
+
     public string Name => AuthModuleMetadata.Name;
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        AddProfileServices(builder, this.profile);
         builder.Services.AddAuthApplication(builder.Configuration);
         builder.Services.AddAuthInfrastructure(builder.Configuration);
         builder
@@ -38,6 +48,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        bool requireTenant = this.profile.RequiresTenantContext;
         RouteGroupBuilder members = endpoints.MapGroup("/api/admin/auth/members")
             .WithModuleName(this.Name)
             .WithTags("Auth Admin")
@@ -53,7 +64,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersList, AuthAdminPermissions.MembersRead),
-                requireTenant: true,
+                requireTenant,
                 token => dispatcher.QueryAsync(
                     new ListAdminMembersQuery(page ?? PageRequest.DefaultPage, pageSize ?? PageRequest.DefaultPageSize),
                     token),
@@ -68,7 +79,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersGet, AuthAdminPermissions.MembersRead),
-                requireTenant: true,
+                requireTenant,
                 token => dispatcher.QueryAsync(new GetAdminMemberQuery(memberId), token),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false));
@@ -84,7 +95,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             return await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersCreate, AuthAdminPermissions.MembersCreate),
-                requireTenant: true,
+                requireTenant,
                 token => CreateMemberAsync(dispatcher, request, adminApiOptions.Value, token),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
@@ -101,7 +112,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             return await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersDisable, AuthAdminPermissions.MembersDisable),
-                requireTenant: true,
+                requireTenant,
                 token => request.Confirmed
                     ? dispatcher.SendAsync(new DisableMemberCommand(memberId, request.Reason), token)
                     : Task.FromResult(Result.Failure<Unit>(AdminErrors.ConfirmationRequired)),
@@ -118,7 +129,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersEnable, AuthAdminPermissions.MembersEnable),
-                requireTenant: true,
+                requireTenant,
                 token => dispatcher.SendAsync(new EnableMemberCommand(memberId), token),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false));
@@ -135,7 +146,7 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             return await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersResetPassword, AuthAdminPermissions.MembersResetPassword),
-                requireTenant: true,
+                requireTenant,
                 token => ResetPasswordAsync(dispatcher, memberId, request, adminApiOptions.Value, token),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
@@ -152,13 +163,24 @@ public sealed class AuthAdminApiModule : IAdminApiModule
             return await executor.ExecuteAsync(
                 httpContext,
                 AdminOperation.Create(AuthAdminOperationNames.MembersRevokeSessions, AuthAdminPermissions.MembersRevokeSessions),
-                requireTenant: true,
+                requireTenant,
                 token => request.Confirmed
                     ? dispatcher.SendAsync(new RevokeMemberSessionsCommand(memberId), token)
                     : Task.FromResult(Result.Failure<AdminRevokeSessionsResponse>(AdminErrors.ConfirmationRequired)),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false);
         });
+    }
+
+    private static void AddProfileServices(IHostApplicationBuilder builder, AuthProfile profile)
+    {
+        builder.SelectModuleProfile(profile.Descriptor, "Auth.AdminApi");
+
+        if (!profile.RequiresTenantContext &&
+            !string.IsNullOrWhiteSpace(profile.GlobalScopeId))
+        {
+            builder.Services.PostConfigure<TenantOptions>(options => options.LocalDefaultTenantId = profile.GlobalScopeId);
+        }
     }
 
     private static async Task<Result<AdminCreatedMemberApiResponse>> CreateMemberAsync(
@@ -266,5 +288,16 @@ public sealed class AuthAdminApiModule : IAdminApiModule
         public static readonly Error GeneratedPasswordResponsesDisabled = new(
             "Admin.GeneratedPasswordResponsesDisabled",
             "Generated password responses are disabled for the admin API.");
+    }
+}
+
+public static class AuthAdminApiModuleHostBuilderExtensions
+{
+    public static IHostApplicationBuilder AddAuthAdminApiModule(this IHostApplicationBuilder builder, AuthProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return builder.AddAdminApiModule(new AuthAdminApiModule(profile));
     }
 }

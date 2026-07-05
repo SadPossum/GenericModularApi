@@ -29,6 +29,7 @@ The shared core is intentionally small:
 - `Shared.Naming`, `Shared.Numerics`, `Shared.Observability`, and `Shared.Results` stay dependency-free.
 - `Shared.Domain` owns aggregate/domain-event primitives and depends only on `Shared.Naming` for shared identifier syntax such as tenant ids and `Shared.Numerics` for reusable numeric validation.
 - `Shared.Modules` owns module metadata primitives and references only `Shared.Naming`.
+- `Shared.ModuleComposition` owns module profile, provided-feature, required-feature, required-module, and fail-fast composition validation primitives. It references only `Shared.Modules`, `Shared.Naming`, and hosting abstractions needed by composition roots.
 - `Shared.Authorization` owns permission metadata descriptor extensions and references only `Shared.Modules` and `Shared.Naming`.
 - `Shared.Caching` owns cache contracts, provider/options seams, adapter markers, and cache descriptor metadata, and references only `Shared.Modules` plus `Shared.Naming` for module-name alignment.
 - `Shared.Messaging` owns integration event, outbox/inbox, subscription, and messaging descriptor contracts and references only shared primitives plus DI abstractions.
@@ -65,6 +66,7 @@ Shared project ownership quick reference:
 - `Shared.Persistence.EntityFrameworkCore`: EF provider selection, design-time DbContext options, persistence options, and domain-event unit-of-work base.
 - `Shared.Observability.Infrastructure`: shared CQRS metric implementations, module-name resolution, and bounded tag normalization. Capability metrics live beside their owning runtime adapters.
 - `Shared.Modules`: module descriptor, descriptor builder, descriptor feature base, generic metadata naming/guard helpers, and custom metadata feature support.
+- `Shared.ModuleComposition`: profile metadata, composition feature requirements/providers, module requirement validation, and host-level validation extensions.
 - `Shared.Authorization`: permission metadata and `WithPermission(...)` / `WithPermissions(...)` / `GetPermissions()` descriptor extensions.
 - `Shared.Cqrs`: command/query contracts, validators, dispatcher contracts, `Unit`, and transactional unit-of-work contracts.
 - `Shared.Cqrs.Infrastructure`: CQRS dispatcher and pipeline behavior implementations.
@@ -183,6 +185,7 @@ These helpers read attributes from known generic types only. They do not scan as
 The root descriptor owns only identity and polymorphic capability features. Capability-specific metadata and extensions live beside the capability:
 
 - `Shared.Modules` owns the root descriptor, builder, and custom feature base.
+- `Shared.ModuleComposition` owns module profile metadata plus `WithProfile(...)`, `WithProfiles(...)`, `GetCompositionProfiles()`, `SelectModuleProfile(...)`, `ProvideFeature(...)`, `RequireFeature(...)`, `RequireModule(...)`, and `ValidateModuleComposition()`.
 - `Shared.Authorization` owns permission metadata plus `WithPermission(...)`, `WithPermissions(...)`, and `GetPermissions()`.
 - `Shared.Naming` owns low-level kebab-case segment, module-name, and tenant-id normalization shared by domain events, API/admin composition, CLI command ownership, modules, messaging, caching, and task metadata.
 - `Shared.Messaging` owns published-event and subscription metadata plus `IntegrationEventNameAttribute`, `IntegrationEventVersionAttribute`, `IntegrationEventHandlerAttribute`, `WithPublishedEvent(...)`, `WithPublishedEvent<TEvent>()`, `WithPublishedEvents(...)`, `WithSubscription(...)`, `WithSubscription<TEvent>(producerModule, handlerName)`, `WithSubscriptions(...)`, `GetPublishedEvents()`, and `GetSubscriptions()`.
@@ -202,6 +205,35 @@ Rules:
 - descriptors should be kept in sync with module docs and architecture tests.
 
 Descriptor value objects validate public metadata at construction/build time and expose constructor-only properties. Invalid module names, permission codes, event subjects, subscription handler names, cache scopes, task names, duplicate entries, or mismatched published-event subjects should fail as soon as the module contract assembly is loaded.
+
+## Composition Profiles
+
+Profiles describe which shape of a reusable module is being composed. They are metadata plus host validation, not runtime discovery.
+
+Example:
+
+```csharp
+builder.AddModule<TenancyModule>();
+builder.AddAuthModule(AuthProfile.TenantScoped());
+builder.ValidateModuleComposition();
+```
+
+`AuthProfile.TenantScoped()` selects the `auth` tenant-scoped profile, provides Auth features, and requires the generic `tenancy.context` feature. `Shared.Tenancy.Infrastructure` provides the baseline context service so CLI/admin hosts can set tenant context explicitly, while `TenancyModule` selects its default profile and additionally provides `tenancy.header-resolution` for HTTP header-based tenant resolution.
+
+For tenant-free projects, compose the global profile explicitly:
+
+```csharp
+builder.AddAuthModule(AuthProfile.Global("global"));
+builder.ValidateModuleComposition();
+```
+
+Rules:
+
+- profiles live in the owning module's `.Contracts/Metadata` folder when they are part of the public composition surface;
+- front-door projects may offer convenience overloads such as `AddAuthModule(AuthProfile profile)`, but hosts still call them explicitly;
+- shared adapters may call `ProvideFeature(...)` for generic capabilities they make available;
+- profile validation reports selected modules, provided features, required features, and required modules deterministically;
+- profile metadata must not register services, map endpoints, start workers, or scan assemblies.
 
 Compiled module projects are also listed in `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`. That catalog feeds architecture tests only and must not be used for runtime composition.
 

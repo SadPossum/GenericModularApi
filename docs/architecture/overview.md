@@ -48,6 +48,7 @@ src/
     Shared.Messaging.Infrastructure/
     Shared.Messaging.Nats/
     Shared.Messaging.Nats.Aspire/
+    Shared.ModuleComposition/
     Shared.Modules/
     Shared.Naming/
     Shared.Numerics/
@@ -172,8 +173,9 @@ builder.AddUserNotificationServerSentEvents();
 builder.AddUserNotificationSignalR();
 builder.Services.AddApiSecurityDefaults(); // no default scheme; Auth or another adapter supplies one
 builder.AddModule<TenancyModule>();
-builder.AddModule<AuthModule>();
+builder.AddAuthModule(AuthProfile.TenantScoped());
 builder.AddSharedOpenApi();
+builder.ValidateModuleComposition();
 app.UseSharedOpenApi(); // serves Swagger only in Development
 app.MapModules();
 app.MapUserNotificationServerSentEvents();
@@ -189,7 +191,8 @@ builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure(); // outbox writer registry without hosted publishers
 builder.AddAdminModule<AdministrationAdminCliModule>();
-builder.AddAdminModule<AuthAdminCliModule>();
+builder.AddAuthAdminModule(AuthProfile.TenantScoped());
+builder.ValidateModuleComposition();
 ```
 
 It does not map public API endpoints.
@@ -203,7 +206,9 @@ builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
 builder.AddAdminApiModule<AdministrationAdminApiModule>();
-builder.AddAdminApiModule<AuthAdminApiModule>();
+builder.AddAuthAdminApiModule(AuthProfile.TenantScoped());
+builder.AddSharedOpenApi();
+builder.ValidateModuleComposition();
 app.MapAdminApiModules();
 ```
 
@@ -353,6 +358,10 @@ Shared.Messaging.Nats
 Shared.Messaging.Nats.Aspire
   -> Shared.Messaging.Nats
 
+Shared.ModuleComposition
+  -> Shared.Modules
+  -> Shared.Naming
+
 Shared.Modules
   -> Shared.Naming
 
@@ -375,6 +384,7 @@ Shared.Notifications.Cqrs
 
 Shared.Notifications.Api
   -> Shared.Api
+  -> Shared.Naming
   -> Shared.Notifications
   -> Shared.Security
   -> Shared.Tenancy
@@ -458,10 +468,12 @@ Shared.Tasks.Infrastructure
   -> Shared.Tenancy
 
 Shared.Tenancy
+  -> Shared.ModuleComposition
   -> Shared.Modules
   -> Shared.Results
 
 Shared.Tenancy.Infrastructure
+  -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Tenancy
 ```

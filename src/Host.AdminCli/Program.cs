@@ -1,5 +1,6 @@
 using Administration.AdminCli;
 using Auth.AdminCli;
+using Auth.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -8,6 +9,7 @@ using Shared.Caching.Cqrs;
 using Shared.Caching.Redis;
 using Shared.Infrastructure;
 using Shared.Messaging.Infrastructure;
+using Shared.ModuleComposition;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 
@@ -26,7 +28,8 @@ try
     builder.AddSharedInfrastructure();
     builder.AddMessagingInfrastructure();
     builder.AddAdminModule<AdministrationAdminCliModule>();
-    builder.AddAdminModule<AuthAdminCliModule>();
+    builder.AddAuthAdminModule(AuthProfile.TenantScoped());
+    builder.ValidateModuleComposition();
 
     using IHost host = builder.Build();
 
@@ -52,6 +55,17 @@ catch (OptionsValidationException exception)
     foreach (string failure in exception.Failures.Distinct(StringComparer.Ordinal))
     {
         AdminCliOutput.WriteError(failure);
+    }
+
+    return AdminExitCodes.Failed;
+}
+catch (ModuleCompositionValidationException exception)
+{
+    AdminCliOutput.WriteError("Admin CLI module composition is invalid.");
+
+    foreach (string error in exception.Errors)
+    {
+        AdminCliOutput.WriteError(error);
     }
 
     return AdminExitCodes.Failed;

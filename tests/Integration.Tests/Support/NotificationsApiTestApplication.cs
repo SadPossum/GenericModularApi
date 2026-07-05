@@ -15,11 +15,14 @@ using Microsoft.IdentityModel.Tokens;
 using Notifications.Api;
 using Notifications.Domain.Aggregates;
 using Notifications.Persistence;
+using Shared.Application.Events.Infrastructure;
 using Shared.Api.Modules;
 using Shared.Api.Security;
-using Shared.Infrastructure;
+using Shared.Cqrs.Infrastructure;
+using Shared.Runtime.Infrastructure;
 using Shared.Security;
 using Shared.Tenancy;
+using Shared.Tenancy.Infrastructure;
 using Tenancy.Api;
 using DomainBroadcastAudience = Notifications.Domain.ValueObjects.NotificationBroadcastAudience;
 using DomainNotificationSeverity = Notifications.Domain.ValueObjects.NotificationSeverity;
@@ -56,7 +59,10 @@ internal sealed class NotificationsApiTestApplication : IAsyncDisposable
             ["Caching:Enabled"] = "false"
         });
 
-        builder.AddSharedInfrastructure();
+        builder.AddTenancyInfrastructure();
+        builder.AddRuntimeInfrastructure();
+        builder.AddApplicationEventsInfrastructure();
+        builder.AddCqrsInfrastructure();
         builder.Services.AddApiSecurityDefaults();
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

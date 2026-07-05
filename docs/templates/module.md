@@ -32,11 +32,11 @@ Place public contract files in the standard folders:
 - `Admin/` for admin-facing DTO records that remain backend-free.
 - `Events/` for integration event payloads and subject constants.
 - `Exports/` for producer-owned projection rebuild/backfill snapshots and source ports.
-- `Metadata/` for `<Module>ModuleMetadata`, `*PermissionCodes`, and `*ContractLimits`.
+- `Metadata/` for `<Module>ModuleMetadata`, `*PermissionCodes`, `*Profile`/`*Profiles`, `*CompositionFeatures`, and `*ContractLimits`.
 - `Serialization/` for owner-package JSON converters for public contract enums and other stable wire types.
 - `Types/` for public enum-like or code-list types.
 
-Confirm the public contracts `.csproj` references `Shared.Modules` for module metadata, `Shared.Authorization` for permission metadata, `Shared.Messaging` for integration events/subscriptions, `Shared.Caching` for cache metadata, and `Shared.Tasks` for task metadata/contracts only when those capabilities are declared. Public contracts should avoid `Shared.Application.Composition` and `Shared.Cqrs`; keep CQRS commands/queries and paging helpers in the module application boundary. Optional producer `.Contracts` references are allowed. Keep package and framework references out.
+Confirm the public contracts `.csproj` references `Shared.Modules` for module metadata, `Shared.ModuleComposition` for public profiles/composition features, `Shared.Authorization` for permission metadata, `Shared.Messaging` for integration events/subscriptions, `Shared.Caching` for cache metadata, and `Shared.Tasks` for task metadata/contracts only when those capabilities are declared. Public contracts should avoid `Shared.Application.Composition` and `Shared.Cqrs`; keep CQRS commands/queries and paging helpers in the module application boundary. Optional producer `.Contracts` references are allowed. Keep package and framework references out.
 If the module exposes rebuild/backfill export contracts, reference `Shared.ProjectionRebuild` from `.Contracts`, keep the source interface backend-free, and implement the source in the producer persistence adapter.
 Admin permission code strings live here so `<Module>ModuleMetadata` can declare permissions without referencing admin-only framework packages.
 When the module becomes compiled code, add its contract metadata descriptor to `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`; architecture tests compare that catalog with every `<Module>ModuleMetadata.Descriptor`.
@@ -64,6 +64,8 @@ Endpoints:
 
 State whether endpoints require tenant context, authorization, or both.
 Confirm the public API `.csproj` has no package references, only an optional `Microsoft.AspNetCore.App` framework reference, shared API/application references as needed, and owning module contracts/application/persistence/infrastructure adapters.
+
+If the module has selectable profiles, expose explicit front-door overloads such as `Add<Module>Module(<Module>Profile profile)`. The overload may call `SelectModuleProfile(...)`, but it must still require the host to compose the module intentionally. Do not select profiles through assembly scanning or configuration-only magic.
 
 ## Admin Commands
 
@@ -181,3 +183,13 @@ List explicit cache-aside reads, logical keys, tags, TTL policy, and the command
 ## Extension Points
 
 List likely future changes and the intended extension mechanism.
+
+## Composition Profiles
+
+List available module profiles, provided features, required features, required modules, and the host calls that select each profile.
+
+| Profile | Provides | Requires | Required modules |
+| --- | --- | --- | --- |
+| `default` | `<module>.<feature>` | `<capability>.<feature>` | `<other-module>` |
+
+Confirm that `ModuleDescriptor.Create(...).WithProfile(...)` documents the profiles in `<Module>.Contracts`, host/front-door composition calls `SelectModuleProfile(...)`, shared adapters call `ProvideFeature(...)` for generic capabilities, and every runtime host calls `ValidateModuleComposition()` after explicit modules/adapters are added and before serving traffic or executing commands.

@@ -3892,6 +3892,14 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [@"..\Shared.Messaging.Nats\Shared.Messaging.Nats.csproj"]),
             new(
+                "Shared.ModuleComposition",
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Shared.Modules\Shared.Modules.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj"
+                ]),
+            new(
                 "Shared.Messaging.Nats",
                 [
                     "Microsoft.Extensions.Configuration.Binder",
@@ -3957,6 +3965,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.AspNetCore.App"],
                 [
                     @"..\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Notifications\Shared.Notifications.csproj",
                     @"..\Shared.Security\Shared.Security.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
@@ -4110,6 +4119,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Results\Shared.Results.csproj"
                 ]),
@@ -4121,6 +4131,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ])
@@ -4405,6 +4416,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj",
                     @"..\Modules\Auth\Auth.AdminApi\Auth.AdminApi.csproj",
+                    @"..\Modules\Auth\Auth.Contracts\Auth.Contracts.csproj",
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\ServiceDefaults\ServiceDefaults.csproj",
@@ -4417,7 +4429,8 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
-                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj"
+                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj",
+                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
                 ]),
             new(
                 Path.Combine("Host.AdminCli", "Host.AdminCli.csproj"),
@@ -4428,13 +4441,15 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Modules\Administration\Administration.Persistence.PostgreSqlMigrations\Administration.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Administration\Administration.Persistence.SqlServerMigrations\Administration.Persistence.SqlServerMigrations.csproj",
                     @"..\Modules\Auth\Auth.AdminCli\Auth.AdminCli.csproj",
+                    @"..\Modules\Auth\Auth.Contracts\Auth.Contracts.csproj",
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj",
                     @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
-                    @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"
+                    @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
+                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
                 ]),
             new(
                 Path.Combine("Host.Api", "Host.Api.csproj"),
@@ -4442,6 +4457,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Modules\Auth\Auth.Api\Auth.Api.csproj",
+                    @"..\Modules\Auth\Auth.Contracts\Auth.Contracts.csproj",
                     @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
                     @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
                     @"..\Modules\Tenancy\Tenancy.Api\Tenancy.Api.csproj",
@@ -4455,6 +4471,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj",
+                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj",
                     @"..\Shared\Shared.Notifications.Cqrs\Shared.Notifications.Cqrs.csproj",
                     @"..\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj"
@@ -6476,6 +6493,7 @@ public sealed partial class DeveloperExperienceGuardTests
         {
             NormalizePath(@"..\..\..\Shared\Shared.Api\Shared.Api.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
@@ -6557,10 +6575,12 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Administration\Shared.Administration.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Runtime\Shared.Runtime.csproj"),
-            NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj")
+            NormalizePath(@"..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj")
         };
 
         return allowedSharedReferences.Contains(normalizedReference) ||
@@ -6601,6 +6621,10 @@ public sealed partial class DeveloperExperienceGuardTests
                string.Equals(
                    normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(
                    normalizedReference,
@@ -7016,6 +7040,9 @@ public sealed partial class DeveloperExperienceGuardTests
         }
 
         if (fileName.EndsWith("ModuleMetadata.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("Profile.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("Profiles.cs", StringComparison.Ordinal) ||
+            fileName.EndsWith("CompositionFeatures.cs", StringComparison.Ordinal) ||
             fileName.EndsWith("PermissionCodes.cs", StringComparison.Ordinal) ||
             fileName.EndsWith("ContractLimits.cs", StringComparison.Ordinal))
         {

@@ -13,12 +13,21 @@ public static class ModuleExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        if (HasModule<TModule>(builder.Services))
+        return HasModule(builder.Services, typeof(TModule))
+            ? builder
+            : AddModule(builder, new TModule());
+    }
+
+    public static IHostApplicationBuilder AddModule(this IHostApplicationBuilder builder, IModule module)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(module);
+
+        if (HasModule(builder.Services, module.GetType()))
         {
             return builder;
         }
 
-        TModule module = new();
         string moduleName = NormalizeModuleName(module.Name, module.GetType(), nameof(IModule));
         EnsureModuleNameAvailable(builder.Services, moduleName, module.GetType());
 
@@ -116,10 +125,9 @@ public static class ModuleExtensions
         }
     }
 
-    private static bool HasModule<TModule>(IServiceCollection services)
-        where TModule : IModule =>
+    private static bool HasModule(IServiceCollection services, Type moduleType) =>
         services.Any(descriptor =>
             descriptor.ServiceType == typeof(IModule) &&
-            (descriptor.ImplementationType == typeof(TModule) ||
-             descriptor.ImplementationInstance is TModule));
+            (descriptor.ImplementationType == moduleType ||
+             descriptor.ImplementationInstance?.GetType() == moduleType));
 }

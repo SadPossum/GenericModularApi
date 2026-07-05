@@ -11,18 +11,28 @@ using Auth.Infrastructure;
 using Auth.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Shared.ModuleComposition;
 using Shared.Administration;
 using Shared.Administration.Cli;
 using Shared.Cqrs;
 using Shared.Pagination;
+using Shared.Tenancy;
 using Shared.Results;
 
-public sealed class AuthAdminCliModule : IAdminCliModule
+public sealed class AuthAdminCliModule(AuthProfile profile) : IAdminCliModule
 {
+    private readonly AuthProfile profile = profile ?? throw new ArgumentNullException(nameof(profile));
+
+    public AuthAdminCliModule()
+        : this(AuthProfile.TenantScoped())
+    {
+    }
+
     public string Name => AuthModuleMetadata.Name;
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        AddProfileServices(builder, this.profile);
         builder.Services.AddAuthApplication(builder.Configuration);
         builder.Services.AddAuthInfrastructure(builder.Configuration);
         builder.AddAuthPersistence();
@@ -31,15 +41,16 @@ public sealed class AuthAdminCliModule : IAdminCliModule
     public void MapCommands(IAdminCliCommandRegistry commands)
     {
         AdminCliGlobalOptions globalOptions = commands.Services.GetRequiredService<AdminCliGlobalOptions>();
+        bool requireTenant = this.profile.RequiresTenantContext;
         Command members = new("members", "Manage Auth members.")
         {
-            CreateListCommand(commands.Services, globalOptions),
-            CreateGetCommand(commands.Services, globalOptions),
-            CreateCreateCommand(commands.Services, globalOptions),
-            CreateDisableCommand(commands.Services, globalOptions),
-            CreateEnableCommand(commands.Services, globalOptions),
-            CreateResetPasswordCommand(commands.Services, globalOptions),
-            CreateRevokeSessionsCommand(commands.Services, globalOptions)
+            CreateListCommand(commands.Services, globalOptions, requireTenant),
+            CreateGetCommand(commands.Services, globalOptions, requireTenant),
+            CreateCreateCommand(commands.Services, globalOptions, requireTenant),
+            CreateDisableCommand(commands.Services, globalOptions, requireTenant),
+            CreateEnableCommand(commands.Services, globalOptions, requireTenant),
+            CreateResetPasswordCommand(commands.Services, globalOptions, requireTenant),
+            CreateRevokeSessionsCommand(commands.Services, globalOptions, requireTenant)
         };
         Command auth = new(AuthModuleMetadata.Name, "Auth administration operations.")
         {
@@ -49,7 +60,18 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         commands.AddCommand(this.Name, auth);
     }
 
-    private static Command CreateListCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static void AddProfileServices(IHostApplicationBuilder builder, AuthProfile profile)
+    {
+        builder.SelectModuleProfile(profile.Descriptor, "Auth.AdminCli");
+
+        if (!profile.RequiresTenantContext &&
+            !string.IsNullOrWhiteSpace(profile.GlobalScopeId))
+        {
+            builder.Services.PostConfigure<TenantOptions>(options => options.LocalDefaultTenantId = profile.GlobalScopeId);
+        }
+    }
+
+    private static Command CreateListCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<int> pageOption = new("--page")
         {
@@ -75,7 +97,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersList, AuthAdminPermissions.MembersRead),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     IRequestDispatcher dispatcher = provider.GetRequiredService<IRequestDispatcher>();
@@ -104,7 +126,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         return command;
     }
 
-    private static Command CreateGetCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static Command CreateGetCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<Guid> memberIdOption = CreateMemberIdOption();
         Command command = new("get", "Get member details.")
@@ -120,7 +142,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersGet, AuthAdminPermissions.MembersRead),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     IRequestDispatcher dispatcher = provider.GetRequiredService<IRequestDispatcher>();
@@ -150,7 +172,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         return command;
     }
 
-    private static Command CreateCreateCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static Command CreateCreateCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<string> usernameOption = new("--username")
         {
@@ -186,7 +208,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersCreate, AuthAdminPermissions.MembersCreate),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     Result<UsernameType> usernameType = ParseUsernameType(parseResult.GetValue(usernameTypeOption) ?? "email");
@@ -232,7 +254,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         return command;
     }
 
-    private static Command CreateDisableCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static Command CreateDisableCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<Guid> memberIdOption = CreateMemberIdOption();
         Option<string> reasonOption = new("--reason")
@@ -256,7 +278,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersDisable, AuthAdminPermissions.MembersDisable),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     if (!parseResult.GetValue(yesOption))
@@ -282,7 +304,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         return command;
     }
 
-    private static Command CreateEnableCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static Command CreateEnableCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<Guid> memberIdOption = CreateMemberIdOption();
         Command command = new("enable", "Enable a disabled member.")
@@ -298,7 +320,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersEnable, AuthAdminPermissions.MembersEnable),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     IRequestDispatcher dispatcher = provider.GetRequiredService<IRequestDispatcher>();
@@ -318,7 +340,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         return command;
     }
 
-    private static Command CreateResetPasswordCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static Command CreateResetPasswordCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<Guid> memberIdOption = CreateMemberIdOption();
         Option<bool> generatePasswordOption = new("--generate-password")
@@ -344,7 +366,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersResetPassword, AuthAdminPermissions.MembersResetPassword),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     Result<PasswordInput> passwordInput = await ReadPasswordAsync(
@@ -381,7 +403,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
         return command;
     }
 
-    private static Command CreateRevokeSessionsCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions)
+    private static Command CreateRevokeSessionsCommand(IServiceProvider services, AdminCliGlobalOptions globalOptions, bool requireTenant)
     {
         Option<Guid> memberIdOption = CreateMemberIdOption();
         Option<bool> yesOption = CreateYesOption();
@@ -399,7 +421,7 @@ public sealed class AuthAdminCliModule : IAdminCliModule
                 parseResult,
                 AdminOperation.Create(AuthAdminOperationNames.MembersRevokeSessions, AuthAdminPermissions.MembersRevokeSessions),
                 tenantId,
-                requireTenant: true,
+                requireTenant,
                 async (provider, token) =>
                 {
                     if (!parseResult.GetValue(yesOption))
@@ -531,5 +553,16 @@ public sealed class AuthAdminCliModule : IAdminCliModule
     {
         public static readonly Error PasswordRequired = new("Admin.PasswordRequired", "A password is required unless password generation is requested.");
         public static readonly Error PasswordSourceConflict = new("Admin.PasswordSourceConflict", "Use either --generate-password or --password-stdin, not both.");
+    }
+}
+
+public static class AuthAdminCliModuleHostBuilderExtensions
+{
+    public static IHostApplicationBuilder AddAuthAdminModule(this IHostApplicationBuilder builder, AuthProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return builder.AddAdminModule(new AuthAdminCliModule(profile));
     }
 }

@@ -10,22 +10,32 @@ using Auth.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Security;
 using Shared.Tenancy;
 using Shared.Results;
 
-public sealed class AuthModule : IModule
+public sealed class AuthModule(AuthProfile profile) : IModule
 {
+    private readonly AuthProfile profile = profile ?? throw new ArgumentNullException(nameof(profile));
+
+    public AuthModule()
+        : this(AuthProfile.TenantScoped())
+    {
+    }
+
     public string Name => AuthModuleMetadata.Name;
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        AddProfileServices(builder, this.profile);
         builder.Services.AddAuthApplication(builder.Configuration);
         builder.Services.AddAuthInfrastructure(builder.Configuration);
         builder
@@ -35,45 +45,46 @@ public sealed class AuthModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        bool requireTenant = this.profile.RequiresTenantContext;
         RouteGroupBuilder group = endpoints.MapGroup("/api/auth")
             .WithModuleName(this.Name)
             .WithTags("Auth");
 
-        group.MapPost("/register", async (
+        RouteHandlerBuilder register = group.MapPost("/register", async (
             RegisterMemberRequest request,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
             (await dispatcher.SendAsync(
                 new RegisterMemberCommand(request.Username, request.UsernameType, request.Password),
-                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
-            .RequireTenant();
+                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes));
+        RequireTenantWhenNeeded(register, requireTenant);
 
-        group.MapPost("/login", async (
+        RouteHandlerBuilder login = group.MapPost("/login", async (
             LoginMemberRequest request,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
             (await dispatcher.SendAsync(
                 new LoginMemberCommand(request.Username, request.Password),
-                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
-            .RequireTenant();
+                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes));
+        RequireTenantWhenNeeded(login, requireTenant);
 
-        group.MapPost("/refresh", async (
+        RouteHandlerBuilder refresh = group.MapPost("/refresh", async (
             RefreshTokenRequest request,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
             (await dispatcher.SendAsync(
                 new RefreshMemberSessionCommand(request.AccessToken, request.RefreshToken),
-                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
-            .RequireTenant();
+                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes));
+        RequireTenantWhenNeeded(refresh, requireTenant);
 
-        group.MapPost("/sign-out", async (
+        RouteHandlerBuilder signOut = group.MapPost("/sign-out", async (
             SignOutRequest request,
             ClaimsPrincipal user,
             ITenantContext tenantContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TokenTenantMatches(user, tenantContext))
+            if (!this.TokenTenantMatches(user, tenantContext))
             {
                 return Results.Unauthorized();
             }
@@ -91,16 +102,16 @@ public sealed class AuthModule : IModule
 
             return result.IsSuccess ? Results.NoContent() : result.ToHttpResult(PublicErrorStatusCodes);
         })
-            .RequireTenant()
             .RequireAuthorization();
+        RequireTenantWhenNeeded(signOut, requireTenant);
 
-        group.MapPost("/sign-out-all", async (
+        RouteHandlerBuilder signOutAll = group.MapPost("/sign-out-all", async (
             ClaimsPrincipal user,
             ITenantContext tenantContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TokenTenantMatches(user, tenantContext))
+            if (!this.TokenTenantMatches(user, tenantContext))
             {
                 return Results.Unauthorized();
             }
@@ -118,8 +129,27 @@ public sealed class AuthModule : IModule
 
             return result.IsSuccess ? Results.NoContent() : result.ToHttpResult(PublicErrorStatusCodes);
         })
-            .RequireTenant()
             .RequireAuthorization();
+        RequireTenantWhenNeeded(signOutAll, requireTenant);
+    }
+
+    private static void AddProfileServices(IHostApplicationBuilder builder, AuthProfile profile)
+    {
+        builder.SelectModuleProfile(profile.Descriptor, "Auth.Api");
+
+        if (!profile.RequiresTenantContext &&
+            !string.IsNullOrWhiteSpace(profile.GlobalScopeId))
+        {
+            builder.Services.PostConfigure<TenantOptions>(options => options.LocalDefaultTenantId = profile.GlobalScopeId);
+        }
+    }
+
+    private static void RequireTenantWhenNeeded(RouteHandlerBuilder builder, bool requireTenant)
+    {
+        if (requireTenant)
+        {
+            builder.RequireTenant();
+        }
     }
 
     private static readonly ApiErrorStatusCodeMap PublicErrorStatusCodes = ApiErrorStatusCodeMap.Create(
@@ -144,8 +174,13 @@ public sealed class AuthModule : IModule
             : null;
     }
 
-    private static bool TokenTenantMatches(ClaimsPrincipal user, ITenantContext tenantContext)
+    private bool TokenTenantMatches(ClaimsPrincipal user, ITenantContext tenantContext)
     {
+        if (!this.profile.RequiresTenantContext)
+        {
+            return true;
+        }
+
         if (!tenantContext.IsEnabled)
         {
             return true;
@@ -155,5 +190,16 @@ public sealed class AuthModule : IModule
 
         return !string.IsNullOrWhiteSpace(tokenTenantId) &&
                string.Equals(tokenTenantId, tenantContext.TenantId, StringComparison.Ordinal);
+    }
+}
+
+public static class AuthModuleHostBuilderExtensions
+{
+    public static IHostApplicationBuilder AddAuthModule(this IHostApplicationBuilder builder, AuthProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return builder.AddModule(new AuthModule(profile));
     }
 }

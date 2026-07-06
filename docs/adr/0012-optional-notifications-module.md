@@ -24,7 +24,7 @@ Add an optional `Notifications` module:
 
 `Shared.Notifications` adds only the small `IUserNotificationHistoryWriter` contract. `Shared.Notifications.Infrastructure` remains the publisher/runtime coordinator. It calls registered history writers before attempting live delivery and fails open on history-writer failures.
 
-`Notifications.Contracts` also owns `UserNotificationRequestedIntegrationEvent`. Producers that need guaranteed history creation reference `Notifications.Contracts`, write this event through their own outbox, and keep the physical subject producer-scoped, for example `gma.catalog.user-notification-requested.v1`. The Notifications module consumes explicit producer subscriptions through its own inbox. Producer bindings are host/example composition through `AddUserNotificationRequestSubscription(producerModule)`; the reusable module descriptor does not subscribe to Catalog or any other producer by default.
+`Notifications.Contracts` also owns `UserNotificationRequestedIntegrationEvent`. Producers that need guaranteed history creation reference `Notifications.Contracts`, write this event through their own outbox, and keep the physical subject producer-scoped, for example `gma.ordering.user-notification-requested.v1`. The Notifications module consumes explicit producer subscriptions through its own inbox. Producer bindings are host/example composition through `AddUserNotificationRequestSubscription(producerModule)`; the reusable module descriptor does not subscribe to Ordering, Catalog, or any other producer by default.
 
 The module is not registered in default hosts. Applications compose it explicitly:
 
@@ -34,7 +34,7 @@ builder.AddModule<NotificationsModule>();
 
 ## Consequences
 
-The design keeps history optional and removable. Modules that emit notifications continue to depend only on `Shared.Notifications`; they do not reference the `Notifications` module.
+The design keeps history optional and removable. Modules that emit best-effort live notifications continue to depend only on `Shared.Notifications`. Modules that need guaranteed history creation may additionally reference `Notifications.Contracts`; they still do not reference `Notifications.Application`, `Notifications.Domain`, `Notifications.Persistence`, `Notifications.Api`, or `Notifications.AdminApi`.
 
 Composing the module gives users history and read/unread state for notification publish requests that reach the shared publisher. It does not make notification creation atomic with another module's source transaction, and it does not replace outbox/NATS for durable business facts.
 

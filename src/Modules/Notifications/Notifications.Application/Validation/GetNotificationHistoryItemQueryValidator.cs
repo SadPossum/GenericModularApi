@@ -1,7 +1,7 @@
 namespace Notifications.Application.Validation;
 
 using Notifications.Application.Queries;
-using Notifications.Contracts;
+using Shared.AccessControl;
 using Shared.Cqrs;
 
 internal sealed class GetNotificationHistoryItemQueryValidator : IQueryValidator<GetNotificationHistoryItemQuery>
@@ -13,9 +13,9 @@ internal sealed class GetNotificationHistoryItemQueryValidator : IQueryValidator
             yield return "Notification id is required.";
         }
 
-        if (!NotificationRecipientUserIds.TryNormalize(query.UserId, out _))
+        if (query.Subject is null || query.Subject.Kind != AccessSubjectKind.User)
         {
-            yield return "Notification user id is required.";
+            yield return "Notification access subject must be a user.";
         }
     }
 }

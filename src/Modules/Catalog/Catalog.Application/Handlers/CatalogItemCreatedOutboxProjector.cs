@@ -18,6 +18,7 @@ internal sealed class CatalogItemCreatedOutboxProjector(IOutboxWriterRegistry ou
                 domainEvent.Sku,
                 domainEvent.Name,
                 domainEvent.Price,
-                domainEvent.Currency),
+                domainEvent.Currency,
+                domainEvent.AvailableRegions),
             cancellationToken);
 }

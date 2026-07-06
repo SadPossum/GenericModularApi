@@ -55,6 +55,7 @@ Shared project names:
 
 ```text
 Shared.Api
+Shared.AccessControl
 Shared.Administration
 Shared.Administration.Api
 Shared.Administration.Cli

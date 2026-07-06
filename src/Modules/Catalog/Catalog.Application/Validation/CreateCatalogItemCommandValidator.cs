@@ -1,6 +1,7 @@
 namespace Catalog.Application.Validation;
 
 using Catalog.Application.Commands;
+using Catalog.Contracts;
 using Shared.Cqrs;
 
 internal sealed class CreateCatalogItemCommandValidator : ICommandValidator<CreateCatalogItemCommand>
@@ -25,6 +26,23 @@ internal sealed class CreateCatalogItemCommandValidator : ICommandValidator<Crea
         if (string.IsNullOrWhiteSpace(command.Currency))
         {
             yield return "Currency is required.";
+        }
+
+        string[] availableRegions = command.AvailableRegions?
+            .Where(region => !string.IsNullOrWhiteSpace(region))
+            .ToArray() ?? [];
+        if (availableRegions.Length > CatalogContractLimits.AvailableRegionMaxCount)
+        {
+            yield return $"At most {CatalogContractLimits.AvailableRegionMaxCount} available regions can be supplied.";
+        }
+
+        foreach (string region in availableRegions)
+        {
+            if (!CatalogRegionCodes.TryNormalize(region, out _))
+            {
+                yield return "Available region code is invalid.";
+                yield break;
+            }
         }
     }
 }

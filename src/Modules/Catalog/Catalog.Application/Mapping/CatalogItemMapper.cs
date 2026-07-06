@@ -12,7 +12,11 @@ internal static class CatalogItemMapper
             item.Name.Value,
             item.Price.Value,
             item.Currency.Value,
-            ToContractStatus(item.Status));
+            ToContractStatus(item.Status),
+            item.AvailableRegions
+                .Select(region => region.Region.Value)
+                .Order(StringComparer.Ordinal)
+                .ToArray());
 
     public static CatalogItemStatus ToContractStatus(CatalogItemState status) =>
         status switch

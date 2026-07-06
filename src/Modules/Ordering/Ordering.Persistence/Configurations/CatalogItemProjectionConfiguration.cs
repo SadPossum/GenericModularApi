@@ -15,6 +15,13 @@ internal sealed class CatalogItemProjectionConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.Price).HasPrecision(Order.AmountPrecision, Order.AmountScale).IsRequired();
         builder.Property(item => item.Currency).HasMaxLength(Order.CurrencyLength).IsRequired();
         builder.Property(item => item.Status).HasConversion<int>().IsRequired();
+        builder.Property(item => item.AvailableRegionCodes)
+            .HasMaxLength(CatalogProjectionRegionStorageMaxLength)
+            .IsRequired();
         builder.HasIndex(item => new { item.TenantId, item.CatalogItemId }).IsUnique();
     }
+
+    private const int CatalogProjectionRegionStorageMaxLength =
+        ((Catalog.Contracts.CatalogContractLimits.RegionCodeMaxLength + 1) *
+         Catalog.Contracts.CatalogContractLimits.AvailableRegionMaxCount) - 1;
 }

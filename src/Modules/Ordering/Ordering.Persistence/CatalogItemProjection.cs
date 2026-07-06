@@ -44,6 +44,7 @@ public sealed class CatalogItemProjection : TenantEntity<Guid>
     public decimal Price { get; private set; }
     public string Currency { get; private set; } = string.Empty;
     public CatalogItemStatus Status { get; private set; }
+    public string AvailableRegionCodes { get; private set; } = string.Empty;
 
     public static CatalogItemProjection Create(
         Guid id,
@@ -53,8 +54,12 @@ public sealed class CatalogItemProjection : TenantEntity<Guid>
         string name,
         decimal price,
         string currency,
-        CatalogItemStatus status) =>
-        new(id, tenantId, catalogItemId, sku, name, price, currency, status);
+        CatalogItemStatus status,
+        IReadOnlyCollection<string>? availableRegions = null) =>
+        new(id, tenantId, catalogItemId, sku, name, price, currency, status)
+        {
+            AvailableRegionCodes = EncodeAvailableRegions(availableRegions)
+        };
 
     public static CatalogItemProjection CreateDiscontinuedPlaceholder(
         Guid id,
@@ -62,10 +67,22 @@ public sealed class CatalogItemProjection : TenantEntity<Guid>
         Guid catalogItemId) =>
         new(id, tenantId, catalogItemId);
 
-    public void Update(string sku, string name, decimal price, string currency, CatalogItemStatus status) =>
+    public void Update(
+        string sku,
+        string name,
+        decimal price,
+        string currency,
+        CatalogItemStatus status,
+        IReadOnlyCollection<string>? availableRegions)
+    {
         this.Apply(sku, name, price, currency, status);
+        this.AvailableRegionCodes = EncodeAvailableRegions(availableRegions);
+    }
 
     public void MarkDiscontinued() => this.Status = CatalogItemStatus.Discontinued;
+
+    public IReadOnlyCollection<string> GetAvailableRegions() =>
+        DecodeAvailableRegions(this.AvailableRegionCodes);
 
     private void Apply(string sku, string name, decimal price, string currency, CatalogItemStatus status)
     {
@@ -90,4 +107,12 @@ public sealed class CatalogItemProjection : TenantEntity<Guid>
 
     private static CatalogItemStatus NormalizeStatus(CatalogItemStatus status) =>
         Enum.IsDefined(status) ? status : CatalogItemStatus.Unknown;
+
+    private static string EncodeAvailableRegions(IReadOnlyCollection<string>? availableRegions) =>
+        string.Join(',', CatalogRegionCodes.NormalizeMany(availableRegions));
+
+    private static IReadOnlyCollection<string> DecodeAvailableRegions(string? availableRegionCodes) =>
+        string.IsNullOrWhiteSpace(availableRegionCodes)
+            ? []
+            : CatalogRegionCodes.NormalizeMany(availableRegionCodes.Split(',', StringSplitOptions.RemoveEmptyEntries));
 }

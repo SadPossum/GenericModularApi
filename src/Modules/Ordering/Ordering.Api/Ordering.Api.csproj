@@ -6,10 +6,13 @@
     <ProjectReference Include="..\Ordering.Application\Ordering.Application.csproj" />
     <ProjectReference Include="..\Ordering.Contracts\Ordering.Contracts.csproj" />
     <ProjectReference Include="..\Ordering.Persistence\Ordering.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.AccessControl\Shared.AccessControl.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Security\Shared.Security.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
   </ItemGroup>
 </Project>

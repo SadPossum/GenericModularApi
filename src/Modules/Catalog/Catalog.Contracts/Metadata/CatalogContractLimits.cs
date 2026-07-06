@@ -7,4 +7,6 @@ public static class CatalogContractLimits
     public const int CurrencyLength = 3;
     public const int PricePrecision = 18;
     public const int PriceScale = 2;
+    public const int RegionCodeMaxLength = 32;
+    public const int AvailableRegionMaxCount = 32;
 }

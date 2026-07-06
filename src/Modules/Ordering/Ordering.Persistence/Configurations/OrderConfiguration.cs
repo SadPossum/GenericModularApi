@@ -12,6 +12,11 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
     {
         builder.ToTable("orders");
         builder.HasKey(order => order.Id);
+        builder.Property(order => order.UserId)
+            .HasField("userId")
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .HasMaxLength(Order.UserIdMaxLength)
+            .IsRequired();
         builder.Property(order => order.CatalogItemId)
             .HasField("catalogItemId")
             .UsePropertyAccessMode(PropertyAccessMode.Field)
@@ -36,6 +41,11 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
             .UsePropertyAccessMode(PropertyAccessMode.Field)
             .HasMaxLength(Order.CurrencyLength)
             .IsRequired();
+        builder.Property(order => order.RegionCode)
+            .HasField("regionCode")
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .HasMaxLength(Order.RegionCodeMaxLength)
+            .IsRequired();
         builder.Property(order => order.Quantity)
             .HasConversion(quantity => quantity.Value, value => OrderQuantity.Create(value).Value)
             .HasColumnName("Quantity")
@@ -52,5 +62,6 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
             .IsRequired();
         builder.Property(order => order.Status).HasConversion<int>().IsRequired();
         builder.HasIndex(order => new { order.TenantId, order.CatalogItemId });
+        builder.HasIndex(order => new { order.TenantId, order.UserId, order.CreatedAtUtc });
     }
 }

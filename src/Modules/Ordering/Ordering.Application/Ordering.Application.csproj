@@ -4,9 +4,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Catalog\Catalog.Contracts\Catalog.Contracts.csproj" />
+    <ProjectReference Include="..\..\Notifications\Notifications.Contracts\Notifications.Contracts.csproj" />
     <ProjectReference Include="..\Ordering.Contracts\Ordering.Contracts.csproj" />
     <ProjectReference Include="..\Ordering.Domain\Ordering.Domain.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.AccessControl\Shared.AccessControl.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Results\Shared.Results.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />

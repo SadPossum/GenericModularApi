@@ -6,6 +6,7 @@ using Ordering.Application.Ports;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Domain.Errors;
+using Shared.AccessControl;
 using Shared.Cqrs;
 using Shared.Runtime.Identity;
 using Shared.Tenancy;
@@ -27,6 +28,12 @@ internal sealed class PlaceOrderCommandHandler(
             return Result.Failure<OrderDto>(OrderingDomainErrors.TenantRequired);
         }
 
+        if (command.Subject.Kind != AccessSubjectKind.User ||
+            !string.Equals(command.Subject.TenantId, tenantContext.TenantId, StringComparison.Ordinal))
+        {
+            return Result.Failure<OrderDto>(OrderingApplicationErrors.AccessDenied);
+        }
+
         CatalogItemProjectionSnapshot? catalogItem = await catalogProjectionRepository
             .GetAsync(command.CatalogItemId, cancellationToken)
             .ConfigureAwait(false);
@@ -46,14 +53,21 @@ internal sealed class PlaceOrderCommandHandler(
             return Result.Failure<OrderDto>(OrderingDomainErrors.CatalogItemStatusUnknown);
         }
 
+        if (!catalogItem.IsAvailableInRegion(command.RegionCode))
+        {
+            return Result.Failure<OrderDto>(OrderingDomainErrors.CatalogItemUnavailableInRegion);
+        }
+
         Result<Order> orderResult = Order.Create(
             idGenerator.NewId(),
             tenantContext.TenantId,
+            command.Subject.Id,
             catalogItem.CatalogItemId,
             catalogItem.Sku,
             catalogItem.Name,
             catalogItem.Price,
             catalogItem.Currency,
+            command.RegionCode,
             command.Quantity,
             clock.UtcNow);
 
@@ -71,11 +85,13 @@ internal sealed class PlaceOrderCommandHandler(
     private static OrderDto Map(Order order) =>
         new(
             order.Id,
+            order.UserId,
             order.CatalogItemId,
             order.CatalogSku,
             order.CatalogItemName,
             order.UnitPrice,
             order.Currency,
+            order.RegionCode,
             order.Quantity.Value,
             order.Total.Value,
             OrderStatus.Submitted,

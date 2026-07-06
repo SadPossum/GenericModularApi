@@ -1,6 +1,7 @@
 namespace Notifications.Application.Queries;
 
+using Shared.AccessControl;
 using Shared.Cqrs;
 
-public sealed record GetNotificationStreamCursorQuery(string UserId)
+public sealed record GetNotificationStreamCursorQuery(AccessSubject Subject)
     : IQuery<long>;

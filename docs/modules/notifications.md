@@ -41,6 +41,8 @@ The stream accepts optional `afterSequence`. When omitted, the stream starts aft
 
 All endpoints require authentication and tenant context. When tenancy is enabled, the tenant claim on the token must match the active tenant context.
 
+Current-user history endpoints use the shared access-subject foundation. The API constructs an explicit `AccessSubject` from the authenticated user and active tenant, while `Notifications.Application.Visibility.NotificationHistoryAccess` owns the simple user/tenant checks. Single-notification reads and mark-read operations check a minimal access summary and return not-found-shaped results for wrong-user or wrong-tenant access. List, stream, cursor, and read-all paths keep visibility constrained inside repository queries.
+
 ## Admin API
 
 `Notifications.AdminApi` maps admin-only endpoints under `/api/admin/notifications`:
@@ -94,10 +96,10 @@ SQL Server and PostgreSQL migrations are provider-specific and use the schema-lo
 {application-namespace}.{producer-module}.user-notification-requested.v1
 ```
 
-The compiled Catalog example publishes:
+The compiled Ordering example publishes affected-order-owner notification requests:
 
 ```text
-gma.catalog.user-notification-requested.v1
+gma.ordering.user-notification-requested.v1
 ```
 
 `Notifications.Application` exposes `AddUserNotificationRequestSubscription(producerModule)` for hosts or examples that want this module to consume a producer's durable notification requests. The NATS consumer loop writes the notification and inbox processed marker in the `notifications` schema transaction, giving at-least-once delivery with module-owned idempotency.
@@ -131,7 +133,7 @@ Run the provider-specific module migrations before starting the host. To consume
 
 ```csharp
 builder.Services.AddNotificationsApplication();
-builder.Services.AddUserNotificationRequestSubscription(CatalogModuleMetadata.Name);
+builder.Services.AddUserNotificationRequestSubscription(OrderingModuleMetadata.Name);
 ```
 
 Do this only in hosts/examples that intentionally compose both the producing module and the Notifications consumer.

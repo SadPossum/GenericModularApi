@@ -230,6 +230,26 @@ Infrastructure records that contain tenant ids are not automatically tenant-owne
 
 If yes, tests must cover tenant isolation.
 
+## Resource Access Policies
+
+Use `Shared.AccessControl` only for shared product/resource actor vocabulary such as `AccessSubject`. Put business visibility rules in the owning module, preferably in the domain, and make list/search/feed/export reads flow through typed access scopes that persistence must consume.
+
+Rules:
+
+- keep admin operation authorization in `Shared.Administration` and the optional `Administration` module unless an explicit adapter is added later;
+- define business access actors, policies, and query scopes in the owning module domain when the rule is part of product behavior;
+- use direct application checks for simple operational rules that do not shape persistence;
+- construct `AccessSubject` explicitly at front doors, workers, or tests;
+- keep ASP.NET Core, EF, Auth, Administration, Tenancy runtime, NATS, Redis, and external policy engines out of `Shared.AccessControl`;
+- treat missing scopes as deny-by-default failures, not implicit allow;
+- load minimal access summaries before single-resource authorization when the full resource should not be loaded for unauthorized callers;
+- return not-found-shaped results for private resources when a forbidden response would reveal existence;
+- make protected list, search, feed, export, and stream repository methods require typed access scopes rather than loose tenant/user/region parameters;
+- enforce scope visibility inside repositories, projections, or read models rather than broad in-memory filtering;
+- include every scope dimension in cache keys or avoid caching that read path;
+- do not put tenant ids, user ids, resource ids, subject ids, or policy input values in metric tags;
+- avoid caching allow decisions unless the module documents revocation and invalidation behavior.
+
 ## Persistence
 
 Rules:

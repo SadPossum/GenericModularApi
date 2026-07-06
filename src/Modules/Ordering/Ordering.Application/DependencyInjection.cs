@@ -17,6 +17,7 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
+        services.AddScoped<CatalogItemChangeNotificationPublisher>();
         services.AddProjectionRebuildTasks();
         services.AddIntegrationEventHandler<CatalogItemCreatedIntegrationEvent, CatalogItemCreatedProjectionHandler>(
             OrderingModuleMetadata.Name,

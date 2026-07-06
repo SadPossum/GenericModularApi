@@ -6,7 +6,9 @@ using Ordering.Contracts;
 using Shared.Messaging;
 
 [IntegrationEventHandler(OrderingModuleMetadata.CatalogItemUpdatedProjectionHandlerName)]
-internal sealed class CatalogItemUpdatedProjectionHandler(ICatalogItemProjectionRepository repository)
+internal sealed class CatalogItemUpdatedProjectionHandler(
+    ICatalogItemProjectionRepository repository,
+    CatalogItemChangeNotificationPublisher notifications)
     : IIntegrationEventHandler<CatalogItemUpdatedIntegrationEvent>
 {
     public async Task HandleAsync(CatalogItemUpdatedIntegrationEvent integrationEvent, CancellationToken cancellationToken)
@@ -19,7 +21,17 @@ internal sealed class CatalogItemUpdatedProjectionHandler(ICatalogItemProjection
                 integrationEvent.Name,
                 integrationEvent.Price,
                 integrationEvent.Currency,
-                integrationEvent.Status),
+                integrationEvent.Status,
+                integrationEvent.AvailableRegions),
+            cancellationToken).ConfigureAwait(false);
+
+        await notifications.PublishAsync(
+            integrationEvent.TenantId,
+            integrationEvent.ItemId,
+            integrationEvent.Sku,
+            integrationEvent.Name,
+            integrationEvent.Status,
+            reason: "updated",
             cancellationToken).ConfigureAwait(false);
     }
 }

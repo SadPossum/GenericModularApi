@@ -6,6 +6,7 @@ using Notifications.Application.Ports;
 using Notifications.Contracts;
 using Notifications.Domain.Aggregates;
 using Notifications.Domain.ValueObjects;
+using Shared.AccessControl;
 using Shared.Pagination;
 using ContractSeverity = Notifications.Contracts.NotificationSeverity;
 using DomainSeverity = Notifications.Domain.ValueObjects.NotificationSeverity;
@@ -22,14 +23,13 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
 
     public async Task<NotificationHistoryItem?> GetAsync(
         Guid notificationId,
-        string userId,
+        AccessSubject subject,
         CancellationToken cancellationToken)
     {
-        NotificationRecipient recipient = NormalizeRecipient(userId);
-        UserNotification? notification = await dbContext.UserNotifications
+        UserNotification? notification = await ApplyUserSubjectScope(dbContext.UserNotifications, subject)
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                item => item.Id == notificationId && item.Recipient == recipient,
+                item => item.Id == notificationId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -51,15 +51,13 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
     }
 
     public async Task<NotificationHistoryListResponse> ListAsync(
-        string userId,
+        AccessSubject subject,
         bool unreadOnly,
         PageRequest pageRequest,
         CancellationToken cancellationToken)
     {
-        NotificationRecipient recipient = NormalizeRecipient(userId);
-        IQueryable<UserNotification> userNotifications = dbContext.UserNotifications
-            .AsNoTracking()
-            .Where(notification => notification.Recipient == recipient);
+        IQueryable<UserNotification> userNotifications = ApplyUserSubjectScope(dbContext.UserNotifications, subject)
+            .AsNoTracking();
 
         int unreadCount = await userNotifications
             .CountAsync(notification => notification.ReadAtUtc == null, cancellationToken)
@@ -127,13 +125,11 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
     }
 
     public async Task<long> GetCurrentStreamSequenceForUserAsync(
-        string userId,
+        AccessSubject subject,
         CancellationToken cancellationToken)
     {
-        NotificationRecipient recipient = NormalizeRecipient(userId);
-        long? cursor = await dbContext.UserNotifications
+        long? cursor = await ApplyUserSubjectScope(dbContext.UserNotifications, subject)
             .AsNoTracking()
-            .Where(notification => notification.Recipient == recipient)
             .MaxAsync(notification => (long?)notification.StreamSequence, cancellationToken)
             .ConfigureAwait(false);
 
@@ -159,16 +155,14 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
     }
 
     public async Task<IReadOnlyList<NotificationHistoryItem>> ListNewForUserAsync(
-        string userId,
+        AccessSubject subject,
         long afterStreamSequence,
         int batchSize,
         CancellationToken cancellationToken)
     {
-        NotificationRecipient recipient = NormalizeRecipient(userId);
-        UserNotification[] items = await dbContext.UserNotifications
+        UserNotification[] items = await ApplyUserSubjectScope(dbContext.UserNotifications, subject)
             .AsNoTracking()
             .Where(notification =>
-                notification.Recipient == recipient &&
                 notification.StreamSequence > afterStreamSequence)
             .OrderBy(notification => notification.StreamSequence)
             .Take(batchSize)
@@ -203,14 +197,13 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
 
     public async Task<bool> MarkReadAsync(
         Guid notificationId,
-        string userId,
+        AccessSubject subject,
         DateTimeOffset readAtUtc,
         CancellationToken cancellationToken)
     {
-        NotificationRecipient recipient = NormalizeRecipient(userId);
-        UserNotification? notification = await dbContext.UserNotifications
+        UserNotification? notification = await ApplyUserSubjectScope(dbContext.UserNotifications, subject)
             .FirstOrDefaultAsync(
-                item => item.Id == notificationId && item.Recipient == recipient,
+                item => item.Id == notificationId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -218,23 +211,24 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
     }
 
     public async Task<int> MarkAllReadAsync(
-        string userId,
+        AccessSubject subject,
         DateTimeOffset readAtUtc,
         CancellationToken cancellationToken)
     {
-        NotificationRecipient recipient = NormalizeRecipient(userId);
+        IQueryable<UserNotification> query = ApplyUserSubjectScope(dbContext.UserNotifications, subject);
+
         if (dbContext.Database.IsRelational())
         {
-            return await dbContext.UserNotifications
-                .Where(notification => notification.Recipient == recipient && notification.ReadAtUtc == null)
+            return await query
+                .Where(notification => notification.ReadAtUtc == null)
                 .ExecuteUpdateAsync(
                     setters => setters.SetProperty(notification => notification.ReadAtUtc, readAtUtc),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        UserNotification[] unreadNotifications = await dbContext.UserNotifications
-            .Where(notification => notification.Recipient == recipient && notification.ReadAtUtc == null)
+        UserNotification[] unreadNotifications = await query
+            .Where(notification => notification.ReadAtUtc == null)
             .ToArrayAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -290,6 +284,18 @@ internal sealed class NotificationHistoryRepository(NotificationsDbContext dbCon
 
     private static NotificationRecipient NormalizeRecipient(string userId) =>
         NotificationRecipient.Create(userId).Value;
+
+    private static IQueryable<UserNotification> ApplyUserSubjectScope(
+        IQueryable<UserNotification> query,
+        AccessSubject subject)
+    {
+        NotificationRecipient recipient = NormalizeRecipient(subject.Id);
+        query = query.Where(notification => notification.Recipient == recipient);
+
+        return string.IsNullOrWhiteSpace(subject.TenantId)
+            ? query
+            : query.Where(notification => notification.TenantId == subject.TenantId);
+    }
 
     private static ContractSeverity ToContractSeverity(DomainSeverity severity) =>
         severity switch

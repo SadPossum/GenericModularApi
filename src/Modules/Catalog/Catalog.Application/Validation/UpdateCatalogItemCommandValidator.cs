@@ -1,7 +1,7 @@
 namespace Catalog.Application.Validation;
 
 using Catalog.Application.Commands;
-using Notifications.Contracts;
+using Catalog.Contracts;
 using Shared.Cqrs;
 
 internal sealed class UpdateCatalogItemCommandValidator : ICommandValidator<UpdateCatalogItemCommand>
@@ -33,10 +33,21 @@ internal sealed class UpdateCatalogItemCommandValidator : ICommandValidator<Upda
             yield return "Currency is required.";
         }
 
-        if (!string.IsNullOrWhiteSpace(command.NotificationUserId) &&
-            !NotificationRecipientUserIds.TryNormalize(command.NotificationUserId, out _))
+        string[] availableRegions = command.AvailableRegions?
+            .Where(region => !string.IsNullOrWhiteSpace(region))
+            .ToArray() ?? [];
+        if (availableRegions.Length > CatalogContractLimits.AvailableRegionMaxCount)
         {
-            yield return "Notification user id is invalid.";
+            yield return $"At most {CatalogContractLimits.AvailableRegionMaxCount} available regions can be supplied.";
+        }
+
+        foreach (string region in availableRegions)
+        {
+            if (!CatalogRegionCodes.TryNormalize(region, out _))
+            {
+                yield return "Available region code is invalid.";
+                yield break;
+            }
         }
     }
 }

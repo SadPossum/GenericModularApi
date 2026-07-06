@@ -28,6 +28,8 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Caching](architecture/caching.md)
 - [Administration](architecture/administration.md)
 - [Shared Access Policy Foundation](architecture/shared-access-policy-foundation.md)
+- [Scoped Resource Access](architecture/scoped-resource-access.md)
+- [Shared Access Policy Implementation Notes](architecture/shared-access-policy-implementation-notes.md)
 - [Tasks and Daemons](architecture/tasks-and-daemons.md)
 - [Projection Rebuild Tasks](architecture/projection-rebuild-tasks.md)
 - [Projection Rebuild Implementation Notes](architecture/projection-rebuild-implementation-notes.md)

@@ -12,6 +12,7 @@ Ordering owns:
 - local catalog item projections used for order decisions;
 - an inbox table for idempotent event processing.
 - projection rebuild checkpoints for local projection repair/backfill.
+- an outbox for Ordering-owned integration events, including addressed notification requests for affected order owners.
 
 ## Projects
 
@@ -47,8 +48,21 @@ It does not reference Catalog domain, application, persistence, API, or admin pr
 - price;
 - currency;
 - status.
+- available region codes. An empty list means globally available.
 
-`Order` stores the catalog item id as a scalar external id. There is no database foreign key to Catalog.
+`Order` stores the catalog item id as a scalar external id. There is no database foreign key to Catalog. It also stores the placing user id and requested region, because order visibility and item-availability decisions are Ordering-owned business rules.
+
+Current-user order reads follow the scoped resource-access pattern:
+
+```text
+API subject
+  -> OrderViewer
+  -> OrderingVisibilityPolicy
+  -> UserOrdersScope
+  -> IOrderReadRepository.ListAsync(scope, page, ct)
+```
+
+The protected repository methods require `UserOrdersScope`, and `Ordering.Persistence.QueryScopes.ApplyUserOrdersScope(...)` applies tenant and user filters in SQL. This keeps user-owned order history from becoming a handler-only boolean check.
 
 ## Projection Rebuild Task
 
@@ -81,10 +95,12 @@ Tasks:Worker:WorkerGroups:0 = projection-workers
 
 Default hosts do not register Catalog, Ordering, or the projection worker group.
 
-## Order Rule
+## Order Rules
 
 Creating an order requires a known active catalog item projection. Unknown or discontinued catalog items are rejected.
 Ordering validates duplicated projection data before creating an order: SKU and name must fit local persistence limits, currency must be a three-letter code, and price must be positive and fit mapped decimal precision without rounding. Order totals must also fit mapped decimal precision. This keeps copied data explicit and prevents a bad producer event or manual projection repair from becoming a late EF failure.
+
+The public API requires a user subject and a region code. The application rejects order placement when the local Catalog projection is not available in that region. Order list/detail queries build a domain `UserOrdersScope` and keep repository queries scoped to the order owner.
 
 ## Public API
 
@@ -92,11 +108,33 @@ Ordering validates duplicated projection data before creating an order: SKU and 
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/orders` | List orders. |
-| `GET` | `/api/orders/{orderId}` | Get one order. |
-| `POST` | `/api/orders` | Place an order for a projected Catalog item. |
+| `GET` | `/api/orders` | List current-user orders. |
+| `GET` | `/api/orders/{orderId}` | Get one current-user order. |
+| `POST` | `/api/orders` | Place an order for a projected Catalog item and region. |
 
 The API is optional and not registered by default. It composes only Ordering application and persistence; it does not call Catalog synchronously.
+
+## Notifications
+
+Ordering demonstrates affected-recipient notification decisions without making Notifications understand order rules:
+
+```text
+Catalog item updated/discontinued
+  -> Ordering NATS consumer
+  -> Ordering catalog projection update
+  -> Ordering order-owner lookup
+  -> Ordering outbox UserNotificationRequestedIntegrationEvent
+  -> optional Notifications consumer
+  -> notifications.user_notifications
+```
+
+Ordering references `Notifications.Contracts` only. It publishes `UserNotificationRequestedIntegrationEvent` under Ordering's producer subject:
+
+```text
+{application-namespace}.ordering.user-notification-requested.v1
+```
+
+The Notifications module stays deliberately dumb about Catalog and Ordering visibility. It stores and streams a notification only after a producer module has already chosen an explicit recipient user id.
 
 ## Consumers
 

@@ -10,6 +10,7 @@ using Ordering.Application.Ports;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
 using Ordering.Domain.Errors;
+using Shared.AccessControl;
 using Shared.Cqrs;
 using Shared.Messaging;
 using Shared.Tenancy;
@@ -58,7 +59,7 @@ public sealed class PlaceOrderCommandHandlerTests
         IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
 
         Result<OrderDto> result = await dispatcher
-            .SendAsync(new PlaceOrderCommand(catalogItemId, 1), CancellationToken.None);
+            .SendAsync(new PlaceOrderCommand(catalogItemId, 1, UserSubject(), "US"), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(OrderingDomainErrors.CatalogItemStatusUnknown, result.Error);
@@ -82,7 +83,7 @@ public sealed class PlaceOrderCommandHandlerTests
         IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
 
         Result<OrderDto> result = await dispatcher
-            .SendAsync(new PlaceOrderCommand(catalogItemId, 1), CancellationToken.None);
+            .SendAsync(new PlaceOrderCommand(catalogItemId, 1, UserSubject(), "US"), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(OrderingDomainErrors.CatalogItemPriceMustBePositive, result.Error);
@@ -118,14 +119,18 @@ public sealed class PlaceOrderCommandHandlerTests
     {
         Result<Order> result = CreateOrder(
             "tenant-a",
+            userId: " user-1 ",
             catalogSku: " sku-1 ",
             catalogItemName: " Catalog item ",
+            regionCode: " us ",
             currency: " usd ");
 
         Assert.True(result.IsSuccess);
+        Assert.Equal("user-1", result.Value.UserId);
         Assert.Equal("SKU-1", result.Value.CatalogSku);
         Assert.Equal("Catalog item", result.Value.CatalogItemName);
         Assert.Equal("USD", result.Value.Currency);
+        Assert.Equal("US", result.Value.RegionCode);
     }
 
     [Fact]
@@ -156,25 +161,67 @@ public sealed class PlaceOrderCommandHandlerTests
                 quantity: 2).Error);
     }
 
+    [Fact]
+    public void Order_create_rejects_invalid_user_and_region()
+    {
+        Assert.Equal(OrderingDomainErrors.UserIdRequired, CreateOrder("tenant-a", userId: " ").Error);
+        Assert.Equal(
+            OrderingDomainErrors.UserIdInvalid,
+            CreateOrder("tenant-a", userId: new string('x', Order.UserIdMaxLength + 1)).Error);
+        Assert.Equal(OrderingDomainErrors.RegionInvalid, CreateOrder("tenant-a", regionCode: " ").Error);
+        Assert.Equal(OrderingDomainErrors.RegionInvalid, CreateOrder("tenant-a", regionCode: "-us").Error);
+    }
+
+    [Fact]
+    public async Task Place_order_rejects_catalog_item_unavailable_in_user_region()
+    {
+        Guid catalogItemId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        RecordingOrderRepository orderRepository = new();
+        CatalogProjectionRepository catalogRepository = new(new CatalogItemProjectionSnapshot(
+            catalogItemId,
+            "SKU-1",
+            "Region item",
+            10m,
+            "USD",
+            CatalogItemStatus.Active,
+            ["EU"]));
+        using IHost host = BuildHost(orderRepository, catalogRepository);
+        using IServiceScope scope = host.Services.CreateScope();
+        IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+
+        Result<OrderDto> result = await dispatcher
+            .SendAsync(new PlaceOrderCommand(catalogItemId, 1, UserSubject(), "US"), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(OrderingDomainErrors.CatalogItemUnavailableInRegion, result.Error);
+        Assert.Empty(orderRepository.Orders);
+    }
+
     private static Result<Order> CreateOrder(
         string tenantId,
         Guid? orderId = null,
+        string userId = "user-1",
         Guid? catalogItemId = null,
         string catalogSku = "SKU-1",
         string catalogItemName = "Catalog item",
         decimal unitPrice = 10m,
         string currency = "USD",
+        string regionCode = "US",
         int quantity = 1) =>
         Order.Create(
             orderId ?? Guid.NewGuid(),
             tenantId,
+            userId,
             catalogItemId ?? Guid.NewGuid(),
             catalogSku,
             catalogItemName,
             unitPrice,
             currency,
+            regionCode,
             quantity,
             DateTimeOffset.UtcNow);
+
+    private static AccessSubject UserSubject() => AccessSubject.User("user-1", "tenant-a");
 
     private static IHost BuildHost(
         RecordingOrderRepository orderRepository,
@@ -213,6 +260,17 @@ public sealed class PlaceOrderCommandHandlerTests
             this.Orders.Add(order);
             return Task.CompletedTask;
         }
+
+        public Task<IReadOnlyCollection<string>> ListDistinctUserIdsByCatalogItemAsync(
+            string tenantId,
+            Guid catalogItemId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<string>>(
+                this.Orders
+                    .Where(order => order.TenantId == tenantId && order.CatalogItemId == catalogItemId)
+                    .Select(order => order.UserId)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray());
     }
 
     private sealed class CatalogProjectionRepository(CatalogItemProjectionSnapshot? projection)

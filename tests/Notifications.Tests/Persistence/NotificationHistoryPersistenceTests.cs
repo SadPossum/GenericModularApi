@@ -12,6 +12,7 @@ using Notifications.Application.Queries;
 using Notifications.Contracts;
 using Notifications.Domain.Aggregates;
 using Notifications.Persistence;
+using Shared.AccessControl;
 using Shared.Cqrs;
 using Shared.Cqrs.Infrastructure;
 using Shared.Notifications;
@@ -106,13 +107,13 @@ public sealed class NotificationHistoryPersistenceTests
         await dbContext.SaveChangesAsync();
 
         Result<Unit> markOne = await dispatcher.SendAsync(
-            new MarkNotificationReadCommand(notificationId, "user-a"),
+            new MarkNotificationReadCommand(notificationId, UserSubject("user-a")),
             CancellationToken.None);
         Result<NotificationHistoryListResponse> unreadAfterOne = await dispatcher.QueryAsync(
-            new ListNotificationHistoryQuery("user-a", UnreadOnly: true),
+            new ListNotificationHistoryQuery(UserSubject("user-a"), UnreadOnly: true),
             CancellationToken.None);
         Result<MarkAllNotificationsReadResponse> markAll = await dispatcher.SendAsync(
-            new MarkAllNotificationsReadCommand("user-a"),
+            new MarkAllNotificationsReadCommand(UserSubject("user-a")),
             CancellationToken.None);
 
         Assert.True(markOne.IsSuccess);
@@ -137,10 +138,10 @@ public sealed class NotificationHistoryPersistenceTests
         await dbContext.SaveChangesAsync();
 
         Result<long> userCursor = await dispatcher.QueryAsync(
-            new GetNotificationStreamCursorQuery("user-a"),
+            new GetNotificationStreamCursorQuery(UserSubject("user-a")),
             CancellationToken.None);
         Result<IReadOnlyList<NotificationHistoryItem>> userItems = await dispatcher.QueryAsync(
-            new StreamNotificationHistoryQuery("user-a", AfterStreamSequence: 10, BatchSize: 10),
+            new StreamNotificationHistoryQuery(UserSubject("user-a"), AfterStreamSequence: 10, BatchSize: 10),
             CancellationToken.None);
         Result<long> tenantCursor = await dispatcher.QueryAsync(
             new GetTenantNotificationStreamCursorQuery(null),
@@ -160,6 +161,40 @@ public sealed class NotificationHistoryPersistenceTests
         Assert.Equal(12, tenantCursor.Value);
         long[] expectedSequences = [11, 12];
         Assert.Equal(expectedSequences, tenantItems.Value.Select(item => item.StreamSequence).ToArray());
+    }
+
+    [Fact]
+    public async Task User_history_policy_denies_wrong_user_and_wrong_tenant_without_leaking_item()
+    {
+        using IHost host = BuildHost(enabled: false, tenantId: "tenant-a");
+        using IServiceScope scope = host.Services.CreateScope();
+        NotificationsDbContext dbContext = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+        IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+        Guid notificationId = Guid.Parse("abababab-abab-abab-abab-abababababab");
+        dbContext.UserNotifications.Add(CreateNotification("tenant-a", "user-a", notificationId));
+        await dbContext.SaveChangesAsync();
+
+        Result<NotificationHistoryItem> wrongUser = await dispatcher.QueryAsync(
+            new GetNotificationHistoryItemQuery(notificationId, UserSubject("user-b")),
+            CancellationToken.None);
+        Result<Unit> wrongTenant = await dispatcher.SendAsync(
+            new MarkNotificationReadCommand(notificationId, UserSubject("user-a", "tenant-b")),
+            CancellationToken.None);
+        Result<NotificationHistoryListResponse> wrongTenantList = await dispatcher.QueryAsync(
+            new ListNotificationHistoryQuery(UserSubject("user-a", "tenant-b")),
+            CancellationToken.None);
+        Result<NotificationHistoryListResponse> userList = await dispatcher.QueryAsync(
+            new ListNotificationHistoryQuery(UserSubject("user-a")),
+            CancellationToken.None);
+
+        Assert.True(wrongUser.IsFailure);
+        Assert.Equal(NotificationsApplicationErrors.NotificationNotFound, wrongUser.Error);
+        Assert.True(wrongTenant.IsFailure);
+        Assert.Equal(NotificationsApplicationErrors.NotificationNotFound, wrongTenant.Error);
+        Assert.True(wrongTenantList.IsSuccess);
+        Assert.Empty(wrongTenantList.Value.Items);
+        Assert.True(userList.IsSuccess);
+        Assert.Single(userList.Value.Items);
     }
 
     [Fact]
@@ -444,6 +479,9 @@ public sealed class NotificationHistoryPersistenceTests
 
         return new NotificationsDbContext(options, new TestTenantContext(tenantId));
     }
+
+    private static AccessSubject UserSubject(string userId, string tenantId = "tenant-a") =>
+        AccessSubject.User(userId, tenantId);
 
     private static UserNotification CreateNotification(
         string tenantId,

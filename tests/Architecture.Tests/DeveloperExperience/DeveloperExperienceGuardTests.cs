@@ -3753,6 +3753,13 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Runtime\Shared.Runtime.csproj"
                 ]),
             new(
+                "Shared.AccessControl",
+                [],
+                [],
+                [
+                    @"..\Shared.Naming\Shared.Naming.csproj"
+                ]),
+            new(
                 "Shared.Api",
                 [],
                 ["Microsoft.AspNetCore.App"],
@@ -4684,6 +4691,70 @@ public sealed partial class DeveloperExperienceGuardTests
             .Select(reference => $"Shared.Administration.csproj:{reference}")
             .ToArray();
         string[] sourceOffenders = EnumerateSourceFiles(sharedAdministrationRoot)
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+
+                return forbiddenSourceTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{Path.GetRelativePath(repositoryRoot, path)}:{token}");
+            })
+            .ToArray();
+
+        Assert.Empty(packageOffenders
+            .Concat(frameworkOffenders)
+            .Concat(sourceOffenders)
+            .Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Shared_access_control_core_remains_backend_agnostic()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string sharedAccessControlRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.AccessControl");
+        string projectPath = Path.Combine(sharedAccessControlRoot, "Shared.AccessControl.csproj");
+        XDocument project = XDocument.Load(projectPath);
+        string[] forbiddenPackages =
+        [
+            "Microsoft.AspNetCore.Authentication.JwtBearer",
+            "Microsoft.EntityFrameworkCore",
+            "Microsoft.Extensions.Hosting",
+            "NATS.Net",
+            "System.CommandLine"
+        ];
+        string[] forbiddenFrameworkReferences =
+        [
+            "Microsoft.AspNetCore.App"
+        ];
+        string[] forbiddenSourceTokens =
+        [
+            "ClaimsPrincipal",
+            "DbContext",
+            "IAdminAuthorizationService",
+            "IEndpointRouteBuilder",
+            "IHostApplicationBuilder",
+            "ITenantContext",
+            "Microsoft.AspNetCore",
+            "Microsoft.EntityFrameworkCore",
+            "Nats",
+            "OpenFGA",
+            "SpiceDB",
+            "System.CommandLine"
+        ];
+
+        string[] packageOffenders = project
+            .Descendants("PackageReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(packageId => packageId is not null && forbiddenPackages.Contains(packageId, StringComparer.Ordinal))
+            .Select(packageId => $"Shared.AccessControl.csproj:{packageId}")
+            .ToArray();
+        string[] frameworkOffenders = project
+            .Descendants("FrameworkReference")
+            .Select(element => element.Attribute("Include")?.Value)
+            .Where(reference => reference is not null && forbiddenFrameworkReferences.Contains(reference, StringComparer.Ordinal))
+            .Select(reference => $"Shared.AccessControl.csproj:{reference}")
+            .ToArray();
+        string[] sourceOffenders = EnumerateSourceFiles(sharedAccessControlRoot)
             .SelectMany(path =>
             {
                 string source = File.ReadAllText(path);
@@ -6576,6 +6647,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string normalizedReference = NormalizePath(referencePath);
         HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
         {
+            NormalizePath(@"..\..\..\Shared\Shared.AccessControl\Shared.AccessControl.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
@@ -6616,6 +6688,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string normalizedReference = NormalizePath(referencePath);
         HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
         {
+            NormalizePath(@"..\..\..\Shared\Shared.AccessControl\Shared.AccessControl.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Api\Shared.Api.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"),
@@ -6801,6 +6874,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string normalizedReference = NormalizePath(referencePath);
         HashSet<string> allowedSharedReferences = new(StringComparer.OrdinalIgnoreCase)
         {
+            NormalizePath(@"..\..\..\Shared\Shared.AccessControl\Shared.AccessControl.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Application.Events\Shared.Application.Events.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
@@ -7180,6 +7254,7 @@ public sealed partial class DeveloperExperienceGuardTests
         }
 
         if (source.Contains("public enum ", StringComparison.Ordinal) ||
+            fileName.EndsWith("Codes.cs", StringComparison.Ordinal) ||
             fileName.EndsWith("UserIds.cs", StringComparison.Ordinal) ||
             (fileName.EndsWith("Names.cs", StringComparison.Ordinal) &&
              source.Contains("ToWireName(", StringComparison.Ordinal)))

@@ -4,13 +4,16 @@ using Microsoft.EntityFrameworkCore;
 using Ordering.Application.Ports;
 using Ordering.Contracts;
 using Ordering.Domain.Aggregates;
+using Ordering.Domain.Visibility;
+using Ordering.Persistence.QueryScopes;
 using Shared.Pagination;
 
 internal sealed class OrderReadRepository(OrderingDbContext dbContext) : IOrderReadRepository
 {
-    public async Task<OrderDto?> GetAsync(Guid orderId, CancellationToken cancellationToken)
+    public async Task<OrderDto?> GetAsync(Guid orderId, UserOrdersScope scope, CancellationToken cancellationToken)
     {
         Order? order = await dbContext.Orders
+            .ApplyUserOrdersScope(scope)
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == orderId, cancellationToken)
             .ConfigureAwait(false);
@@ -18,14 +21,19 @@ internal sealed class OrderReadRepository(OrderingDbContext dbContext) : IOrderR
         return order is null ? null : Map(order);
     }
 
-    public async Task<OrderListResponse> ListAsync(PageRequest pageRequest, CancellationToken cancellationToken)
+    public async Task<OrderListResponse> ListAsync(
+        UserOrdersScope scope,
+        PageRequest pageRequest,
+        CancellationToken cancellationToken)
     {
-        IQueryable<Order> orders = dbContext.Orders.AsNoTracking();
+        IQueryable<Order> orders = dbContext.Orders
+            .ApplyUserOrdersScope(scope)
+            .AsNoTracking()
+            .OrderByDescending(order => order.CreatedAtUtc)
+            .ThenBy(order => order.Id);
 
         int totalCount = await orders.CountAsync(cancellationToken).ConfigureAwait(false);
         Order[] items = await orders
-            .OrderByDescending(order => order.CreatedAtUtc)
-            .ThenBy(order => order.Id)
             .Skip(pageRequest.SkipCount)
             .Take(pageRequest.PageSize)
             .ToArrayAsync(cancellationToken)
@@ -41,11 +49,13 @@ internal sealed class OrderReadRepository(OrderingDbContext dbContext) : IOrderR
     private static OrderDto Map(Order order) =>
         new(
             order.Id,
+            order.UserId,
             order.CatalogItemId,
             order.CatalogSku,
             order.CatalogItemName,
             order.UnitPrice,
             order.Currency,
+            order.RegionCode,
             order.Quantity.Value,
             order.Total.Value,
             MapStatus(order.Status),

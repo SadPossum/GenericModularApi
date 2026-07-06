@@ -1,6 +1,7 @@
 namespace Ordering.Contracts;
 
 using Catalog.Contracts;
+using Notifications.Contracts;
 using Shared.Messaging;
 using Shared.ModuleComposition;
 using Shared.Modules;
@@ -23,6 +24,7 @@ public static class OrderingModuleMetadata
         .WithSubscription<CatalogItemCreatedIntegrationEvent>(CatalogModuleMetadata.Name, CatalogItemCreatedProjectionHandlerName)
         .WithSubscription<CatalogItemUpdatedIntegrationEvent>(CatalogModuleMetadata.Name, CatalogItemUpdatedProjectionHandlerName)
         .WithSubscription<CatalogItemDiscontinuedIntegrationEvent>(CatalogModuleMetadata.Name, CatalogItemDiscontinuedProjectionHandlerName)
+        .WithPublishedEvent<UserNotificationRequestedIntegrationEvent>()
         .WithTask<RebuildCatalogItemProjectionPayload>()
         .WithProfile(OrderingProfiles.Default)
         .Build();

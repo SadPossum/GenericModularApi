@@ -15,7 +15,8 @@ public sealed record CatalogItemProjectionWriteModel
         string name,
         decimal price,
         string currency,
-        CatalogItemStatus status)
+        CatalogItemStatus status,
+        IReadOnlyCollection<string>? availableRegions = null)
     {
         Result validation = Order.ValidateCatalogSnapshot(catalogItemId, sku, name, price, currency);
         if (validation.IsFailure)
@@ -30,6 +31,7 @@ public sealed record CatalogItemProjectionWriteModel
         this.Price = price;
         this.Currency = Order.NormalizeCurrency(currency);
         this.Status = NormalizeStatus(status);
+        this.AvailableRegions = CatalogRegionCodes.NormalizeMany(availableRegions);
     }
 
     public string TenantId { get; }
@@ -39,6 +41,7 @@ public sealed record CatalogItemProjectionWriteModel
     public decimal Price { get; }
     public string Currency { get; }
     public CatalogItemStatus Status { get; }
+    public IReadOnlyCollection<string> AvailableRegions { get; }
 
     private static CatalogItemStatus NormalizeStatus(CatalogItemStatus status) =>
         Enum.IsDefined(status) ? status : CatalogItemStatus.Unknown;

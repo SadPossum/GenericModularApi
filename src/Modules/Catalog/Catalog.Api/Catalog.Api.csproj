@@ -3,6 +3,7 @@
     <ProjectReference Include="..\Catalog.Application\Catalog.Application.csproj" />
     <ProjectReference Include="..\Catalog.Contracts\Catalog.Contracts.csproj" />
     <ProjectReference Include="..\Catalog.Persistence\Catalog.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.AccessControl\Shared.AccessControl.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />

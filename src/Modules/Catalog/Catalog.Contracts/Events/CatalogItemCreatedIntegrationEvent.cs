@@ -20,7 +20,8 @@ public sealed record CatalogItemCreatedIntegrationEvent : TenantIntegrationEvent
         string sku,
         string name,
         decimal price,
-        string currency)
+        string currency,
+        IReadOnlyCollection<string>? availableRegions = null)
         : base(eventId, tenantId, occurredAtUtc, EventType, EventVersion)
     {
         this.ItemId = IntegrationEventContractGuards.RequireId(itemId, nameof(itemId));
@@ -35,6 +36,7 @@ public sealed record CatalogItemCreatedIntegrationEvent : TenantIntegrationEvent
             CatalogContractLimits.PriceScale,
             nameof(price));
         this.Currency = NormalizeCurrency(currency);
+        this.AvailableRegions = CatalogRegionCodes.NormalizeMany(availableRegions);
     }
 
     public Guid ItemId { get; }
@@ -42,6 +44,7 @@ public sealed record CatalogItemCreatedIntegrationEvent : TenantIntegrationEvent
     public string Name { get; }
     public decimal Price { get; }
     public string Currency { get; }
+    public IReadOnlyCollection<string> AvailableRegions { get; }
 
     private static string NormalizeSku(string sku) =>
         IntegrationEventContractGuards

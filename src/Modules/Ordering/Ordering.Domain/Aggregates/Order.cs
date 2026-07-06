@@ -11,6 +11,8 @@ public sealed class Order : TenantAggregateRoot<Guid>
     public const int CatalogSkuMaxLength = 64;
     public const int CatalogItemNameMaxLength = 256;
     public const int CurrencyLength = 3;
+    public const int UserIdMaxLength = 256;
+    public const int RegionCodeMaxLength = 32;
     public const int AmountPrecision = 18;
     public const int AmountScale = 2;
 
@@ -22,10 +24,12 @@ public sealed class Order : TenantAggregateRoot<Guid>
     }
 
     private Guid catalogItemId;
+    private string userId = string.Empty;
     private string catalogSku = string.Empty;
     private string catalogItemName = string.Empty;
     private decimal unitPrice;
     private string currency = string.Empty;
+    private string regionCode = string.Empty;
 
     public OrderCatalogItemSnapshot CatalogItem =>
         OrderCatalogItemSnapshot.Create(
@@ -40,19 +44,23 @@ public sealed class Order : TenantAggregateRoot<Guid>
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public Guid CatalogItemId => this.catalogItemId;
+    public string UserId => this.userId;
     public string CatalogSku => this.catalogSku;
     public string CatalogItemName => this.catalogItemName;
     public decimal UnitPrice => this.unitPrice;
     public string Currency => this.currency;
+    public string RegionCode => this.regionCode;
 
     public static Result<Order> Create(
         Guid id,
         string tenantId,
+        string userId,
         Guid catalogItemId,
         string catalogSku,
         string catalogItemName,
         decimal unitPrice,
         string currency,
+        string regionCode,
         int quantity,
         DateTimeOffset nowUtc)
     {
@@ -88,6 +96,18 @@ public sealed class Order : TenantAggregateRoot<Guid>
             return Result.Failure<Order>(catalogSnapshot.Error);
         }
 
+        Result<OrderUserId> userIdResult = OrderUserId.Create(userId);
+        if (userIdResult.IsFailure)
+        {
+            return Result.Failure<Order>(userIdResult.Error);
+        }
+
+        Result<OrderRegionCode> regionCodeResult = OrderRegionCode.Create(regionCode);
+        if (regionCodeResult.IsFailure)
+        {
+            return Result.Failure<Order>(regionCodeResult.Error);
+        }
+
         Result<OrderAmount> total = CalculateTotal(catalogSnapshot.Value.UnitPrice, quantityResult.Value);
         if (total.IsFailure)
         {
@@ -96,11 +116,13 @@ public sealed class Order : TenantAggregateRoot<Guid>
 
         Order order = new(id, normalizedTenantId)
         {
+            userId = userIdResult.Value.Value,
             catalogItemId = catalogSnapshot.Value.CatalogItemId,
             catalogSku = catalogSnapshot.Value.Sku,
             catalogItemName = catalogSnapshot.Value.Name,
             unitPrice = catalogSnapshot.Value.UnitPrice.Value,
             currency = catalogSnapshot.Value.Currency,
+            regionCode = regionCodeResult.Value.Value,
             Quantity = quantityResult.Value,
             Total = total.Value,
             Status = OrderState.Submitted,
@@ -153,4 +175,10 @@ public sealed class Order : TenantAggregateRoot<Guid>
 
     public static string NormalizeCurrency(string? currency) =>
         OrderCatalogItemSnapshot.NormalizeCurrency(currency);
+
+    public static string NormalizeUserId(string? userId) =>
+        OrderUserId.Normalize(userId);
+
+    public static string NormalizeRegionCode(string? regionCode) =>
+        OrderRegionCode.Normalize(regionCode);
 }

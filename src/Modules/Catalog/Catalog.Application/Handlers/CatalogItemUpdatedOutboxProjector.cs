@@ -20,6 +20,7 @@ internal sealed class CatalogItemUpdatedOutboxProjector(IOutboxWriterRegistry ou
                 domainEvent.Name,
                 domainEvent.Price,
                 domainEvent.Currency,
-                CatalogItemMapper.ToContractStatus(domainEvent.Status)),
+                CatalogItemMapper.ToContractStatus(domainEvent.Status),
+                domainEvent.AvailableRegions),
             cancellationToken);
 }

@@ -13,10 +13,12 @@ using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
+using Shared.AccessControl;
 using Shared.Cqrs;
 using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Results;
+using Shared.Tenancy;
 
 public sealed class CatalogModule : IModule
 {
@@ -45,6 +47,34 @@ public sealed class CatalogModule : IModule
                 cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
             .RequireTenant();
 
+        items.MapGet("/available", async (
+            string region,
+            int? page,
+            int? pageSize,
+            HttpContext httpContext,
+            ITenantContext tenantContext,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject))
+            {
+                return Results.Unauthorized();
+            }
+
+            Result<CatalogItemListResponse> result = await dispatcher.QueryAsync(
+                new ListAvailableCatalogItemsQuery(
+                    subject,
+                    region,
+                    CatalogUserClaims.GetCurrentRegionCode(httpContext),
+                    page ?? PageRequest.DefaultPage,
+                    pageSize ?? PageRequest.DefaultPageSize),
+                cancellationToken).ConfigureAwait(false);
+
+            return result.ToHttpResult(PublicErrorStatusCodes);
+        })
+            .RequireTenant()
+            .RequireAuthorization();
+
         items.MapGet("/{itemId:guid}", async (
             Guid itemId,
             IRequestDispatcher dispatcher,
@@ -58,12 +88,43 @@ public sealed class CatalogModule : IModule
         })
             .RequireTenant();
 
+        items.MapGet("/available/{itemId:guid}", async (
+            Guid itemId,
+            string region,
+            HttpContext httpContext,
+            ITenantContext tenantContext,
+            IRequestDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject))
+            {
+                return Results.Unauthorized();
+            }
+
+            Result<CatalogItemDto> result = await dispatcher.QueryAsync(
+                new GetAvailableCatalogItemQuery(
+                    itemId,
+                    subject,
+                    region,
+                    CatalogUserClaims.GetCurrentRegionCode(httpContext)),
+                cancellationToken).ConfigureAwait(false);
+
+            return result.ToHttpResult(PublicErrorStatusCodes);
+        })
+            .RequireTenant()
+            .RequireAuthorization();
+
         items.MapPost("/", async (
             CatalogItemWriteRequest request,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
             (await dispatcher.SendAsync(
-                new CreateCatalogItemCommand(request.Sku, request.Name, request.Price, request.Currency),
+                new CreateCatalogItemCommand(
+                    request.Sku,
+                    request.Name,
+                    request.Price,
+                    request.Currency,
+                    request.AvailableRegions),
                 cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
             .RequireTenant()
             .RequireAuthorization();
@@ -71,7 +132,6 @@ public sealed class CatalogModule : IModule
         items.MapPut("/{itemId:guid}", async (
             Guid itemId,
             CatalogItemWriteRequest request,
-            HttpContext httpContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -82,7 +142,7 @@ public sealed class CatalogModule : IModule
                     request.Name,
                     request.Price,
                     request.Currency,
-                    CatalogUserNotifications.GetCurrentUserId(httpContext)),
+                    request.AvailableRegions),
                 cancellationToken).ConfigureAwait(false);
 
             return result.ToHttpResult(PublicErrorStatusCodes);
@@ -109,7 +169,24 @@ public sealed class CatalogModule : IModule
         new(CatalogApplicationErrors.ItemNotFound.Code, StatusCodes.Status404NotFound),
         new(CatalogApplicationErrors.SkuAlreadyExists.Code, StatusCodes.Status409Conflict),
         new(CatalogApplicationErrors.ItemStatusUnknown.Code, StatusCodes.Status409Conflict),
-        new(CatalogApplicationErrors.ItemAlreadyDiscontinued.Code, StatusCodes.Status409Conflict));
+        new(CatalogApplicationErrors.ItemAlreadyDiscontinued.Code, StatusCodes.Status409Conflict),
+        new(CatalogApplicationErrors.AccessDenied.Code, StatusCodes.Status403Forbidden));
 
-    public sealed record CatalogItemWriteRequest(string Sku, string Name, decimal Price, string Currency);
+    private static bool TryResolveUserSubject(
+        HttpContext httpContext,
+        ITenantContext tenantContext,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out AccessSubject? subject)
+    {
+        subject = null;
+        string? userId = CatalogUserClaims.GetCurrentUserId(httpContext);
+        return !string.IsNullOrWhiteSpace(userId) &&
+               AccessSubject.TryCreate(AccessSubjectKind.User, userId, tenantContext.TenantId, out subject);
+    }
+
+    public sealed record CatalogItemWriteRequest(
+        string Sku,
+        string Name,
+        decimal Price,
+        string Currency,
+        IReadOnlyCollection<string>? AvailableRegions = null);
 }

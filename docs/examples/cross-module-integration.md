@@ -45,6 +45,32 @@ flowchart LR
     H --> I["Place order decision"]
 ```
 
+## Addressed Notifications From Local Decisions
+
+Notification delivery follows the same ownership rule. The module that understands the resource decides recipients; the Notifications module only stores and streams already-addressed notification requests.
+
+The Catalog/Ordering example uses:
+
+```mermaid
+flowchart LR
+    A["Catalog item changed"] --> B["Catalog outbox"]
+    B --> C["NATS JetStream"]
+    C --> D["Ordering consumer"]
+    D --> E["Ordering CatalogItemProjection"]
+    D --> F["Ordering orders by catalog item"]
+    F --> G["UserNotificationRequestedIntegrationEvent"]
+    G --> H["Ordering outbox"]
+    H --> I["Notifications consumer"]
+    I --> J["notifications.user_notifications"]
+```
+
+This is the same shape a private chat or PMS policy module should use:
+
+- chat membership and message visibility belong to the chat module;
+- property/user-management policies belong to the PMS module;
+- catalog regional availability belongs to Catalog or the module that owns regional market rules;
+- Notifications receives explicit user targets only, never business-specific visibility rules.
+
 ## Compatibility
 
 Producer events should change additively. Breaking payload changes require a new event version and subject.

@@ -13,6 +13,7 @@ using Notifications.Application.Commands;
 using Notifications.Application.Queries;
 using Notifications.Contracts;
 using Notifications.Persistence;
+using Shared.AccessControl;
 using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Results;
@@ -51,14 +52,14 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
 
             Result<NotificationHistoryListResponse> result = await dispatcher.QueryAsync(
                 new ListNotificationHistoryQuery(
-                    userId,
+                    subject,
                     unreadOnly ?? false,
                     page ?? Shared.Pagination.PageRequest.DefaultPage,
                     pageSize ?? Shared.Pagination.PageRequest.DefaultPageSize),
@@ -77,7 +78,7 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
@@ -86,7 +87,7 @@ public sealed class NotificationsModule : IModule
                 new ListNotificationBroadcastsQuery(
                     CurrentTenantId(tenantContext),
                     NotificationBroadcastRecipientKind.User,
-                    userId,
+                    subject.Id,
                     unreadOnly ?? false,
                     page ?? Shared.Pagination.PageRequest.DefaultPage,
                     pageSize ?? Shared.Pagination.PageRequest.DefaultPageSize),
@@ -103,7 +104,7 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
@@ -113,7 +114,7 @@ public sealed class NotificationsModule : IModule
                     broadcastId,
                     CurrentTenantId(tenantContext),
                     NotificationBroadcastRecipientKind.User,
-                    userId),
+                    subject.Id),
                 cancellationToken).ConfigureAwait(false);
 
             return result.ToHttpResult(PublicErrorStatusCodes);
@@ -127,7 +128,7 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
@@ -137,7 +138,7 @@ public sealed class NotificationsModule : IModule
                     broadcastId,
                     CurrentTenantId(tenantContext),
                     NotificationBroadcastRecipientKind.User,
-                    userId),
+                    subject.Id),
                 cancellationToken).ConfigureAwait(false);
 
             return result.IsSuccess ? Results.NoContent() : result.ToHttpResult(PublicErrorStatusCodes);
@@ -150,7 +151,7 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
@@ -159,7 +160,7 @@ public sealed class NotificationsModule : IModule
                 new MarkAllNotificationBroadcastsReadCommand(
                     CurrentTenantId(tenantContext),
                     NotificationBroadcastRecipientKind.User,
-                    userId),
+                    subject.Id),
                 cancellationToken).ConfigureAwait(false);
 
             return result.ToHttpResult(PublicErrorStatusCodes);
@@ -175,7 +176,7 @@ public sealed class NotificationsModule : IModule
             IOptions<NotificationStreamOptions> streamOptions,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
@@ -198,10 +199,10 @@ public sealed class NotificationsModule : IModule
             {
                 Result<long> cursorResult = await ResolveCurrentBroadcastCursorAsync(
                     dispatcher,
-                    tenantId,
-                    NotificationBroadcastRecipientKind.User,
-                    userId,
-                    cancellationToken).ConfigureAwait(false);
+                        tenantId,
+                        NotificationBroadcastRecipientKind.User,
+                        subject.Id,
+                        cancellationToken).ConfigureAwait(false);
                 if (cursorResult.IsFailure)
                 {
                     return cursorResult.ToHttpResult(PublicErrorStatusCodes);
@@ -215,7 +216,7 @@ public sealed class NotificationsModule : IModule
                     dispatcher,
                     tenantId,
                     NotificationBroadcastRecipientKind.User,
-                    userId,
+                    subject.Id,
                     cursor,
                     streamOptions.Value,
                     logger,
@@ -231,13 +232,13 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
 
             Result<NotificationHistoryItem> result = await dispatcher.QueryAsync(
-                new GetNotificationHistoryItemQuery(notificationId, userId),
+                new GetNotificationHistoryItemQuery(notificationId, subject),
                 cancellationToken).ConfigureAwait(false);
 
             return result.ToHttpResult(PublicErrorStatusCodes);
@@ -251,13 +252,13 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
 
             Result<Unit> result = await dispatcher.SendAsync(
-                new MarkNotificationReadCommand(notificationId, userId),
+                new MarkNotificationReadCommand(notificationId, subject),
                 cancellationToken).ConfigureAwait(false);
 
             return result.IsSuccess ? Results.NoContent() : result.ToHttpResult(PublicErrorStatusCodes);
@@ -270,13 +271,13 @@ public sealed class NotificationsModule : IModule
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
 
             Result<MarkAllNotificationsReadResponse> result = await dispatcher.SendAsync(
-                new MarkAllNotificationsReadCommand(userId),
+                new MarkAllNotificationsReadCommand(subject),
                 cancellationToken).ConfigureAwait(false);
 
             return result.ToHttpResult(PublicErrorStatusCodes);
@@ -292,7 +293,7 @@ public sealed class NotificationsModule : IModule
             IOptions<NotificationStreamOptions> streamOptions,
             CancellationToken cancellationToken) =>
         {
-            if (!TryResolveUserContext(httpContext, tenantContext, out string userId, out IResult? failure))
+            if (!TryResolveUserContext(httpContext, tenantContext, out AccessSubject subject, out IResult? failure))
             {
                 return failure;
             }
@@ -314,7 +315,7 @@ public sealed class NotificationsModule : IModule
             {
                 Result<long> cursorResult = await ResolveCurrentUserCursorAsync(
                     dispatcher,
-                    userId,
+                    subject,
                     cancellationToken).ConfigureAwait(false);
                 if (cursorResult.IsFailure)
                 {
@@ -327,7 +328,7 @@ public sealed class NotificationsModule : IModule
             IResult stream = TypedResults.ServerSentEvents(
                 StreamUserHistoryAsync(
                     dispatcher,
-                    userId,
+                    subject,
                     cursor,
                     streamOptions.Value,
                     logger,
@@ -339,10 +340,10 @@ public sealed class NotificationsModule : IModule
 
     private static Task<Result<long>> ResolveCurrentUserCursorAsync(
         IRequestDispatcher dispatcher,
-        string userId,
+        AccessSubject subject,
         CancellationToken cancellationToken) =>
         dispatcher.QueryAsync(
-            new GetNotificationStreamCursorQuery(userId),
+            new GetNotificationStreamCursorQuery(subject),
             cancellationToken);
 
     private static Task<Result<long>> ResolveCurrentBroadcastCursorAsync(
@@ -357,7 +358,7 @@ public sealed class NotificationsModule : IModule
 
     private static async IAsyncEnumerable<SseItem<NotificationHistoryItem>> StreamUserHistoryAsync(
         IRequestDispatcher dispatcher,
-        string userId,
+        AccessSubject subject,
         long initialCursor,
         NotificationStreamOptions options,
         ILogger logger,
@@ -369,7 +370,7 @@ public sealed class NotificationsModule : IModule
         while (!cancellationToken.IsCancellationRequested)
         {
             Result<IReadOnlyList<NotificationHistoryItem>> result = await dispatcher.QueryAsync(
-                new StreamNotificationHistoryQuery(userId, afterSequence, options.BatchSize),
+                new StreamNotificationHistoryQuery(subject, afterSequence, options.BatchSize),
                 cancellationToken).ConfigureAwait(false);
 
             if (result.IsFailure)
@@ -437,10 +438,10 @@ public sealed class NotificationsModule : IModule
     private static bool TryResolveUserContext(
         HttpContext httpContext,
         ITenantContext tenantContext,
-        out string userId,
+        out AccessSubject subject,
         out IResult? failure)
     {
-        userId = string.Empty;
+        subject = null!;
         failure = null;
 
         string? candidateUserId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ??
@@ -462,7 +463,14 @@ public sealed class NotificationsModule : IModule
             }
         }
 
-        userId = normalizedUserId;
+        string? tenantId = CurrentTenantId(tenantContext);
+        if (!AccessSubject.TryCreate(AccessSubjectKind.User, normalizedUserId, tenantId, out AccessSubject? resolvedSubject))
+        {
+            failure = Results.Unauthorized();
+            return false;
+        }
+
+        subject = resolvedSubject;
         return true;
     }
 
@@ -479,5 +487,6 @@ public sealed class NotificationsModule : IModule
 
     private static readonly ApiErrorStatusCodeMap PublicErrorStatusCodes = ApiErrorStatusCodeMap.Create(
         new ApiErrorStatusCode(NotificationsApplicationErrors.NotificationNotFound.Code, StatusCodes.Status404NotFound),
-        new ApiErrorStatusCode(NotificationsApplicationErrors.BroadcastNotFound.Code, StatusCodes.Status404NotFound));
+        new ApiErrorStatusCode(NotificationsApplicationErrors.BroadcastNotFound.Code, StatusCodes.Status404NotFound),
+        new ApiErrorStatusCode(NotificationsApplicationErrors.AccessDenied.Code, StatusCodes.Status403Forbidden));
 }

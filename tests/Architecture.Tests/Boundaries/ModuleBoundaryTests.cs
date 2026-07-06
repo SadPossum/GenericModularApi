@@ -521,6 +521,7 @@ public sealed class ModuleBoundaryTests
     private static bool IsForbiddenDomainDependency(string referenceName) =>
         ArchitectureCatalog.ModulePrefixes.Any(prefix => referenceName.StartsWith(prefix + ".", StringComparison.Ordinal)) ||
         IsSharedAdapterDependency(referenceName) ||
+        referenceName.StartsWith("Shared.AccessControl", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Application", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Infrastructure", StringComparison.Ordinal) ||
         referenceName.StartsWith("Shared.Api", StringComparison.Ordinal) ||

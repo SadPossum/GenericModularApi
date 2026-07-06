@@ -9,5 +9,5 @@ public sealed record UpdateCatalogItemCommand(
     string Name,
     decimal Price,
     string Currency,
-    string? NotificationUserId = null)
+    IReadOnlyCollection<string>? AvailableRegions = null)
     : ITransactionalCommand<CatalogItemDto>;

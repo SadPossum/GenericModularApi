@@ -1,6 +1,8 @@
 namespace Ordering.Application.Validation;
 
 using Ordering.Application.Commands;
+using Catalog.Contracts;
+using Shared.AccessControl;
 using Shared.Cqrs;
 
 internal sealed class PlaceOrderCommandValidator : ICommandValidator<PlaceOrderCommand>
@@ -15,6 +17,16 @@ internal sealed class PlaceOrderCommandValidator : ICommandValidator<PlaceOrderC
         if (command.Quantity <= 0)
         {
             yield return "Quantity must be greater than zero.";
+        }
+
+        if (command.Subject is null || command.Subject.Kind != AccessSubjectKind.User)
+        {
+            yield return "A user access subject is required.";
+        }
+
+        if (!CatalogRegionCodes.TryNormalize(command.RegionCode, out _))
+        {
+            yield return "Region code is invalid.";
         }
     }
 }

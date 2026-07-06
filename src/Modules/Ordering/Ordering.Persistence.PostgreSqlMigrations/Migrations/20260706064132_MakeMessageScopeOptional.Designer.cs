@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Ordering.Persistence;
@@ -11,9 +12,11 @@ using Ordering.Persistence;
 namespace Ordering.Persistence.PostgreSqlMigrations.Migrations
 {
     [DbContext(typeof(OrderingDbContext))]
-    partial class OrderingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260706064132_MakeMessageScopeOptional")]
+    partial class MakeMessageScopeOptional
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

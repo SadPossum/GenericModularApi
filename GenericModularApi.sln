@@ -163,6 +163,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{929E11CE-B
 		docs\modules\administration.md = docs\modules\administration.md
 		docs\modules\auth.md = docs\modules\auth.md
 		docs\modules\notifications.md = docs\modules\notifications.md
+		docs\modules\task-runtime.md = docs\modules\task-runtime.md
 		docs\modules\tenancy.md = docs\modules\tenancy.md
 		docs\README.md = docs\README.md
 		docs\templates\adr.md = docs\templates\adr.md

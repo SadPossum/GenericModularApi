@@ -45,6 +45,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Tenancy Module](modules/tenancy.md)
 - [Administration Module](modules/administration.md)
 - [Notifications Module](modules/notifications.md)
+- [TaskRuntime Module](modules/task-runtime.md)
 
 ## Examples
 

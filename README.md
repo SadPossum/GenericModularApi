@@ -74,5 +74,5 @@ HTTP examples live in [requests/auth.http](requests/auth.http) and [requests/adm
 
 ## Project Status
 
-This is a work-in-progress skeleton. The current reusable modules are Auth, Tenancy, and optional Administration.
-Catalog and Ordering are compiled optional example modules used to prove stored data, admin surfaces, caching, and cross-module integration without being registered in default hosts.
+This is a work-in-progress skeleton. The current reusable modules are Auth, Tenancy, Administration, Notifications, and TaskRuntime.
+Catalog, Ordering, and TaskSamples are compiled optional example modules used to prove stored data, admin surfaces, caching, cross-module integration, notifications, and task execution without being registered in default hosts.

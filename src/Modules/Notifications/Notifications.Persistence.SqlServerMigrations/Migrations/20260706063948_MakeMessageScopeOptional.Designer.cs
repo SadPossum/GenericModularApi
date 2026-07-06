@@ -2,66 +2,69 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Notifications.Persistence;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
+namespace Notifications.Persistence.SqlServerMigrations.Migrations
 {
     [DbContext(typeof(NotificationsDbContext))]
-    partial class NotificationsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260706063948_MakeMessageScopeOptional")]
+    partial class MakeMessageScopeOptional
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("notifications")
                 .HasAnnotation("ProductVersion", "10.0.8")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("Notifications.Domain.Aggregates.NotificationBroadcast", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Audience")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("nvarchar(32)")
                         .HasColumnName("Audience");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset>("OccurredAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Payload")
                         .IsRequired()
                         .HasMaxLength(32768)
-                        .HasColumnType("character varying(32768)")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("PayloadJson");
 
                     b.Property<string>("Severity")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("Severity");
 
                     b.Property<long>("StreamSequence")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("StreamSequence"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StreamSequence"));
 
                     b.Property<string>("TenantId")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("nvarchar(128)");
 
                     b.HasKey("Id");
 
@@ -76,45 +79,45 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset>("OccurredAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Payload")
                         .IsRequired()
                         .HasMaxLength(32768)
-                        .HasColumnType("character varying(32768)")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("PayloadJson");
 
                     b.Property<DateTimeOffset?>("ReadAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Recipient")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("UserId");
 
                     b.Property<string>("Severity")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("Severity");
 
                     b.Property<long>("StreamSequence")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("StreamSequence"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StreamSequence"));
 
                     b.Property<string>("TenantId")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("nvarchar(128)");
 
                     b.HasKey("Id");
 
@@ -133,30 +136,30 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("BroadcastId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("ReadAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Recipient")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("RecipientId");
 
                     b.Property<string>("RecipientKind")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("RecipientKind");
 
                     b.Property<string>("RecipientScope")
                         .IsRequired()
                         .HasMaxLength(135)
-                        .HasColumnType("character varying(135)");
+                        .HasColumnType("nvarchar(135)");
 
                     b.HasKey("Id");
 
@@ -171,58 +174,58 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
             modelBuilder.Entity("Shared.Messaging.Infrastructure.InboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Handler")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<int>("Attempts")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("EventType")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<DateTimeOffset?>("FailedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("LastError")
                         .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
+                        .HasColumnType("nvarchar(2048)");
 
                     b.Property<string>("LockedBy")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<DateTimeOffset>("OccurredAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("ProcessedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("ProcessingStartedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("ScopeId")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("TenantId");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.Property<string>("Subject")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<int>("Version")
-                        .HasColumnType("integer");
+                        .HasColumnType("int");
 
                     b.HasKey("Id", "Handler");
 
@@ -236,17 +239,17 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
                     b.OwnsOne("Notifications.Domain.ValueObjects.NotificationContent", "Content", b1 =>
                         {
                             b1.Property<Guid>("NotificationBroadcastId")
-                                .HasColumnType("uuid");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("Body")
                                 .HasMaxLength(4096)
-                                .HasColumnType("character varying(4096)")
+                                .HasColumnType("nvarchar(max)")
                                 .HasColumnName("Body");
 
                             b1.Property<string>("Title")
                                 .IsRequired()
                                 .HasMaxLength(256)
-                                .HasColumnType("character varying(256)")
+                                .HasColumnType("nvarchar(256)")
                                 .HasColumnName("Title");
 
                             b1.HasKey("NotificationBroadcastId");
@@ -260,22 +263,22 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
                     b.OwnsOne("Notifications.Domain.ValueObjects.NotificationSource", "Source", b1 =>
                         {
                             b1.Property<Guid>("NotificationBroadcastId")
-                                .HasColumnType("uuid");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("Module")
                                 .IsRequired()
                                 .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
+                                .HasColumnType("nvarchar(128)")
                                 .HasColumnName("Module");
 
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
+                                .HasColumnType("nvarchar(128)")
                                 .HasColumnName("Name");
 
                             b1.Property<int>("Version")
-                                .HasColumnType("integer")
+                                .HasColumnType("int")
                                 .HasColumnName("Version");
 
                             b1.HasKey("NotificationBroadcastId");
@@ -300,17 +303,17 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
                     b.OwnsOne("Notifications.Domain.ValueObjects.NotificationContent", "Content", b1 =>
                         {
                             b1.Property<Guid>("UserNotificationId")
-                                .HasColumnType("uuid");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("Body")
                                 .HasMaxLength(4096)
-                                .HasColumnType("character varying(4096)")
+                                .HasColumnType("nvarchar(max)")
                                 .HasColumnName("Body");
 
                             b1.Property<string>("Title")
                                 .IsRequired()
                                 .HasMaxLength(256)
-                                .HasColumnType("character varying(256)")
+                                .HasColumnType("nvarchar(256)")
                                 .HasColumnName("Title");
 
                             b1.HasKey("UserNotificationId");
@@ -324,22 +327,22 @@ namespace Notifications.Persistence.PostgreSqlMigrations.Migrations
                     b.OwnsOne("Notifications.Domain.ValueObjects.NotificationSource", "Source", b1 =>
                         {
                             b1.Property<Guid>("UserNotificationId")
-                                .HasColumnType("uuid");
+                                .HasColumnType("uniqueidentifier");
 
                             b1.Property<string>("Module")
                                 .IsRequired()
                                 .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
+                                .HasColumnType("nvarchar(128)")
                                 .HasColumnName("Module");
 
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(128)
-                                .HasColumnType("character varying(128)")
+                                .HasColumnType("nvarchar(128)")
                                 .HasColumnName("Name");
 
                             b1.Property<int>("Version")
-                                .HasColumnType("integer")
+                                .HasColumnType("int")
                                 .HasColumnName("Version");
 
                             b1.HasKey("UserNotificationId");

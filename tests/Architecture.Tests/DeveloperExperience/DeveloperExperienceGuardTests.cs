@@ -5245,6 +5245,8 @@ public sealed partial class DeveloperExperienceGuardTests
             ".Create(Name)",
             ".WithSchema(Schema)",
             ".Build()",
+            "$metadataDescriptorLines = @(",
+            "$metadataDescriptor = $metadataDescriptorLines -join \"`r`n\"",
             "using Shared.Modules;",
             "Shared\\Shared.Modules\\Shared.Modules.csproj",
             "using Shared.Authorization;",
@@ -5270,6 +5272,7 @@ public sealed partial class DeveloperExperienceGuardTests
             "public sealed class ${Name}AdminCliModule : IAdminCliModule",
             "IAdminCliModule",
             "IAdminCliCommandRegistry",
+            "using Microsoft.AspNetCore.Http;",
             "using Shared.Administration.Cli;",
             "AdminPermissionCodes",
             "AdminOperationNames",
@@ -5283,12 +5286,21 @@ public sealed partial class DeveloperExperienceGuardTests
             ".WithPermissions([",
             ".WithCacheEntries(["
         ];
+        string[] generatedMetadataFormattingForbiddenTokens =
+        [
+            "$metadataPermissionsBlock$metadataCacheDescriptorBlock",
+            ".WithPermission($metadataPermissionDescriptor)`r`n",
+            ".WithCacheEntry(new ModuleCacheDescriptor(ModuleCacheEntry, CacheScope.Tenant, [ModuleCacheTag]))`r`n"
+        ];
         string[] offenders = forbiddenTokens
             .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
             .Select(token => $"eng/new-module.ps1 contains stale {token}")
             .Concat(generatedMetadataForbiddenTokens
                 .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
                 .Select(token => $"eng/new-module.ps1 emits stale generated metadata token {token}"))
+            .Concat(generatedMetadataFormattingForbiddenTokens
+                .Where(token => scaffolder.Contains(token, StringComparison.Ordinal))
+                .Select(token => $"eng/new-module.ps1 risks emitting malformed descriptor chain token {token}"))
             .Concat(requiredTokens
                 .Where(token => !scaffolder.Contains(token, StringComparison.Ordinal))
                 .Select(token => $"eng/new-module.ps1 missing {token}"))

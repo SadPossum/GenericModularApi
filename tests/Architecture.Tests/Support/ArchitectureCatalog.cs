@@ -22,6 +22,9 @@ using Catalog.Api;
 using Catalog.Contracts;
 using Catalog.Domain.Aggregates;
 using Catalog.Persistence;
+using Files.Api;
+using Files.Application;
+using Files.Contracts;
 using Notifications.Admin.Contracts;
 using Notifications.AdminApi;
 using Notifications.Api;
@@ -75,6 +78,10 @@ internal static class ArchitectureCatalog
         new("Catalog", "Catalog.Domain", ModuleProjectKind.Domain, typeof(CatalogItem).Assembly),
         new("Catalog", "Catalog.Persistence", ModuleProjectKind.Persistence, typeof(Catalog.Persistence.DependencyInjection).Assembly),
 
+        new("Files", "Files.Api", ModuleProjectKind.Api, typeof(FilesModule).Assembly),
+        new("Files", "Files.Application", ModuleProjectKind.Application, typeof(Files.Application.DependencyInjection).Assembly),
+        new("Files", "Files.Contracts", ModuleProjectKind.Contracts, typeof(FilesModuleMetadata).Assembly),
+
         new("Notifications", "Notifications.Api", ModuleProjectKind.Api, typeof(NotificationsModule).Assembly),
         new("Notifications", "Notifications.Admin.Contracts", ModuleProjectKind.AdminContracts, typeof(NotificationsAdminPermissions).Assembly),
         new("Notifications", "Notifications.AdminApi", ModuleProjectKind.AdminApi, typeof(NotificationsAdminApiModule).Assembly),
@@ -108,6 +115,7 @@ internal static class ArchitectureCatalog
         AuthModuleMetadata.Descriptor,
         AdministrationModuleMetadata.Descriptor,
         CatalogModuleMetadata.Descriptor,
+        FilesModuleMetadata.Descriptor,
         NotificationsModuleMetadata.Descriptor,
         OrderingModuleMetadata.Descriptor,
         TaskRuntimeModuleMetadata.Descriptor,

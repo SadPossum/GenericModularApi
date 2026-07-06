@@ -20,6 +20,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Messaging and Outbox](architecture/messaging-and-outbox.md)
 - [Messaging Consumers](architecture/messaging-consumers.md)
 - [Background Worker Host Task](architecture/background-worker-host-task.md)
+- [File Management](architecture/file-management.md)
 - [Tasks and Daemons](architecture/tasks-and-daemons.md)
 - [Notifications and Streaming](architecture/notifications-and-streaming.md)
 - [Module Descriptor Builder Refactor Notes](architecture/module-descriptor-builder-refactor-notes.md)
@@ -46,6 +47,7 @@ This documentation is plain Markdown so it works in GitHub, Visual Studio, Rider
 - [Auth Module](modules/auth.md)
 - [Tenancy Module](modules/tenancy.md)
 - [Administration Module](modules/administration.md)
+- [Files Module](modules/files.md)
 - [Notifications Module](modules/notifications.md)
 - [TaskRuntime Module](modules/task-runtime.md)
 

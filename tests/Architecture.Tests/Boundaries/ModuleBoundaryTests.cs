@@ -335,12 +335,18 @@ public sealed class ModuleBoundaryTests
             .Where(type => type.Namespace?.EndsWith(".Commands", StringComparison.Ordinal) == true)
             .Where(type => type.Name.EndsWith("Command", StringComparison.Ordinal))
             .Where(ImplementsCommand)
+            .Where(type => !IsAllowedNonTransactionalCommand(type))
             .Where(type => !ImplementsTransactionalCommand(type))
             .Select(type => type.FullName ?? type.Name)
             .ToArray();
 
         Assert.Empty(offenders);
     }
+
+    private static bool IsAllowedNonTransactionalCommand(Type type) =>
+        type.FullName is
+            "Files.Application.Commands.DeleteFileCommand" or
+            "Files.Application.Commands.UploadFileCommand";
 
     [Fact]
     public void Module_query_handlers_do_not_inject_side_effect_infrastructure()

@@ -45,6 +45,9 @@
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Persistence\Catalog.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Persistence.PostgreSqlMigrations\Catalog.Persistence.PostgreSqlMigrations.csproj" />
     <ProjectReference Include="..\..\src\Modules\Catalog\Catalog.Persistence.SqlServerMigrations\Catalog.Persistence.SqlServerMigrations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Files\Files.Api\Files.Api.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Files\Files.Application\Files.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Files\Files.Contracts\Files.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Application\Ordering.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Contracts\Ordering.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ordering\Ordering.Persistence\Ordering.Persistence.csproj" />
@@ -68,6 +71,9 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Application.Events.Infrastructure\Shared.Application.Events.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.FileManagement\Shared.FileManagement.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.FileManagement.LocalStorage\Shared.FileManagement.LocalStorage.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.FileManagement.Minio\Shared.FileManagement.Minio.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />

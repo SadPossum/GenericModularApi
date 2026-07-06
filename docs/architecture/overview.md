@@ -43,6 +43,9 @@ src/
     Shared.Cqrs/
     Shared.Cqrs.Infrastructure/
     Shared.Domain/
+    Shared.FileManagement/
+    Shared.FileManagement.LocalStorage/
+    Shared.FileManagement.Minio/
     Shared.Results/
     Shared.Infrastructure/
     Shared.Logging.Serilog/
@@ -118,6 +121,10 @@ src/
       Catalog.Admin.Contracts/
       Catalog.AdminCli/
       Catalog.AdminApi/
+    Files/
+      Files.Contracts/
+      Files.Application/
+      Files.Api/
     Notifications/
       Notifications.Contracts/
       Notifications.Domain/
@@ -364,6 +371,17 @@ Shared.Domain
   -> Shared.Naming
   -> Shared.Numerics
 
+Shared.FileManagement
+  -> Shared.ModuleComposition
+
+Shared.FileManagement.LocalStorage
+  -> Shared.FileManagement
+  -> Shared.ModuleComposition
+
+Shared.FileManagement.Minio
+  -> Shared.FileManagement
+  -> Shared.ModuleComposition
+
 Shared.Infrastructure
   -> Shared.Application.Events.Infrastructure
   -> Shared.Cqrs.Infrastructure
@@ -556,6 +574,30 @@ Shared.Tenancy.Tasks
   -> Shared.Tasks
   -> Shared.Tasks.Infrastructure
   -> Shared.Tenancy
+
+Files.Contracts
+  -> Shared.FileManagement
+  -> Shared.ModuleComposition
+  -> Shared.Modules
+  -> Shared.Tenancy
+
+Files.Application
+  -> Files.Contracts
+  -> Shared.Application.Composition
+  -> Shared.Cqrs
+  -> Shared.FileManagement
+  -> Shared.Results
+  -> Shared.Runtime
+  -> Shared.Tenancy
+
+Files.Api
+  -> Files.Application
+  -> Files.Contracts
+  -> Shared.Api
+  -> Shared.Cqrs
+  -> Shared.FileManagement
+  -> Shared.ModuleComposition
+  -> Shared.Results
 ```
 
 Cross-module dependencies must go through:

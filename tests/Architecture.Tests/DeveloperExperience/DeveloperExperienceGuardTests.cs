@@ -3908,6 +3908,36 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Numerics\Shared.Numerics.csproj"
                 ]),
+            new(
+                "Shared.FileManagement",
+                ["Microsoft.Extensions.Options"],
+                [],
+                [@"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"]),
+            new(
+                "Shared.FileManagement.LocalStorage",
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions"
+                ],
+                [],
+                [
+                    @"..\Shared.FileManagement\Shared.FileManagement.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
+                ]),
+            new(
+                "Shared.FileManagement.Minio",
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions",
+                    "Minio"
+                ],
+                [],
+                [
+                    @"..\Shared.FileManagement\Shared.FileManagement.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
+                ]),
             new("Shared.Results", [], [], []),
             new(
                 "Shared.Infrastructure",
@@ -6701,6 +6731,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.FileManagement\Shared.FileManagement.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
@@ -6863,6 +6894,10 @@ public sealed partial class DeveloperExperienceGuardTests
                string.Equals(
                    normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.FileManagement\Shared.FileManagement.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(
                    normalizedReference,

@@ -1,0 +1,101 @@
+# File Management
+
+File management is split into shared storage plumbing and an optional front-door module.
+
+## Shared Storage
+
+`Shared.FileManagement` owns the backend-neutral contract:
+
+- `IFileStorage`
+- `FileStorageObjectKey`
+- `FileStorageWriteRequest`
+- `FileStorageReadResult`
+- `FileManagementOptions`
+- the `file-management.storage` composition feature
+
+Concrete adapters live beside it:
+
+- `Shared.FileManagement.LocalStorage`
+- `Shared.FileManagement.Minio`
+
+Modules depend on `Shared.FileManagement`, not on MinIO or local disk. Hosts decide the provider by registering an adapter and setting `FileManagement:Provider`.
+
+## Configuration
+
+Local development:
+
+```json
+{
+  "FileManagement": {
+    "Enabled": true,
+    "Provider": "LocalStorage",
+    "MaximumObjectBytes": 10485760,
+    "AllowedContentTypes": [ "image/jpeg", "image/png", "application/pdf" ]
+  },
+  "FileManagement:LocalStorage": {
+    "RootPath": "data/files"
+  }
+}
+```
+
+MinIO:
+
+```json
+{
+  "FileManagement": {
+    "Enabled": true,
+    "Provider": "Minio",
+    "MaximumObjectBytes": 10485760,
+    "AllowedContentTypes": [ "image/jpeg", "image/png", "application/pdf" ]
+  },
+  "FileManagement:Minio": {
+    "Endpoint": "localhost:9000",
+    "AccessKey": "minioadmin",
+    "SecretKey": "minioadmin",
+    "BucketName": "generic-modular-api-files",
+    "UseSsl": false,
+    "CreateBucketIfMissing": true
+  }
+}
+```
+
+Local MinIO smoke setup:
+
+```powershell
+docker run --rm -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin quay.io/minio/minio:latest server /data --console-address :9001
+```
+
+## Host Registration
+
+A host that wants file storage registers the shared adapter before validating module composition:
+
+```csharp
+builder.AddLocalFileStorage();
+builder.AddMinioFileStorage();
+builder.AddModule<FilesModule>();
+builder.ValidateModuleComposition();
+```
+
+Each adapter is a no-op unless `FileManagement:Enabled=true` and its provider is selected. A host may also register only the provider it deploys.
+
+## Files Module
+
+`Files` is the optional public front door:
+
+- `POST /api/files`
+- `GET /api/files/{fileId}`
+- `DELETE /api/files/{fileId}`
+
+The module requires authorization and tenant context. It stores objects under application-generated keys shaped like:
+
+```text
+files/{global-or-tenant-hash}/{file-id}
+```
+
+The HTTP API never uses the user-supplied filename as a storage key. The filename is kept only as metadata after validation.
+
+## First Slice Boundary
+
+This slice intentionally does not add `Files.Persistence`. The object store metadata is enough for upload, download, and delete. Add persistence later when the product needs listing, owner-specific ACLs, lifecycle states, audit trails, or cross-object queries.
+
+`UploadFileCommand` and `DeleteFileCommand` are plain CQRS commands in this slice because there is no module database unit-of-work to commit. If a future `Files.Persistence` package owns file records, lifecycle states, or audit trails, convert these commands to `ITransactionalCommand<T>` in that same change.

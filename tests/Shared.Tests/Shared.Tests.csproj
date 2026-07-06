@@ -28,6 +28,8 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.FileManagement\Shared.FileManagement.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.FileManagement.LocalStorage\Shared.FileManagement.LocalStorage.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Results\Shared.Results.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />

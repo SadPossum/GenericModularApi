@@ -70,6 +70,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Domain\Shared.Domain.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj" />

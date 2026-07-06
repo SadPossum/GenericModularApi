@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Shared.ModuleComposition;
 using Shared.Notifications;
 
 public static class DependencyInjection
@@ -31,6 +32,17 @@ public static class DependencyInjection
         }
 
         builder.Services.AddSingleton<NotificationSseRegistrationMarker>();
+        NotificationsOptions notificationsOptions = builder.Configuration
+            .GetSection(NotificationsOptions.SectionName)
+            .Get<NotificationsOptions>() ?? new NotificationsOptions();
+        if (notificationsOptions.Enabled && sseOptions.Enabled)
+        {
+            builder.ProvideFeature(NotificationsCompositionFeatures.ServerSentEventsProvided("Shared.Notifications.Api"));
+            builder.RequireFeature(NotificationsCompositionFeatures.LiveFeedRequired(
+                "Shared.Notifications.Api",
+                "Register Shared.Notifications.Infrastructure before enabling notification SSE streaming."));
+        }
+
         builder.Services
             .AddOptions<NotificationsOptions>()
             .Bind(builder.Configuration.GetSection(NotificationsOptions.SectionName))

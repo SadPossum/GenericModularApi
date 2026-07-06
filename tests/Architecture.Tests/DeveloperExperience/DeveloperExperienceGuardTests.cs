@@ -3474,6 +3474,7 @@ public sealed partial class DeveloperExperienceGuardTests
         XDocument notificationsProject = XDocument.Load(notificationsProjectPath);
         HashSet<string> allowedNotificationsProjectReferences = new(StringComparer.OrdinalIgnoreCase)
         {
+            @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
             @"..\Shared.Modules\Shared.Modules.csproj",
             @"..\Shared.Naming\Shared.Naming.csproj"
         };
@@ -3807,6 +3808,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj"
                 ]),
@@ -3819,7 +3821,10 @@ public sealed partial class DeveloperExperienceGuardTests
                     "Microsoft.Extensions.Options.ConfigurationExtensions"
                 ],
                 [],
-                [@"..\Shared.Caching\Shared.Caching.csproj"]),
+                [
+                    @"..\Shared.Caching\Shared.Caching.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
+                ]),
             new(
                 "Shared.Caching.Cqrs",
                 [
@@ -3830,6 +3835,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
                     @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Results\Shared.Results.csproj"
                 ]),
@@ -3843,6 +3849,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Shared.Caching\Shared.Caching.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
@@ -3882,6 +3889,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.Extensions.DependencyInjection.Abstractions"],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Numerics\Shared.Numerics.csproj"
@@ -3910,6 +3918,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.Messaging\Shared.Messaging.csproj",
                     @"..\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
@@ -3925,6 +3934,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Shared.Messaging\Shared.Messaging.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
@@ -3943,6 +3953,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj"
                 ]),
@@ -3955,6 +3966,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
                     @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Results\Shared.Results.csproj"
@@ -3965,6 +3977,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.AspNetCore.App"],
                 [
                     @"..\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Notifications\Shared.Notifications.csproj",
                     @"..\Shared.Security\Shared.Security.csproj",
@@ -3981,6 +3994,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Notifications\Shared.Notifications.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
@@ -3992,6 +4006,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.AspNetCore.Authentication.JwtBearer"],
                 ["Microsoft.AspNetCore.App"],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Notifications\Shared.Notifications.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
@@ -4078,6 +4093,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.Extensions.DependencyInjection.Abstractions"],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Modules\Shared.Modules.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj"
                 ]),
@@ -4088,6 +4104,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
                     @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Results\Shared.Results.csproj",
                     @"..\Shared.Tasks\Shared.Tasks.csproj"
                 ]),
@@ -4101,6 +4118,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ],
                 [],
                 [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",

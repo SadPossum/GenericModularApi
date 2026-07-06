@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Caching;
+using Shared.ModuleComposition;
 using Shared.Runtime.Infrastructure;
 using Shared.Tenancy.Infrastructure;
 
@@ -38,6 +39,8 @@ public static class DependencyInjection
         }
 
         builder.Services.AddSingleton<CachingInfrastructureRegistrationMarker>();
+        builder.ProvideFeature(CachingCompositionFeatures.ApplicationProvided("Shared.Caching.Infrastructure"));
+        builder.ProvideFeature(CachingCompositionFeatures.InvalidationProvided("Shared.Caching.Infrastructure"));
         builder.Services
             .AddOptions<CachingOptions>()
             .Bind(builder.Configuration.GetSection(CachingOptions.SectionName))

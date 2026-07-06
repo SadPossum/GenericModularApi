@@ -1,8 +1,20 @@
 namespace Shared.Tests;
 
 using Microsoft.Extensions.Hosting;
+using Shared.Caching;
+using Shared.Caching.Cqrs;
+using Shared.Messaging;
+using Shared.Messaging.Infrastructure;
+using Shared.Messaging.Nats;
 using Shared.ModuleComposition;
 using Shared.Modules;
+using Shared.Notifications;
+using Shared.Notifications.Api;
+using Shared.Notifications.Cqrs;
+using Shared.Notifications.SignalR;
+using Shared.Tasks;
+using Shared.Tasks.Cqrs;
+using Shared.Tasks.Infrastructure;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -176,5 +188,107 @@ public sealed class ModuleCompositionFeatureTests
             () => builder.ValidateModuleComposition());
 
         Assert.Contains("tenancy.context", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Shared_composition_feature_ids_are_stable()
+    {
+        Assert.Equal("caching.application", CachingCompositionFeatures.Application.Value);
+        Assert.Equal("caching.invalidation", CachingCompositionFeatures.Invalidation.Value);
+        Assert.Equal("messaging.outbox", MessagingCompositionFeatures.Outbox.Value);
+        Assert.Equal("messaging.event-bus", MessagingCompositionFeatures.EventBus.Value);
+        Assert.Equal("notifications.history", NotificationsCompositionFeatures.History.Value);
+        Assert.Equal("notifications.signalr", NotificationsCompositionFeatures.SignalR.Value);
+        Assert.Equal("tasks.run-store", TasksCompositionFeatures.RunStore.Value);
+        Assert.Equal("tasks.worker", TasksCompositionFeatures.Worker.Value);
+    }
+
+    [Fact]
+    public void Shared_adapter_registrations_advertise_composition_features()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["Notifications:Enabled"] = "true";
+        builder.Configuration["NatsConsumers:Enabled"] = "true";
+
+        builder.AddCachingCqrs();
+        builder.AddNatsJetStreamMessaging();
+        builder.AddNatsJetStreamConsumers();
+        builder.AddUserNotificationsCqrs();
+        builder.AddUserNotificationServerSentEvents();
+        builder.AddUserNotificationSignalR();
+        builder.ProvideFeature(TasksCompositionFeatures.RunStoreProvided("test/task-store"));
+        builder.AddTaskCqrs();
+        builder.AddTaskWorkerRuntime();
+        builder.AddTaskRunScheduling();
+
+        ModuleCompositionValidationResult result = builder.ValidateModuleComposition();
+
+        Assert.True(result.IsValid, result.Report);
+        Assert.Contains("caching.application by Shared.Caching.Infrastructure", result.Report, StringComparison.Ordinal);
+        Assert.Contains("caching.cqrs-invalidation by Shared.Caching.Cqrs", result.Report, StringComparison.Ordinal);
+        Assert.Contains("messaging.nats-publishing by Shared.Messaging.Nats", result.Report, StringComparison.Ordinal);
+        Assert.Contains("messaging.nats-consumers by Shared.Messaging.Nats", result.Report, StringComparison.Ordinal);
+        Assert.Contains("notifications.live-feed by Shared.Notifications.Infrastructure", result.Report, StringComparison.Ordinal);
+        Assert.Contains("notifications.sse by Shared.Notifications.Api", result.Report, StringComparison.Ordinal);
+        Assert.Contains("notifications.signalr by Shared.Notifications.SignalR", result.Report, StringComparison.Ordinal);
+        Assert.Contains("tasks.worker by Shared.Tasks.Infrastructure", result.Report, StringComparison.Ordinal);
+        Assert.Contains("tasks.scheduler by Shared.Tasks.Infrastructure", result.Report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Outbox_publishing_requires_concrete_event_bus()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddOutboxPublishing();
+
+        ModuleCompositionValidationException exception = Assert.Throws<ModuleCompositionValidationException>(
+            () => builder.ValidateModuleComposition());
+
+        Assert.Contains("messaging.event-bus", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("concrete messaging adapter", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Task_worker_runtime_requires_persisted_run_store()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddTaskWorkerRuntime();
+
+        ModuleCompositionValidationException exception = Assert.Throws<ModuleCompositionValidationException>(
+            () => builder.ValidateModuleComposition());
+
+        Assert.Contains("tasks.run-store", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("TaskRuntime.Persistence", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Enabled_notification_sse_requires_live_feed_runtime()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["Notifications:Enabled"] = "true";
+        builder.Configuration["Notifications:Sse:Enabled"] = "true";
+
+        builder.AddUserNotificationServerSentEvents();
+
+        ModuleCompositionValidationException exception = Assert.Throws<ModuleCompositionValidationException>(
+            () => builder.ValidateModuleComposition());
+
+        Assert.Contains("notifications.live-feed", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("notification SSE streaming", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Disabled_notification_sse_does_not_require_live_feed_runtime()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddUserNotificationServerSentEvents();
+
+        ModuleCompositionValidationResult result = builder.ValidateModuleComposition();
+
+        Assert.True(result.IsValid, result.Report);
+        Assert.DoesNotContain("notifications.live-feed", result.Report, StringComparison.Ordinal);
     }
 }

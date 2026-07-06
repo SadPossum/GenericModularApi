@@ -286,21 +286,25 @@ Shared.Authorization
   -> Shared.Naming
 
 Shared.Caching
+  -> Shared.ModuleComposition
   -> Shared.Modules
   -> Shared.Naming
 
 Shared.Caching.Redis
   -> Shared.Caching
+  -> Shared.ModuleComposition
 
 Shared.Caching.Cqrs
   -> Shared.Caching.Infrastructure
   -> Shared.Cqrs
   -> Shared.Cqrs.Infrastructure
+  -> Shared.ModuleComposition
   -> Shared.Observability.Infrastructure
   -> Shared.Results
 
 Shared.Caching.Infrastructure
   -> Shared.Caching
+  -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
@@ -336,12 +340,14 @@ Shared.Logging.Serilog
   -> no project references
 
 Shared.Messaging
+  -> Shared.ModuleComposition
   -> Shared.Modules
   -> Shared.Naming
   -> Shared.Numerics
 
 Shared.Messaging.Infrastructure
   -> Shared.Messaging
+  -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
@@ -351,6 +357,7 @@ Shared.Messaging.Infrastructure
 Shared.Messaging.Nats
   -> Shared.Messaging
   -> Shared.Messaging.Infrastructure
+  -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Runtime
   -> Shared.Tenancy
@@ -372,18 +379,21 @@ Shared.Numerics
   -> no project references
 
 Shared.Notifications
+  -> Shared.ModuleComposition
   -> Shared.Modules
   -> Shared.Naming
 
 Shared.Notifications.Cqrs
   -> Shared.Cqrs
   -> Shared.Cqrs.Infrastructure
+  -> Shared.ModuleComposition
   -> Shared.Notifications.Infrastructure
   -> Shared.Observability.Infrastructure
   -> Shared.Results
 
 Shared.Notifications.Api
   -> Shared.Api
+  -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Notifications
   -> Shared.Security
@@ -391,6 +401,7 @@ Shared.Notifications.Api
 
 Shared.Notifications.Infrastructure
   -> Shared.Naming
+  -> Shared.ModuleComposition
   -> Shared.Notifications
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
@@ -398,6 +409,7 @@ Shared.Notifications.Infrastructure
   -> Shared.Runtime.Infrastructure
 
 Shared.Notifications.SignalR
+  -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Notifications
   -> Shared.Runtime
@@ -450,16 +462,19 @@ Shared.Security
   -> no project references
 
 Shared.Tasks
+  -> Shared.ModuleComposition
   -> Shared.Modules
   -> Shared.Naming
 
 Shared.Tasks.Cqrs
   -> Shared.Cqrs
   -> Shared.Cqrs.Infrastructure
+  -> Shared.ModuleComposition
   -> Shared.Results
   -> Shared.Tasks
 
 Shared.Tasks.Infrastructure
+  -> Shared.ModuleComposition
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
   -> Shared.Runtime

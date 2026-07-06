@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\Shared.Authorization\Shared.Authorization.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Modules\Shared.Modules.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj" />

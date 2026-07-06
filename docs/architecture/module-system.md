@@ -31,9 +31,9 @@ The shared core is intentionally small:
 - `Shared.Modules` owns module metadata primitives and references only `Shared.Naming`.
 - `Shared.ModuleComposition` owns module profile, provided-feature, required-feature, required-module, and fail-fast composition validation primitives. It references only `Shared.Modules`, `Shared.Naming`, and hosting abstractions needed by composition roots.
 - `Shared.Authorization` owns permission metadata descriptor extensions and references only `Shared.Modules` and `Shared.Naming`.
-- `Shared.Caching` owns cache contracts, provider/options seams, adapter markers, and cache descriptor metadata, and references only `Shared.Modules` plus `Shared.Naming` for module-name alignment.
-- `Shared.Messaging` owns integration event, outbox/inbox, subscription, and messaging descriptor contracts and references only shared primitives plus DI abstractions.
-- `Shared.Tasks` owns task contracts and task descriptor metadata and does not reference CQRS or runtime adapters.
+- `Shared.Caching` owns cache contracts, provider/options seams, adapter markers, cache descriptor metadata, and cache composition feature ids. It references `Shared.ModuleComposition`, `Shared.Modules`, and `Shared.Naming`.
+- `Shared.Messaging` owns integration event, outbox/inbox, subscription, messaging descriptor contracts, and messaging composition feature ids. It references shared primitives plus DI abstractions, not transport adapters.
+- `Shared.Tasks` owns task contracts, task descriptor metadata, and task runtime composition feature ids. It does not reference CQRS or runtime adapters.
 - `Shared.Caching.Cqrs` owns the optional bridge for flushing deferred cache invalidations after successful CQRS unit-of-work commits.
 - `Shared.Tasks.Cqrs` owns the optional bridge for dispatching application commands from task payload handlers.
 - `Shared.ProjectionRebuild` owns the task-neutral rebuild loop, checkpoint contracts, source/writer contracts, and metrics; `Shared.ProjectionRebuild.Tasks` adapts that loop to task progress and control messages.
@@ -234,6 +234,15 @@ Rules:
 - shared adapters may call `ProvideFeature(...)` for generic capabilities they make available;
 - profile validation reports selected modules, provided features, required features, and required modules deterministically;
 - profile metadata must not register services, map endpoints, start workers, or scan assemblies.
+
+Current reusable/example profiles:
+
+- `CatalogProfiles.Default` provides `catalog.items` and requires tenant context, cache-aside/invalidation services, and outbox infrastructure because its handlers directly depend on those contracts.
+- `OrderingProfiles.Default` provides orders plus Ordering-owned catalog item projections. It requires Catalog item facts and tenant context, while NATS consumers and task workers remain optional projection-maintenance enhancements.
+- `NotificationsProfiles.Default` provides durable notification history and broadcasts and requires tenant context. Shared live delivery remains separate through `Shared.Notifications.Infrastructure`, `Shared.Notifications.Api`, and `Shared.Notifications.SignalR`.
+- `TaskRuntimeProfiles.Default` describes the admin front door and requires the persisted run store, reporter, and control channel provided by `TaskRuntime.Persistence`. Worker-only hosts may compose `TaskRuntime.Persistence` with `Shared.Tasks.Infrastructure` directly and still validate the `tasks.run-store` requirement.
+
+Current adapter feature catalogs live in the capability packages that own the small public contract: `Shared.Caching.CachingCompositionFeatures`, `Shared.Messaging.MessagingCompositionFeatures`, `Shared.Notifications.NotificationsCompositionFeatures`, and `Shared.Tasks.TasksCompositionFeatures`.
 
 Compiled module projects are also listed in `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`. That catalog feeds architecture tests only and must not be used for runtime composition.
 

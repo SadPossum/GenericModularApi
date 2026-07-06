@@ -1,6 +1,7 @@
 namespace Notifications.Contracts;
 
 using Shared.Authorization;
+using Shared.ModuleComposition;
 using Shared.Modules;
 
 public static class NotificationsModuleMetadata
@@ -25,5 +26,6 @@ public static class NotificationsModuleMetadata
                 "Create notification broadcasts.",
                 tenantScoped: true),
         ])
+        .WithProfile(NotificationsProfiles.Default)
         .Build();
 }

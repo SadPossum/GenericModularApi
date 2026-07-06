@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\Shared.Naming\Shared.Naming.csproj" />
     <ProjectReference Include="..\Shared.Runtime\Shared.Runtime.csproj" />
     <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />

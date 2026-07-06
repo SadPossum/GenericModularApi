@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="System.CommandLine" />
@@ -38,6 +39,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Cqrs\Shared.Notifications.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Numerics\Shared.Numerics.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Observability\Shared.Observability.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />

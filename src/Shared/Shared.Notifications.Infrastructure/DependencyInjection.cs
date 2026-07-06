@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Shared.ModuleComposition;
 using Shared.Notifications;
 using Shared.Runtime.Infrastructure;
 
@@ -34,6 +35,13 @@ public static class DependencyInjection
         }
 
         builder.Services.AddSingleton<UserNotificationsInfrastructureMarker>();
+        builder.ProvideFeature(NotificationsCompositionFeatures.PublisherProvided("Shared.Notifications.Infrastructure"));
+        builder.ProvideFeature(NotificationsCompositionFeatures.RequestQueueProvided("Shared.Notifications.Infrastructure"));
+        if (notificationOptions.Enabled)
+        {
+            builder.ProvideFeature(NotificationsCompositionFeatures.LiveFeedProvided("Shared.Notifications.Infrastructure"));
+        }
+
         builder.Services.AddMetrics();
         builder.Services
             .AddOptions<NotificationsOptions>()

@@ -18,6 +18,7 @@ using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Naming;
 using Shared.Results;
 using Shared.Security;
@@ -29,6 +30,7 @@ public sealed class NotificationsModule : IModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(NotificationsProfiles.Default, "Notifications.Api");
         builder.Services.AddNotificationsApplication(builder.Configuration);
         builder.AddNotificationsPersistence();
     }

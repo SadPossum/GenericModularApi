@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Administration\Shared.Administration.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Api\Shared.Api.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj" />

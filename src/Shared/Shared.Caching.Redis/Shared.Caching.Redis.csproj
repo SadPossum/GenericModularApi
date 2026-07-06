@@ -7,5 +7,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shared.Caching\Shared.Caching.csproj" />
+    <ProjectReference Include="..\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
   </ItemGroup>
 </Project>

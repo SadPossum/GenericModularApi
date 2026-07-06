@@ -10,7 +10,9 @@ Initial slice implemented:
 - Auth exposes `AuthProfile.Global(...)` and `AuthProfile.TenantScoped()` through public contracts and profile-aware API/Admin API/Admin CLI front doors.
 - Tenancy exposes a default profile that provides `tenancy.context` and `tenancy.header-resolution`; shared tenancy infrastructure provides the baseline `tenancy.context` service for non-HTTP/admin composition.
 - Runtime hosts validate composition explicitly with `ValidateModuleComposition()`.
-- Follow-up slices can expand profiles to Catalog, Ordering, Notifications, TaskRuntime, messaging/outbox, and worker capabilities when their optional compositions need fail-fast validation.
+- Follow-up slice implemented package-owned feature catalogs for caching, messaging, notifications, and tasks; shared adapters now advertise concrete capabilities through composition metadata.
+- Catalog, Ordering, Notifications, and TaskRuntime expose default profiles in their `.Contracts/Metadata` folders, and their public/admin front doors select those profiles explicitly.
+- Remaining follow-up work is mostly optional worker-host examples and any future decoupling of tenant-shaped metadata from outbox/inbox/task records.
 
 ## Summary
 

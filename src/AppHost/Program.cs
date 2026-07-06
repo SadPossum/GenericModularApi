@@ -12,13 +12,17 @@ var nats = builder.AddNats("nats")
     .WithJetStream()
     .WithDataVolume(isReadOnly: false);
 
+bool workerEnabled = bool.TryParse(
+    builder.Configuration["AppHost:Worker:Enabled"],
+    out bool configuredWorkerEnabled) && configuredWorkerEnabled;
+
 var api = builder.AddProject<Projects.Host_Api>("host-api")
     .WithReference(sqlServer)
     .WithReference(postgreSql)
     .WithReference(nats)
     .WaitFor(nats)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-    .WithEnvironment("NatsJetStream__Enabled", "true");
+    .WithEnvironment("NatsJetStream__Enabled", workerEnabled ? "false" : "true");
 
 bool adminApiEnabled = bool.TryParse(
     builder.Configuration["AppHost:AdminApi:Enabled"],
@@ -33,7 +37,22 @@ if (adminApiEnabled)
         .WithReference(nats)
         .WaitFor(nats)
         .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-        .WithEnvironment("NatsJetStream__Enabled", "true");
+        .WithEnvironment("NatsJetStream__Enabled", workerEnabled ? "false" : "true");
+}
+
+IResourceBuilder<ProjectResource>? worker = null;
+if (workerEnabled)
+{
+    worker = builder.AddProject<Projects.Host_Worker>("host-worker")
+        .WithReference(sqlServer)
+        .WithReference(postgreSql)
+        .WithReference(nats)
+        .WaitFor(nats)
+        .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
+        .WithEnvironment("NatsJetStream__Enabled", "true")
+        .WithEnvironment("NatsConsumers__Enabled", "false")
+        .WithEnvironment("Tasks__Worker__Enabled", "false")
+        .WithEnvironment("Worker__Modules__Auth", "true");
 }
 
 bool redisEnabled = bool.TryParse(
@@ -51,6 +70,14 @@ if (redisEnabled)
     if (adminApi is { } configuredAdminApi)
     {
         configuredAdminApi.WithReference(redis)
+            .WaitFor(redis)
+            .WithEnvironment("Caching__Enabled", "true")
+            .WithEnvironment("Caching__Provider", "Redis");
+    }
+
+    if (worker is { } configuredWorker)
+    {
+        configuredWorker.WithReference(redis)
             .WaitFor(redis)
             .WithEnvironment("Caching__Enabled", "true")
             .WithEnvironment("Caching__Provider", "Redis");

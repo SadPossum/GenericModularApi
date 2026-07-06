@@ -12,6 +12,7 @@ The repo is intentionally small and explicit:
 - optional cache-aside reads use provider-neutral contracts, HybridCache, and an opt-in Redis adapter.
 - optional administration uses a separate CLI host, persisted RBAC/audit, and feature-owned admin front doors.
 - optional admin HTTP APIs use a separate `Host.AdminApi` composition root.
+- optional background processing uses a separate `Host.Worker` composition root when deployments want HTTP hosts to avoid publisher, consumer, and task-worker load.
 
 ## Quick Start
 
@@ -45,6 +46,19 @@ Run the optional admin API locally:
 .\eng\run-admin-api.ps1
 ```
 
+Run the optional worker locally:
+
+```powershell
+.\eng\run-worker.ps1
+```
+
+Run the optional worker in Aspire by setting:
+
+```powershell
+$env:AppHost__Worker__Enabled = 'true'
+.\eng\run-aspire.ps1
+```
+
 Docker-backed tests are skippable by default. To require them:
 
 ```powershell
@@ -61,6 +75,8 @@ Useful entry points:
 - [Architecture Overview](docs/architecture/overview.md)
 - [Module System](docs/architecture/module-system.md)
 - [Administration](docs/architecture/administration.md)
+- [Messaging and Outbox](docs/architecture/messaging-and-outbox.md)
+- [Tasks and Daemons](docs/architecture/tasks-and-daemons.md)
 - [Auth Module](docs/modules/auth.md)
 - [Administration Module](docs/modules/administration.md)
 - [Tenancy Module](docs/modules/tenancy.md)

@@ -21,6 +21,7 @@ src/
   Host.Api/
   Host.AdminCli/
   Host.AdminApi/
+  Host.Worker/
   AppHost/
   ServiceDefaults/
   Shared/
@@ -224,10 +225,28 @@ app.MapAdminApiModules();
 
 `Host.Api` still does not map admin routes.
 
+`Host.Worker` is an optional generic-host composition root for background infrastructure:
+
+```csharp
+builder.AddRedisCaching(); // no-op unless Redis caching is enabled
+builder.AddCachingCqrs();
+builder.AddSharedInfrastructure();
+builder.AddTenantCaching();
+builder.AddMessagingInfrastructure();
+builder.AddTenantAwareMessaging();
+builder.AddConfiguredNatsJetStreamMessaging(); // no-op unless NATS publishing is enabled
+builder.AddConfiguredNatsJetStreamConsumers(); // called only when NatsConsumers:Enabled=true
+builder.AddTaskWorkerRuntime(); // called only when Tasks:Worker:Enabled=true
+builder.ValidateModuleComposition();
+```
+
+Worker module groups are explicit configuration switches under `Worker:Modules`. The checked-in defaults compose no module groups and start no background loops. Deployments opt into only the modules this process should drain or execute, for example `Worker:Modules:Auth=true` for Auth outbox publishing, `Worker:Modules:Ordering=true` for Ordering consumers/projection rebuilds, and `Worker:Modules:TaskRuntime=true` when task workers need the persisted run store. `Host.Worker` does not map public or admin business endpoints.
+
 Runtime project dependency ownership:
 
 - `Host.Api` and `Host.AdminApi` should have no direct package references; they compose module front doors and shared adapters.
 - `Host.AdminCli` owns only CLI-hosting packages and composes admin CLI modules plus shared runtime adapters.
+- `Host.Worker` owns only generic-host composition plus explicit background module/application/persistence references; it does not reference API/AdminApi front doors.
 - `ServiceDefaults` owns local observability, service-discovery, HTTP resilience, and Prometheus scrape endpoint packages.
 - `AppHost` owns Aspire hosting packages and references runnable hosts, not module internals.
 

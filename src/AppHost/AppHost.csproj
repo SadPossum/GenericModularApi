@@ -15,5 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Host.AdminApi\Host.AdminApi.csproj" />
     <ProjectReference Include="..\Host.Api\Host.Api.csproj" />
+    <ProjectReference Include="..\Host.Worker\Host.Worker.csproj" />
   </ItemGroup>
 </Project>

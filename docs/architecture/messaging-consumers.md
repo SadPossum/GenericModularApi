@@ -1,6 +1,7 @@
 # Messaging Consumers
 
-NATS consumers are optional infrastructure. Production HTTP hosts enable publishing through the configured `Shared.Messaging.Nats.Aspire` adapter with `AddConfiguredNatsJetStreamMessaging()`. Consumers start only when a host also calls `AddNatsJetStreamConsumers()` and explicitly composes modules that register subscriptions.
+NATS consumers are optional infrastructure. Production HTTP hosts enable publishing through the configured `Shared.Messaging.Nats.Aspire` adapter with `AddConfiguredNatsJetStreamMessaging()`. Consumer-capable hosts use `AddConfiguredNatsJetStreamConsumers()`, which is a no-op unless `NatsConsumers:Enabled=true` and requires `ConnectionStrings:nats` when consumers are enabled.
+Consumers start only when a host explicitly composes the consumer adapter and modules that register subscriptions.
 `AddNatsJetStreamConsumers()` lives in `Shared.Messaging.Nats`, composes `AddMessagingInfrastructure()` idempotently for custom hosts, and messaging infrastructure composes only the runtime clock/id baseline it needs. It does not discover modules or subscriptions. A host still has to register each subscribing module explicitly.
 
 ## Contracts
@@ -52,7 +53,7 @@ Subscription metadata is validated when it is created: module names, event names
 }
 ```
 
-`Enabled=false` is the default. A host may register the hosted service without starting consumers until configuration enables it.
+`Enabled=false` is the default. A host may register the hosted service without starting consumers until configuration enables it. `Host.Worker` calls the configured consumer adapter only when `NatsConsumers:Enabled=true`, so disabled consumer loops stay out of the service graph.
 Stream name is configured through `NatsJetStream` options and uses the same restricted portable character set as publishing: ASCII letters, digits, `-`, and `_`. If `NatsJetStream:StreamName` is blank, it is derived from `ApplicationIdentity:Namespace`.
 `DurablePrefix` is optional. When it is absent, the first segment of the physical durable consumer name is derived from `ApplicationIdentity:Namespace`. It is not a subject prefix.
 The runtime keeps NATS fetch expiration above the NATS client minimum even when `PollInterval` is configured below one second. Short poll intervals may still be useful for retry delays and tests, but the pull fetch window must remain valid for the client.
@@ -88,3 +89,4 @@ Inbox rows track:
 - Consumers should not create database foreign keys to producer-module tables.
 - Poison messages caused by deserialization failure are terminated by the runtime.
 - Disabled consumers must not require a NATS connection at host startup.
+- Consumer-only workers can set `NatsJetStream:Enabled=false` and `NatsConsumers:Enabled=true`; they still need `ConnectionStrings:nats`, the consuming module application, and that module's `IInboxStore`.

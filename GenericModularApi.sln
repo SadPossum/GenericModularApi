@@ -97,6 +97,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "eng", "eng", "{5D497D58-291
 		eng\run-admin.ps1 = eng\run-admin.ps1
 		eng\run-api.ps1 = eng\run-api.ps1
 		eng\run-aspire.ps1 = eng\run-aspire.ps1
+		eng\run-worker.ps1 = eng\run-worker.ps1
 		eng\test-docker.ps1 = eng\test-docker.ps1
 		eng\test-fast.ps1 = eng\test-fast.ps1
 		eng\verify.ps1 = eng\verify.ps1
@@ -405,6 +406,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.Tenancy.Api.Serilog", "src\Shared\Shared.Tenancy.Api.Serilog\Shared.Tenancy.Api.Serilog.csproj", "{74248547-EC6E-41F1-A804-D8338FAB004D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.AccessControl", "src\Shared\Shared.AccessControl\Shared.AccessControl.csproj", "{DE8816DE-04A5-4783-AB73-8299B80C48AC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Host.Worker", "src\Host.Worker\Host.Worker.csproj", "{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1928,6 +1931,18 @@ Global
 		{DE8816DE-04A5-4783-AB73-8299B80C48AC}.Release|x64.Build.0 = Release|Any CPU
 		{DE8816DE-04A5-4783-AB73-8299B80C48AC}.Release|x86.ActiveCfg = Release|Any CPU
 		{DE8816DE-04A5-4783-AB73-8299B80C48AC}.Release|x86.Build.0 = Release|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Debug|x64.Build.0 = Debug|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Debug|x86.Build.0 = Debug|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Release|x64.ActiveCfg = Release|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Release|x64.Build.0 = Release|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Release|x86.ActiveCfg = Release|Any CPU
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -2081,5 +2096,6 @@ Global
 		{9F002464-E320-421E-9536-CEA3E1D0F047} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 		{74248547-EC6E-41F1-A804-D8338FAB004D} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 		{DE8816DE-04A5-4783-AB73-8299B80C48AC} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
+		{D45C2AF5-DC19-4507-AD32-EC77AF2A42B8} = {981C2CF6-E5BB-602A-511C-234B538302B0}
 	EndGlobalSection
 EndGlobal

@@ -48,6 +48,14 @@ AppHost__AdminApi__Enabled=true
 
 The admin API still stays a separate composition root; the flag only adds it to the local Aspire resource graph.
 
+`Host.Worker` is also disabled by default. To include the optional background worker and demonstrate separated publishing for the default Auth module, set:
+
+```text
+AppHost__Worker__Enabled=true
+```
+
+When the worker flag is enabled, AppHost sets HTTP hosts to `NatsJetStream:Enabled=false` and starts `Host.Worker` with `Worker:Modules:Auth=true` and `NatsJetStream:Enabled=true`. Consumers and task workers remain disabled until you also enable their settings and module groups.
+
 ## Run API Only
 
 ```powershell
@@ -55,6 +63,14 @@ The admin API still stays a separate composition root; the flag only adds it to 
 ```
 
 The default launch profile is `https`.
+
+## Run Worker Only
+
+```powershell
+.\eng\run-worker.ps1
+```
+
+The worker starts with all background loops disabled unless configuration enables publishing, consumers, or task workers. Set `Worker__Modules__*` for the modules this process should compose.
 
 ## Useful Local URLs
 
@@ -117,6 +133,22 @@ Core runtime keys:
 - `NatsConsumers:MaxDeliver`
 - `NatsConsumers:HandlerTimeout`
 - `NatsConsumers:NakDelay`
+- `Worker:Modules:Auth`
+- `Worker:Modules:Catalog`
+- `Worker:Modules:Ordering`
+- `Worker:Modules:TaskRuntime`
+- `Worker:Modules:TaskSamples`
+- `Tasks:Worker:Enabled`
+- `Tasks:Worker:WorkerGroups`
+- `Tasks:Worker:BatchSize`
+- `Tasks:Worker:MaxConcurrency`
+- `Tasks:Worker:PollInterval`
+- `Tasks:Worker:LeaseDuration`
+- `Tasks:Worker:HandlerTimeout`
+- `Tasks:Worker:RetryBaseDelay`
+- `Tasks:Worker:RetryMaxDelay`
+- `Tasks:Worker:TimeoutScannerEnabled`
+- `Tasks:Worker:MetricsSamplerEnabled`
 - `Observability:Prometheus:Enabled`
 - `Observability:Prometheus:EndpointPath`
 - `Observability:Otlp:Enabled`

@@ -21,6 +21,8 @@ using Xunit;
 [Trait("Category", "Architecture")]
 public sealed partial class ModuleMetadataTests
 {
+    private static readonly string[] SampleStringCollection = ["US"];
+
     [Fact]
     public void Module_descriptor_root_surface_stays_capability_neutral()
     {
@@ -1007,6 +1009,13 @@ public sealed partial class ModuleMetadataTests
         if (effectiveType == typeof(decimal))
         {
             return 1m;
+        }
+
+        if (effectiveType == typeof(IReadOnlyCollection<string>) ||
+            effectiveType == typeof(IReadOnlyList<string>) ||
+            effectiveType == typeof(IEnumerable<string>))
+        {
+            return SampleStringCollection;
         }
 
         if (effectiveType.IsEnum)

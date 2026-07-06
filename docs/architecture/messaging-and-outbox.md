@@ -21,7 +21,7 @@ This keeps the skeleton compatible with common event metadata practices without 
 
 `Shared.Messaging.Infrastructure` registers EF outbox/inbox helpers, the outbox writer registry, outbox options, messaging metrics, the outbox publisher loop, and a fail-fast null event bus. It does not reference NATS and does not start the outbox publisher by itself.
 `Shared.Messaging.Nats` owns the NATS JetStream event bus, consumer hosted service, NATS options, and low-level `AddNatsJetStreamMessaging()` / `AddNatsJetStreamConsumers()` composition hooks.
-`Shared.Messaging.Nats.Aspire` owns Aspire NATS client composition for production-style HTTP hosts.
+`Shared.Messaging.Nats.Aspire` owns configured Aspire NATS client composition for production-style hosts. `AddConfiguredNatsJetStreamMessaging()` wires publishing and `AddConfiguredNatsJetStreamConsumers()` wires consumer-only or consumer-plus-publisher hosts without requiring direct Aspire package references in composition roots.
 `Shared.Tenancy.Messaging` is the optional contract bridge for module contract packages that need tenant-aware integration events.
 `Shared.Tenancy.Messaging.Infrastructure` is the optional runtime bridge for hosts; `AddTenantAwareMessaging()` registers generic scope resolution and consumer tenant-context setup through messaging extension points.
 
@@ -36,6 +36,20 @@ builder.AddConfiguredNatsJetStreamMessaging();
 That call is a no-op unless `NatsJetStream:Enabled=true`. When enabled, it validates `NatsJetStream` settings, requires `ConnectionStrings:nats`, configures the Aspire NATS client from that connection string, calls into `Shared.Messaging.Nats`, registers the NATS event bus, and starts `OutboxPublisherService`.
 When the host does not opt in, `IEventBus` remains a null adapter and module outbox rows stay local until a publisher is composed.
 Tools and short-lived hosts can use shared infrastructure without accidentally draining outboxes.
+
+`Host.Worker` is the optional separated publishing process. A simple deployment can skip it and let `Host.Api` or `Host.AdminApi` publish outbox rows by setting `NatsJetStream:Enabled=true` in those HTTP hosts. A separated deployment sets HTTP hosts to `NatsJetStream:Enabled=false`, composes the required module persistence in `Host.Worker` with `Worker:Modules:*`, and enables `NatsJetStream:Enabled=true` only in the worker.
+
+```text
+Simple mode:
+  Host.Api -> AddConfiguredNatsJetStreamMessaging()
+  Host.Worker is not deployed
+
+Separated mode:
+  Host.Api -> AddMessagingInfrastructure(), NatsJetStream:Enabled=false
+  Host.Worker -> Worker:Modules:Auth=true, NatsJetStream:Enabled=true
+```
+
+The worker can publish only module outbox stores registered in that worker process. For example, an Auth-only worker sets `Worker:Modules:Auth=true`; a Catalog/Ordering worker must opt into those modules and run their migrations before enabling publishing.
 
 Lower-level test or custom hosts can still reference `Shared.Messaging.Nats`, provide `INatsConnection` themselves, and call `AddNatsJetStreamMessaging()` directly, but production hosts should use the configured Aspire adapter so connection-string behavior stays consistent.
 The low-level messaging methods compose `AddMessagingInfrastructure()` idempotently, and that composes `AddRuntimeInfrastructure()` for shared clocks and id generation without pulling in CQRS or domain-event dispatch.

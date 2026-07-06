@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Host.AdminCli\Host.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Host.AdminApi\Host.AdminApi.csproj" />
+    <ProjectReference Include="..\..\src\Host.Worker\Host.Worker.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.AdminCli\Administration.AdminCli.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.AdminApi\Administration.AdminApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\Administration\Administration.Application\Administration.Application.csproj" />

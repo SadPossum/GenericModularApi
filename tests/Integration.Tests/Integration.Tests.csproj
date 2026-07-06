@@ -58,6 +58,7 @@
     <ProjectReference Include="..\..\src\Modules\TaskSamples\TaskSamples.Contracts\TaskSamples.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Host.Api\Host.Api.csproj" />
     <ProjectReference Include="..\..\src\Host.AdminApi\Host.AdminApi.csproj" />
+    <ProjectReference Include="..\..\src\Host.Worker\Host.Worker.csproj" />
     <ProjectReference Include="..\..\src\Modules\Tenancy\Tenancy.Api\Tenancy.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching\Shared.Caching.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj" />
@@ -71,6 +72,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging.Nats\Shared.Messaging.Nats.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj" />

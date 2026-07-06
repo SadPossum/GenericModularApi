@@ -32,11 +32,38 @@ The default Aspire graph runs `Host.Api` plus infrastructure. To add the optiona
 AppHost__AdminApi__Enabled=true
 ```
 
+To add the optional background worker to the local graph, set:
+
+```text
+AppHost__Worker__Enabled=true
+```
+
+With that flag, Aspire starts `Host.Worker`, sets API-side `NatsJetStream:Enabled=false`, and enables worker-side Auth outbox publishing with `Worker:Modules:Auth=true`. This is the local separated-publishing profile. NATS consumers and task workers stay disabled unless you opt into them with settings such as:
+
+```text
+NatsConsumers__Enabled=true
+Worker__Modules__Catalog=true
+Worker__Modules__Ordering=true
+Worker__Modules__TaskRuntime=true
+Tasks__Worker__Enabled=true
+Tasks__Worker__WorkerGroups__0=projection-workers
+```
+
+Run the relevant module migrations before enabling worker loops that query those module tables. Avoid enabling API-side publishing and worker-side publishing together unless you are intentionally testing multi-instance outbox claiming.
+
 Use API-only mode when external services are already running:
 
 ```powershell
 .\eng\run-api.ps1
 ```
+
+Run the worker directly when external services are already running:
+
+```powershell
+.\eng\run-worker.ps1
+```
+
+`run-worker.ps1` defaults `DOTNET_ENVIRONMENT` to `Development` when the caller has not already set it.
 
 ## Running the Admin CLI
 
@@ -113,7 +140,7 @@ Caching__Enabled=true
 Caching__Provider=Memory
 ```
 
-To run Redis through Aspire, set `AppHost:Redis:Enabled=true` for the AppHost. Aspire starts Redis, injects `ConnectionStrings:redis`, and selects the Redis provider for the Aspire-composed HTTP hosts.
+To run Redis through Aspire, set `AppHost:Redis:Enabled=true` for the AppHost. Aspire starts Redis, injects `ConnectionStrings:redis`, and selects the Redis provider for the Aspire-composed HTTP hosts and worker when they are enabled.
 
 For standalone API, admin API, or admin CLI Redis mode, provide:
 

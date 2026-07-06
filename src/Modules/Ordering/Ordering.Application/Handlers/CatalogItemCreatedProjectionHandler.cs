@@ -19,7 +19,8 @@ internal sealed class CatalogItemCreatedProjectionHandler(ICatalogItemProjection
                 integrationEvent.Name,
                 integrationEvent.Price,
                 integrationEvent.Currency,
-                CatalogItemStatus.Active),
+                CatalogItemStatus.Active,
+                integrationEvent.AvailableRegions),
             cancellationToken).ConfigureAwait(false);
     }
 }

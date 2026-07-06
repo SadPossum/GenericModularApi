@@ -25,10 +25,14 @@ public sealed class CatalogApplicationRegistrationTests
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ICommandHandler<DiscontinueCatalogItemCommand, Unit>));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryHandler<GetCatalogItemQuery, CatalogItemDto>));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryHandler<ListCatalogItemsQuery, CatalogItemListResponse>));
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryHandler<GetAvailableCatalogItemQuery, CatalogItemDto>));
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryHandler<ListAvailableCatalogItemsQuery, CatalogItemListResponse>));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ICommandValidator<CreateCatalogItemCommand>));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ICommandValidator<UpdateCatalogItemCommand>));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(ICommandValidator<DiscontinueCatalogItemCommand>));
         Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryValidator<GetCatalogItemQuery>));
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryValidator<GetAvailableCatalogItemQuery>));
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IQueryValidator<ListAvailableCatalogItemsQuery>));
         Assert.Equal(3, services.Count(descriptor => IsDomainEventHandler(descriptor.ServiceType)));
     }
 

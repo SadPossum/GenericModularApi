@@ -2,6 +2,7 @@ namespace Notifications.Application.Handlers;
 
 using Notifications.Application.Commands;
 using Notifications.Application.Ports;
+using Notifications.Application.Visibility;
 using Notifications.Contracts;
 using Shared.Cqrs;
 using Shared.Results;
@@ -16,8 +17,13 @@ internal sealed class MarkAllNotificationsReadCommandHandler(
         MarkAllNotificationsReadCommand command,
         CancellationToken cancellationToken)
     {
+        if (!NotificationHistoryAccess.CanAccessUserHistory(command.Subject, command.Subject.TenantId))
+        {
+            return Result.Failure<MarkAllNotificationsReadResponse>(NotificationsApplicationErrors.AccessDenied);
+        }
+
         int updatedCount = await repository
-            .MarkAllReadAsync(command.UserId, clock.UtcNow, cancellationToken)
+            .MarkAllReadAsync(command.Subject, clock.UtcNow, cancellationToken)
             .ConfigureAwait(false);
 
         return Result.Success(new MarkAllNotificationsReadResponse(updatedCount));

@@ -9,4 +9,6 @@ public static class CatalogApplicationErrors
     public static readonly Error SkuAlreadyExists = CatalogDomainErrors.SkuAlreadyExists;
     public static readonly Error ItemStatusUnknown = CatalogDomainErrors.ItemStatusUnknown;
     public static readonly Error ItemAlreadyDiscontinued = CatalogDomainErrors.ItemAlreadyDiscontinued;
+    public static readonly Error RegionInvalid = CatalogDomainErrors.RegionInvalid;
+    public static readonly Error AccessDenied = CatalogDomainErrors.AccessDenied;
 }

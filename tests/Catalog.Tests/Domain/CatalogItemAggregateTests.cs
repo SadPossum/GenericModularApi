@@ -3,6 +3,7 @@ namespace Catalog.Tests;
 using Shared.Naming;
 using Catalog.Domain.Aggregates;
 using Catalog.Domain.Errors;
+using Catalog.Domain.Events;
 using Shared.Domain;
 using Shared.Numerics;
 using Shared.Results;
@@ -74,13 +75,52 @@ public sealed class CatalogItemAggregateTests
     }
 
     [Fact]
+    public void Create_normalizes_available_regions_and_treats_empty_list_as_all_regions()
+    {
+        Result<CatalogItem> regional = CreateItem("tenant-a", availableRegions: [" us ", "EU", "us"]);
+        Result<CatalogItem> global = CreateItem("tenant-a", availableRegions: []);
+
+        Assert.True(regional.IsSuccess);
+        Assert.Equal(["EU", "US"], regional.Value.AvailableRegions.Select(region => region.Region.Value).ToArray());
+        Assert.True(regional.Value.IsAvailableInRegion("us"));
+        Assert.False(regional.Value.IsAvailableInRegion("ca"));
+        CatalogItemCreatedDomainEvent domainEvent =
+            Assert.IsType<CatalogItemCreatedDomainEvent>(Assert.Single(regional.Value.DomainEvents));
+        Assert.Equal(["EU", "US"], domainEvent.AvailableRegions);
+
+        Assert.True(global.IsSuccess);
+        Assert.Empty(global.Value.AvailableRegions);
+        Assert.True(global.Value.IsAvailableInRegion("ca"));
+    }
+
+    [Fact]
+    public void Create_rejects_invalid_available_regions()
+    {
+        Assert.Equal(CatalogDomainErrors.RegionInvalid, CreateItem("tenant-a", availableRegions: ["-us"]).Error);
+        Assert.Equal(
+            CatalogDomainErrors.AvailableRegionLimitExceeded,
+            CreateItem(
+                "tenant-a",
+                availableRegions: Enumerable.Range(1, CatalogItem.AvailableRegionMaxCount + 1)
+                    .Select(index => $"R{index}")
+                    .ToArray()).Error);
+    }
+
+    [Fact]
     public void Update_and_discontinue_reject_empty_event_id()
     {
         CatalogItem item = CreateItem("tenant-a").Value;
 
         Assert.Equal(
             CatalogDomainErrors.DomainEventIdRequired,
-            item.Update("SKU-2", "Updated item", 12m, "USD", Guid.Empty, DateTimeOffset.UtcNow).Error);
+            item.Update(
+                "SKU-2",
+                "Updated item",
+                12m,
+                "USD",
+                availableRegions: null,
+                eventId: Guid.Empty,
+                nowUtc: DateTimeOffset.UtcNow).Error);
         Assert.Equal(
             CatalogDomainErrors.DomainEventIdRequired,
             item.Discontinue(Guid.Empty, DateTimeOffset.UtcNow).Error);
@@ -100,8 +140,9 @@ public sealed class CatalogItemAggregateTests
             "Updated item",
             12m,
             "USD",
-            Guid.NewGuid(),
-            DateTimeOffset.UtcNow);
+            availableRegions: null,
+            eventId: Guid.NewGuid(),
+            nowUtc: DateTimeOffset.UtcNow);
         Result discontinue = item.Discontinue(Guid.NewGuid(), DateTimeOffset.UtcNow);
 
         Assert.Equal(CatalogDomainErrors.ItemStatusUnknown, update.Error);
@@ -116,6 +157,7 @@ public sealed class CatalogItemAggregateTests
         string name = "Catalog item",
         string currency = "USD",
         decimal price = 10m,
+        IEnumerable<string>? availableRegions = null,
         Guid? itemId = null,
         Guid? eventId = null) =>
         CatalogItem.Create(
@@ -125,8 +167,9 @@ public sealed class CatalogItemAggregateTests
             name,
             price,
             currency,
-            eventId ?? Guid.NewGuid(),
-            DateTimeOffset.UtcNow);
+            availableRegions,
+            eventId: eventId ?? Guid.NewGuid(),
+            nowUtc: DateTimeOffset.UtcNow);
 
     private static void SetStatus(CatalogItem item, CatalogItemState status) =>
         typeof(CatalogItem)

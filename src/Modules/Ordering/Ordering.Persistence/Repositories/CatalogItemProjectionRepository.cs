@@ -17,7 +17,8 @@ internal sealed class CatalogItemProjectionRepository(OrderingDbContext dbContex
                 item.Name,
                 item.Price,
                 item.Currency,
-                item.Status))
+                item.Status,
+                item.GetAvailableRegions()))
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -39,11 +40,12 @@ internal sealed class CatalogItemProjectionRepository(OrderingDbContext dbContex
                 item.Name,
                 item.Price,
                 item.Currency,
-                item.Status));
+                item.Status,
+                item.AvailableRegions));
             return;
         }
 
-        projection.Update(item.Sku, item.Name, item.Price, item.Currency, item.Status);
+        projection.Update(item.Sku, item.Name, item.Price, item.Currency, item.Status, item.AvailableRegions);
     }
 
     public async Task MarkDiscontinuedAsync(string tenantId, Guid catalogItemId, CancellationToken cancellationToken)

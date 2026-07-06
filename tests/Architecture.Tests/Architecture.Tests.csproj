@@ -62,6 +62,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Administration\Shared.Administration.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.AccessControl\Shared.AccessControl.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Api\Shared.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Authorization\Shared.Authorization.csproj" />

@@ -14,11 +14,13 @@ public sealed class OrderContractEnumJsonTests
     {
         OrderDto order = new(
             Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+            "user-1",
             Guid.Parse("bbbbbbbb-cccc-dddd-eeee-ffffffffffff"),
             "SKU-1",
             "Catalog item",
             10m,
             "USD",
+            "US",
             2,
             20m,
             OrderStatus.Submitted,

@@ -5,4 +5,8 @@ using Ordering.Domain.Aggregates;
 public interface IOrderRepository
 {
     Task AddAsync(Order order, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<string>> ListDistinctUserIdsByCatalogItemAsync(
+        string tenantId,
+        Guid catalogItemId,
+        CancellationToken cancellationToken);
 }

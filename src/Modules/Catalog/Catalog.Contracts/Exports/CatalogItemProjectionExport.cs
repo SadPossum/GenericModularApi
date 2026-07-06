@@ -12,7 +12,8 @@ public sealed record CatalogItemProjectionExport
         string name,
         decimal price,
         string currency,
-        CatalogItemStatus status)
+        CatalogItemStatus status,
+        IReadOnlyCollection<string>? availableRegions = null)
     {
         this.TenantId = TenantIds.Normalize(tenantId);
         this.ItemId = IntegrationEventContractGuards.RequireId(itemId, nameof(itemId));
@@ -28,6 +29,7 @@ public sealed record CatalogItemProjectionExport
             nameof(price));
         this.Currency = NormalizeCurrency(currency);
         this.Status = IntegrationEventContractGuards.NormalizeDefinedOrUnknown(status);
+        this.AvailableRegions = CatalogRegionCodes.NormalizeMany(availableRegions);
     }
 
     public string TenantId { get; }
@@ -37,6 +39,7 @@ public sealed record CatalogItemProjectionExport
     public decimal Price { get; }
     public string Currency { get; }
     public CatalogItemStatus Status { get; }
+    public IReadOnlyCollection<string> AvailableRegions { get; }
 
     private static string NormalizeSku(string sku) =>
         IntegrationEventContractGuards

@@ -35,6 +35,7 @@ internal sealed class CreateCatalogItemCommandHandler(
             command.Name,
             command.Price,
             command.Currency,
+            command.AvailableRegions,
             idGenerator.NewId(),
             clock.UtcNow);
 

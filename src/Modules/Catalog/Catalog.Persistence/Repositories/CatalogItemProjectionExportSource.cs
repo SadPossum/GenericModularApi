@@ -15,7 +15,9 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
         ArgumentNullException.ThrowIfNull(request);
 
         string? normalizedCursor = NormalizeCursor(cursor);
-        IQueryable<CatalogItem> query = dbContext.CatalogItems.AsNoTracking();
+        IQueryable<CatalogItem> query = dbContext.CatalogItems
+            .AsNoTracking()
+            .Include(item => item.AvailableRegions);
         if (normalizedCursor is not null)
         {
             query = this.ApplyCursor(query, normalizedCursor);
@@ -45,7 +47,11 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
             item.Name.Value,
             item.Price.Value,
             item.Currency.Value,
-            MapStatus(item.Status));
+            MapStatus(item.Status),
+            item.AvailableRegions
+                .Select(region => region.Region.Value)
+                .Order(StringComparer.Ordinal)
+                .ToArray());
 
     private static CatalogItemStatus MapStatus(CatalogItemState status) =>
         status switch
@@ -65,7 +71,8 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
                     FROM [catalog].[items]
                     WHERE [Sku] > {normalizedCursor}
                     """)
-                .AsNoTracking();
+                .AsNoTracking()
+                .Include(item => item.AvailableRegions);
         }
 
         if (dbContext.Database.IsNpgsql())
@@ -76,7 +83,8 @@ internal sealed class CatalogItemProjectionExportSource(CatalogDbContext dbConte
                     FROM "catalog"."items"
                     WHERE "Sku" > {normalizedCursor}
                     """)
-                .AsNoTracking();
+                .AsNoTracking()
+                .Include(item => item.AvailableRegions);
         }
 
 #pragma warning disable CA1309

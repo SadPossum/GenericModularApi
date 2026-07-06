@@ -116,10 +116,10 @@ For guaranteed history creation, publish `UserNotificationRequestedIntegrationEv
 The optional `Notifications` module can consume that event through its own inbox and write history in the `notifications` schema, but it does not subscribe to any producer by default. A host/example that wants durable notification request ingestion composes the producer binding explicitly:
 
 ```csharp
-builder.Services.AddUserNotificationRequestSubscription(CatalogModuleMetadata.Name);
+builder.Services.AddUserNotificationRequestSubscription(OrderingModuleMetadata.Name);
 ```
 
-The helper derives a producer-specific durable handler name such as `catalog-notification-request`, so multiple producers can be added without sharing one consumer identity.
+The helper derives a producer-specific durable handler name such as `ordering-notification-request`, so multiple producers can be added without sharing one consumer identity.
 
 ## Publishing From Runtime Code
 

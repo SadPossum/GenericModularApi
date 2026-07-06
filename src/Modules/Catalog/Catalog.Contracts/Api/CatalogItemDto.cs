@@ -6,4 +6,5 @@ public sealed record CatalogItemDto(
     string Name,
     decimal Price,
     string Currency,
-    CatalogItemStatus Status);
+    CatalogItemStatus Status,
+    IReadOnlyCollection<string> AvailableRegions);

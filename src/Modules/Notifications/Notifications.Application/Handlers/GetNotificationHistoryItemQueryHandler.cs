@@ -7,7 +7,8 @@ using Notifications.Domain.Errors;
 using Shared.Cqrs;
 using Shared.Results;
 
-internal sealed class GetNotificationHistoryItemQueryHandler(INotificationHistoryRepository repository)
+internal sealed class GetNotificationHistoryItemQueryHandler(
+    INotificationHistoryRepository repository)
     : IQueryHandler<GetNotificationHistoryItemQuery, NotificationHistoryItem>
 {
     public async Task<Result<NotificationHistoryItem>> HandleAsync(
@@ -15,7 +16,7 @@ internal sealed class GetNotificationHistoryItemQueryHandler(INotificationHistor
         CancellationToken cancellationToken)
     {
         NotificationHistoryItem? notification = await repository
-            .GetAsync(query.NotificationId, query.UserId, cancellationToken)
+            .GetAsync(query.NotificationId, query.Subject, cancellationToken)
             .ConfigureAwait(false);
 
         return notification is null

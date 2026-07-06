@@ -2,6 +2,7 @@ namespace Notifications.Application.Ports;
 
 using Notifications.Contracts;
 using Notifications.Domain.Aggregates;
+using Shared.AccessControl;
 using Shared.Pagination;
 
 public interface INotificationHistoryRepository
@@ -10,7 +11,7 @@ public interface INotificationHistoryRepository
 
     Task<NotificationHistoryItem?> GetAsync(
         Guid notificationId,
-        string userId,
+        AccessSubject subject,
         CancellationToken cancellationToken);
 
     Task<AdminNotificationHistoryItem?> GetTenantAsync(
@@ -18,7 +19,7 @@ public interface INotificationHistoryRepository
         CancellationToken cancellationToken);
 
     Task<NotificationHistoryListResponse> ListAsync(
-        string userId,
+        AccessSubject subject,
         bool unreadOnly,
         PageRequest pageRequest,
         CancellationToken cancellationToken);
@@ -30,7 +31,7 @@ public interface INotificationHistoryRepository
         CancellationToken cancellationToken);
 
     Task<long> GetCurrentStreamSequenceForUserAsync(
-        string userId,
+        AccessSubject subject,
         CancellationToken cancellationToken);
 
     Task<long> GetCurrentStreamSequenceForTenantAsync(
@@ -38,7 +39,7 @@ public interface INotificationHistoryRepository
         CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NotificationHistoryItem>> ListNewForUserAsync(
-        string userId,
+        AccessSubject subject,
         long afterStreamSequence,
         int batchSize,
         CancellationToken cancellationToken);
@@ -51,12 +52,12 @@ public interface INotificationHistoryRepository
 
     Task<bool> MarkReadAsync(
         Guid notificationId,
-        string userId,
+        AccessSubject subject,
         DateTimeOffset readAtUtc,
         CancellationToken cancellationToken);
 
     Task<int> MarkAllReadAsync(
-        string userId,
+        AccessSubject subject,
         DateTimeOffset readAtUtc,
         CancellationToken cancellationToken);
 

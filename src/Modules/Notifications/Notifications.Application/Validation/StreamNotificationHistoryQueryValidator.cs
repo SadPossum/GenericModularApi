@@ -2,16 +2,16 @@ namespace Notifications.Application.Validation;
 
 using Notifications.Application;
 using Notifications.Application.Queries;
-using Notifications.Contracts;
+using Shared.AccessControl;
 using Shared.Cqrs;
 
 internal sealed class StreamNotificationHistoryQueryValidator : IQueryValidator<StreamNotificationHistoryQuery>
 {
     public IEnumerable<string> Validate(StreamNotificationHistoryQuery query)
     {
-        if (!NotificationRecipientUserIds.TryNormalize(query.UserId, out _))
+        if (query.Subject is null || query.Subject.Kind != AccessSubjectKind.User)
         {
-            yield return "Notification user id is required.";
+            yield return "Notification access subject must be a user.";
         }
 
         if (query.AfterStreamSequence < 0)

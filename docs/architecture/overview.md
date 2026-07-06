@@ -28,6 +28,7 @@ src/
     Shared.Administration.Api/
     Shared.Administration.Cli/
     Shared.Api/
+    Shared.AccessControl/
     Shared.Api.OpenApi/
     Shared.Api.Serilog/
     Shared.Application.Composition/
@@ -243,6 +244,9 @@ Host.Api
 Modules.*.Persistence
   -> Modules.*.Application
   -> Modules.*.Domain
+
+Shared.AccessControl
+  -> Shared.Naming
 
 Shared.Administration
   -> Shared.Naming
@@ -596,6 +600,8 @@ source module command -> source module outbox
   -> Notifications inbox + user_notifications
   -> current-user/admin history stream
 ```
+
+For example, Catalog publishes item facts, Ordering consumes those facts into its local projection, Ordering decides which order owners are affected, and Ordering publishes addressed notification requests. Notifications stores and streams the addressed messages; it does not define Catalog or Ordering visibility rules.
 
 Durable backend facts still flow through domain events, outbox, NATS, and inbox. SignalR/SSE must not become a module integration path.
 

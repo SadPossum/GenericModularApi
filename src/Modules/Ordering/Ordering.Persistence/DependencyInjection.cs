@@ -35,6 +35,8 @@ public static class DependencyInjection
         builder.Services.TryAddEnumerable([
             ServiceDescriptor.Scoped<IUnitOfWork, OrderingUnitOfWork>(),
             ServiceDescriptor.Scoped<IInboxStore, OrderingInboxStore>(),
+            ServiceDescriptor.Scoped<IOutboxWriter, OrderingOutboxWriter>(),
+            ServiceDescriptor.Scoped<IOutboxStore, OrderingOutboxStore>(),
             ServiceDescriptor.Scoped<IProjectionRebuildCheckpointStore, OrderingProjectionRebuildCheckpointStore>(),
             ServiceDescriptor.Scoped<IProjectionRebuildTransactionBoundary, OrderingProjectionRebuildTransactionBoundary>()
         ]);

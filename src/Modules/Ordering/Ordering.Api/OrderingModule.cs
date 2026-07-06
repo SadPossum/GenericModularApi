@@ -13,10 +13,14 @@ using Shared.Api.Modules;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
+using Shared.AccessControl;
 using Shared.Cqrs;
 using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Results;
+using Shared.Security;
+using Shared.Tenancy;
+using System.Security.Claims;
 
 public sealed class OrderingModule : IModule
 {
@@ -38,21 +42,39 @@ public sealed class OrderingModule : IModule
         orders.MapGet("/", async (
             int? page,
             int? pageSize,
+            HttpContext httpContext,
+            ITenantContext tenantContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
-            (await dispatcher.QueryAsync(
-                new ListOrdersQuery(page ?? PageRequest.DefaultPage, pageSize ?? PageRequest.DefaultPageSize),
-                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
+        {
+            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject))
+            {
+                return Results.Unauthorized();
+            }
+
+            Result<OrderListResponse> result = await dispatcher.QueryAsync(
+                new ListOrdersQuery(subject, page ?? PageRequest.DefaultPage, pageSize ?? PageRequest.DefaultPageSize),
+                cancellationToken).ConfigureAwait(false);
+
+            return result.ToHttpResult(PublicErrorStatusCodes);
+        })
             .RequireTenant()
             .RequireAuthorization();
 
         orders.MapGet("/{orderId:guid}", async (
             Guid orderId,
+            HttpContext httpContext,
+            ITenantContext tenantContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
+            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject))
+            {
+                return Results.Unauthorized();
+            }
+
             Result<OrderDto> result = await dispatcher.QueryAsync(
-                new GetOrderQuery(orderId),
+                new GetOrderQuery(orderId, subject),
                 cancellationToken).ConfigureAwait(false);
 
             return result.ToHttpResult(PublicErrorStatusCodes);
@@ -62,20 +84,45 @@ public sealed class OrderingModule : IModule
 
         orders.MapPost("/", async (
             PlaceOrderRequest request,
+            HttpContext httpContext,
+            ITenantContext tenantContext,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
-            (await dispatcher.SendAsync(
-                new PlaceOrderCommand(request.CatalogItemId, request.Quantity),
-                cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes))
+        {
+            if (!TryResolveUserSubject(httpContext, tenantContext, out AccessSubject? subject))
+            {
+                return Results.Unauthorized();
+            }
+
+            Result<OrderDto> result = await dispatcher.SendAsync(
+                new PlaceOrderCommand(request.CatalogItemId, request.Quantity, subject, request.RegionCode),
+                cancellationToken).ConfigureAwait(false);
+
+            return result.ToHttpResult(PublicErrorStatusCodes);
+        })
             .RequireTenant()
             .RequireAuthorization();
     }
 
-    public sealed record PlaceOrderRequest(Guid CatalogItemId, int Quantity);
+    public sealed record PlaceOrderRequest(Guid CatalogItemId, int Quantity, string RegionCode);
 
     private static readonly ApiErrorStatusCodeMap PublicErrorStatusCodes = ApiErrorStatusCodeMap.Create(
         new(OrderingApplicationErrors.OrderNotFound.Code, StatusCodes.Status404NotFound),
         new(OrderingApplicationErrors.CatalogItemUnknown.Code, StatusCodes.Status409Conflict),
         new(OrderingApplicationErrors.CatalogItemDiscontinued.Code, StatusCodes.Status409Conflict),
-        new(OrderingApplicationErrors.CatalogItemStatusUnknown.Code, StatusCodes.Status409Conflict));
+        new(OrderingApplicationErrors.CatalogItemUnavailableInRegion.Code, StatusCodes.Status409Conflict),
+        new(OrderingApplicationErrors.CatalogItemStatusUnknown.Code, StatusCodes.Status409Conflict),
+        new(OrderingApplicationErrors.AccessDenied.Code, StatusCodes.Status403Forbidden));
+
+    private static bool TryResolveUserSubject(
+        HttpContext httpContext,
+        ITenantContext tenantContext,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out AccessSubject? subject)
+    {
+        subject = null;
+        string? userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                         httpContext.User.FindFirstValue(ApplicationClaimNames.Subject);
+        return !string.IsNullOrWhiteSpace(userId) &&
+               AccessSubject.TryCreate(AccessSubjectKind.User, userId, tenantContext.TenantId, out subject);
+    }
 }

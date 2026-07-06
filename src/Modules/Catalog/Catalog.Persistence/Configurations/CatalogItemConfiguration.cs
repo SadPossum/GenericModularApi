@@ -1,6 +1,7 @@
 namespace Catalog.Persistence.Configurations;
 
 using Catalog.Domain.Aggregates;
+using Catalog.Domain.Entities;
 using Catalog.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -28,6 +29,21 @@ internal sealed class CatalogItemConfiguration : IEntityTypeConfiguration<Catalo
             .HasMaxLength(CatalogItem.CurrencyLength)
             .IsRequired();
         builder.Property(item => item.Status).HasConversion<int>().IsRequired();
+        builder.OwnsMany(
+            item => item.AvailableRegions,
+            regions =>
+            {
+                regions.ToTable("item_available_regions");
+                regions.WithOwner().HasForeignKey("CatalogItemId");
+                regions.Property(region => region.Region)
+                    .HasConversion(region => region.Value, value => CatalogRegionCode.Create(value).Value)
+                    .HasColumnName("RegionCode")
+                    .HasMaxLength(CatalogItem.RegionCodeMaxLength)
+                    .IsRequired();
+                regions.HasKey("CatalogItemId", nameof(CatalogItemAvailableRegion.Region));
+                regions.HasIndex("CatalogItemId", nameof(CatalogItemAvailableRegion.Region)).IsUnique();
+            });
+        builder.Navigation(item => item.AvailableRegions).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasIndex(item => new { item.TenantId, item.Sku }).IsUnique();
     }
 }

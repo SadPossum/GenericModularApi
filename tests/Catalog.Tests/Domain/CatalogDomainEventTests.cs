@@ -24,7 +24,8 @@ public sealed class CatalogDomainEventTests
             " sku-1 ",
             " Catalog item ",
             10m,
-            " usd ");
+            " usd ",
+            ["US", "EU"]);
 
         Assert.Equal(EventId, domainEvent.EventId);
         Assert.Equal(OccurredAtUtc, domainEvent.OccurredAtUtc);
@@ -34,6 +35,7 @@ public sealed class CatalogDomainEventTests
         Assert.Equal("Catalog item", domainEvent.Name);
         Assert.Equal(10m, domainEvent.Price);
         Assert.Equal("USD", domainEvent.Currency);
+        Assert.Equal(["US", "EU"], domainEvent.AvailableRegions);
     }
 
     [Fact]
@@ -65,9 +67,11 @@ public sealed class CatalogDomainEventTests
             "Catalog item",
             10m,
             "USD",
-            (CatalogItemState)999);
+            (CatalogItemState)999,
+            ["US"]);
 
         Assert.Equal(CatalogItemState.Unknown, domainEvent.Status);
+        Assert.Equal(["US"], domainEvent.AvailableRegions);
     }
 
     [Fact]
@@ -100,5 +104,6 @@ public sealed class CatalogDomainEventTests
             sku,
             name,
             price,
-            currency);
+            currency,
+            availableRegions: null);
 }

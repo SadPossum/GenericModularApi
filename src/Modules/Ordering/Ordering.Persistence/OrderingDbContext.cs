@@ -14,6 +14,7 @@ public sealed class OrderingDbContext(DbContextOptions<OrderingDbContext> option
     public DbSet<OrderingProjectionRebuildCheckpoint> ProjectionRebuildCheckpoints =>
         this.Set<OrderingProjectionRebuildCheckpoint>();
     public DbSet<InboxMessage> InboxMessages => this.Set<InboxMessage>();
+    public DbSet<OutboxMessage> OutboxMessages => this.Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

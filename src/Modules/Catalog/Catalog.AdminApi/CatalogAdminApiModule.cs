@@ -78,7 +78,7 @@ public sealed class CatalogAdminApiModule : IAdminApiModule
                 AdminOperation.Create(CatalogAdminOperationNames.ItemsCreate, CatalogAdminPermissions.ItemsCreate),
                 requireTenant: true,
                 token => dispatcher.SendAsync(
-                    new CreateCatalogItemCommand(request.Sku, request.Name, request.Price, request.Currency),
+                    new CreateCatalogItemCommand(request.Sku, request.Name, request.Price, request.Currency, request.AvailableRegions),
                     token),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false));
@@ -95,7 +95,7 @@ public sealed class CatalogAdminApiModule : IAdminApiModule
                 AdminOperation.Create(CatalogAdminOperationNames.ItemsUpdate, CatalogAdminPermissions.ItemsUpdate),
                 requireTenant: true,
                 token => dispatcher.SendAsync(
-                    new UpdateCatalogItemCommand(itemId, request.Sku, request.Name, request.Price, request.Currency),
+                    new UpdateCatalogItemCommand(itemId, request.Sku, request.Name, request.Price, request.Currency, request.AvailableRegions),
                     token),
                 cancellationToken,
                 errorStatusCodes: AdminErrorStatusCodes).ConfigureAwait(false));
@@ -120,7 +120,12 @@ public sealed class CatalogAdminApiModule : IAdminApiModule
         });
     }
 
-    public sealed record CatalogItemWriteRequest(string Sku, string Name, decimal Price, string Currency);
+    public sealed record CatalogItemWriteRequest(
+        string Sku,
+        string Name,
+        decimal Price,
+        string Currency,
+        IReadOnlyCollection<string>? AvailableRegions = null);
     public sealed record ConfirmedRequest(bool Confirmed);
 
     private static readonly ApiErrorStatusCodeMap AdminErrorStatusCodes = ApiErrorStatusCodeMap.Create(

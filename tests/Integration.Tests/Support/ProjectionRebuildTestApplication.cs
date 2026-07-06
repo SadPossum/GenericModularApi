@@ -110,6 +110,7 @@ internal sealed class ProjectionRebuildTestApplication : IAsyncDisposable
             name,
             price,
             currency,
+            availableRegions: null,
             Guid.NewGuid(),
             DateTimeOffset.UtcNow);
 

@@ -21,7 +21,8 @@ public sealed record CatalogItemUpdatedIntegrationEvent : TenantIntegrationEvent
         string name,
         decimal price,
         string currency,
-        CatalogItemStatus status)
+        CatalogItemStatus status,
+        IReadOnlyCollection<string>? availableRegions = null)
         : base(eventId, tenantId, occurredAtUtc, EventType, EventVersion)
     {
         this.ItemId = IntegrationEventContractGuards.RequireId(itemId, nameof(itemId));
@@ -37,6 +38,7 @@ public sealed record CatalogItemUpdatedIntegrationEvent : TenantIntegrationEvent
             nameof(price));
         this.Currency = NormalizeCurrency(currency);
         this.Status = IntegrationEventContractGuards.NormalizeDefinedOrUnknown(status);
+        this.AvailableRegions = CatalogRegionCodes.NormalizeMany(availableRegions);
     }
 
     public Guid ItemId { get; }
@@ -45,6 +47,7 @@ public sealed record CatalogItemUpdatedIntegrationEvent : TenantIntegrationEvent
     public decimal Price { get; }
     public string Currency { get; }
     public CatalogItemStatus Status { get; }
+    public IReadOnlyCollection<string> AvailableRegions { get; }
 
     private static string NormalizeSku(string sku) =>
         IntegrationEventContractGuards

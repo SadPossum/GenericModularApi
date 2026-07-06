@@ -26,7 +26,8 @@ internal sealed class CatalogItemProjectionRebuildWriter(
                 snapshot.Name,
                 snapshot.Price,
                 snapshot.Currency,
-                snapshot.Status);
+                snapshot.Status,
+                snapshot.AvailableRegions);
 
             if (!request.DryRun)
             {

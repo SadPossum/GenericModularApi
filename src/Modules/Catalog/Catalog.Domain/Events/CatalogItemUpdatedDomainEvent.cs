@@ -14,7 +14,8 @@ public sealed record CatalogItemUpdatedDomainEvent : TenantDomainEvent
         string name,
         decimal price,
         string currency,
-        CatalogItemState status)
+        CatalogItemState status,
+        IReadOnlyCollection<string>? availableRegions)
         : base(eventId, occurredAtUtc, tenantId)
     {
         this.ItemId = DomainEventGuards.RequireId(itemId, nameof(itemId));
@@ -27,6 +28,7 @@ public sealed record CatalogItemUpdatedDomainEvent : TenantDomainEvent
             nameof(price));
         this.Currency = NormalizeCurrency(currency);
         this.Status = DomainEventGuards.NormalizeDefinedOrUnknown(status);
+        this.AvailableRegions = NormalizeAvailableRegions(availableRegions);
     }
 
     public Guid ItemId { get; }
@@ -35,6 +37,7 @@ public sealed record CatalogItemUpdatedDomainEvent : TenantDomainEvent
     public decimal Price { get; }
     public string Currency { get; }
     public CatalogItemState Status { get; }
+    public IReadOnlyCollection<string> AvailableRegions { get; }
 
     private static string NormalizeSku(string sku) =>
         DomainEventGuards
@@ -51,4 +54,7 @@ public sealed record CatalogItemUpdatedDomainEvent : TenantDomainEvent
             ? normalized
             : throw new ArgumentException("currency must be a three-letter code.", nameof(currency));
     }
+
+    private static string[] NormalizeAvailableRegions(IReadOnlyCollection<string>? regions) =>
+        regions is null ? [] : regions.ToArray();
 }

@@ -2,11 +2,12 @@ namespace Catalog.Contracts;
 
 using Shared.Messaging;
 using Shared.Tenancy;
+using Shared.Tenancy.Messaging;
 
-[IntegrationEventName(CatalogItemDiscontinuedIntegrationEvent.EventType)]
-[IntegrationEventVersion(CatalogItemDiscontinuedIntegrationEvent.EventVersion)]
+[IntegrationEventName(EventType)]
+[IntegrationEventVersion(EventVersion)]
 [TenantScoped]
-public sealed record CatalogItemDiscontinuedIntegrationEvent : IntegrationEvent
+public sealed record CatalogItemDiscontinuedIntegrationEvent : TenantIntegrationEvent
 {
     public const string EventType = "item-discontinued";
     public const int EventVersion = 1;

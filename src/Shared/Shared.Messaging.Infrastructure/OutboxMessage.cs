@@ -1,6 +1,5 @@
 namespace Shared.Messaging.Infrastructure;
 
-using Shared.Naming;
 using Shared.Runtime.Workers;
 using Shared.Messaging;
 
@@ -16,7 +15,7 @@ public class OutboxMessage
     public string Subject { get; private set; } = string.Empty;
     public string EventType { get; private set; } = string.Empty;
     public int Version { get; private set; }
-    public string TenantId { get; private set; } = string.Empty;
+    public string? ScopeId { get; private set; }
     public DateTimeOffset OccurredAtUtc { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public string Payload { get; private set; } = string.Empty;
@@ -34,7 +33,7 @@ public class OutboxMessage
         string subject,
         string eventType,
         int version,
-        string tenantId,
+        string? scopeId,
         DateTimeOffset occurredAtUtc,
         string payload,
         DateTimeOffset createdAtUtc)
@@ -55,7 +54,7 @@ public class OutboxMessage
 
         this.EventType = NormalizeRequired(eventType, EventTypeMaxLength, nameof(eventType));
         this.Version = version;
-        this.TenantId = TenantIds.Normalize(tenantId);
+        this.ScopeId = MessageScopeIds.NormalizeOptional(scopeId, nameof(scopeId));
         this.OccurredAtUtc = RequireTimestamp(occurredAtUtc, nameof(occurredAtUtc));
         this.CreatedAtUtc = RequireTimestamp(createdAtUtc, nameof(createdAtUtc));
         this.Payload = NormalizeRequired(payload, int.MaxValue, nameof(payload));

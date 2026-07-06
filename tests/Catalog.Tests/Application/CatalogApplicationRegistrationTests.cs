@@ -35,7 +35,7 @@ public sealed class CatalogApplicationRegistrationTests
     [Fact]
     public void Catalog_application_registration_rejects_null_arguments()
     {
-        Assert.Throws<ArgumentNullException>(() => Catalog.Application.DependencyInjection.AddCatalogApplication(null!));
+        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddCatalogApplication(null!));
     }
 
     private static bool IsDomainEventHandler(Type serviceType) =>

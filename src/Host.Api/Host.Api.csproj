@@ -19,5 +19,8 @@
     <ProjectReference Include="..\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj" />
     <ProjectReference Include="..\Shared\Shared.Notifications.Cqrs\Shared.Notifications.Cqrs.csproj" />
     <ProjectReference Include="..\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Tenancy.Api.Serilog\Shared.Tenancy.Api.Serilog.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

@@ -88,7 +88,7 @@ internal sealed class UpdateCatalogItemCommandHandler(
                     CatalogNotificationNames.ItemUpdatedVersion,
                     "Catalog item updated",
                     $"Item {item.Sku} was updated.",
-                    Notifications.Contracts.NotificationSeverity.Info,
+                    NotificationSeverity.Info,
                     payloadJson),
                 cancellationToken)
             .ConfigureAwait(false);

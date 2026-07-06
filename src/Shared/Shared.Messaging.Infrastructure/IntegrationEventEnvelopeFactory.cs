@@ -1,6 +1,5 @@
 namespace Shared.Messaging.Infrastructure;
 
-using Shared.Naming;
 using System.Text.Json;
 using Shared.Messaging;
 
@@ -11,26 +10,60 @@ public static class IntegrationEventEnvelopeFactory
     public static IntegrationEventEnvelope Create<TEvent>(
         string moduleName,
         TEvent integrationEvent,
-        string subjectPrefix = IntegrationEventNaming.DefaultSubjectPrefix)
+        string subjectPrefix = IntegrationEventNaming.DefaultSubjectPrefix,
+        IEnumerable<IIntegrationEventScopeResolver>? scopeResolvers = null)
         where TEvent : IIntegrationEvent
     {
         IntegrationEventMetadata.ValidateForPublishing(integrationEvent);
 
-        string tenantId = TenantIds.Normalize(integrationEvent.TenantId);
         string subject = IntegrationEventNaming.CreateSubject(
             subjectPrefix,
             moduleName,
             integrationEvent.EventName,
             integrationEvent.Version);
         string payload = JsonSerializer.Serialize(integrationEvent, JsonOptions);
+        string? scopeId = ResolveScopeId(integrationEvent, scopeResolvers);
 
         return new(
             integrationEvent.EventId,
             subject,
             typeof(TEvent).FullName ?? typeof(TEvent).Name,
             integrationEvent.Version,
-            tenantId,
+            scopeId,
             integrationEvent.OccurredAtUtc,
             payload);
+    }
+
+    private static string? ResolveScopeId(
+        IIntegrationEvent integrationEvent,
+        IEnumerable<IIntegrationEventScopeResolver>? scopeResolvers)
+    {
+        if (scopeResolvers is null)
+        {
+            return null;
+        }
+
+        string? resolved = null;
+        foreach (IIntegrationEventScopeResolver resolver in scopeResolvers)
+        {
+            string? candidate = MessageScopeIds.NormalizeOptional(
+                resolver.ResolveScopeId(integrationEvent),
+                nameof(IIntegrationEventScopeResolver.ResolveScopeId));
+            if (candidate is null)
+            {
+                continue;
+            }
+
+            if (resolved is not null &&
+                !string.Equals(resolved, candidate, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Integration event '{integrationEvent.EventName}' resolved multiple different message scopes.");
+            }
+
+            resolved = candidate;
+        }
+
+        return resolved;
     }
 }

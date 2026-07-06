@@ -71,7 +71,13 @@ src/
     Shared.Tasks.Cqrs/
     Shared.Tasks.Infrastructure/
     Shared.Tenancy/
+    Shared.Tenancy.Api.Serilog/
+    Shared.Tenancy.Caching/
+    Shared.Tenancy.Cqrs/
     Shared.Tenancy.Infrastructure/
+    Shared.Tenancy.Messaging/
+    Shared.Tenancy.Messaging.Infrastructure/
+    Shared.Tenancy.Tasks/
   Modules/
     Auth/
       Auth.Contracts/
@@ -168,6 +174,7 @@ builder.AddRedisCaching(); // no-op unless Redis caching is enabled
 builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
+builder.AddTenantAwareMessaging(); // tenant-aware event scope/context bridge
 builder.AddConfiguredNatsJetStreamMessaging(); // no-op unless NATS publishing is enabled
 builder.AddUserNotificationServerSentEvents();
 builder.AddUserNotificationSignalR();
@@ -190,6 +197,7 @@ builder.AddRedisCaching(); // no-op unless Redis caching is enabled
 builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure(); // outbox writer registry without hosted publishers
+builder.AddTenantAwareMessaging(); // tenant-aware event scope/context bridge
 builder.AddAdminModule<AdministrationAdminCliModule>();
 builder.AddAuthAdminModule(AuthProfile.TenantScoped());
 builder.ValidateModuleComposition();
@@ -205,6 +213,7 @@ builder.AddRedisCaching(); // no-op unless Redis caching is enabled
 builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
 builder.AddMessagingInfrastructure();
+builder.AddTenantAwareMessaging(); // tenant-aware event scope/context bridge
 builder.AddAdminApiModule<AdministrationAdminApiModule>();
 builder.AddAuthAdminApiModule(AuthProfile.TenantScoped());
 builder.AddSharedOpenApi();
@@ -268,6 +277,11 @@ Shared.Api.OpenApi
 Shared.Api.Serilog
   -> Shared.Api
   -> Shared.Observability
+
+Shared.Tenancy.Api.Serilog
+  -> Shared.Api.Serilog
+  -> Shared.ModuleComposition
+  -> Shared.Observability
   -> Shared.Tenancy
 
 Shared.Application.Composition
@@ -295,6 +309,7 @@ Shared.Caching.Redis
   -> Shared.ModuleComposition
 
 Shared.Caching.Cqrs
+  -> Shared.Caching
   -> Shared.Caching.Infrastructure
   -> Shared.Cqrs
   -> Shared.Cqrs.Infrastructure
@@ -310,8 +325,6 @@ Shared.Caching.Infrastructure
   -> Shared.Observability.Infrastructure
   -> Shared.Runtime
   -> Shared.Runtime.Infrastructure
-  -> Shared.Tenancy
-  -> Shared.Tenancy.Infrastructure
 
 Shared.Cqrs
   -> Shared.Results
@@ -323,8 +336,6 @@ Shared.Cqrs.Infrastructure
   -> Shared.Observability
   -> Shared.Observability.Infrastructure
   -> Shared.Runtime.Infrastructure
-  -> Shared.Tenancy
-  -> Shared.Tenancy.Infrastructure
 
 Shared.Domain
   -> Shared.Naming
@@ -334,6 +345,7 @@ Shared.Infrastructure
   -> Shared.Application.Events.Infrastructure
   -> Shared.Cqrs.Infrastructure
   -> Shared.Runtime.Infrastructure
+  -> Shared.Tenancy.Cqrs
   -> Shared.Tenancy.Infrastructure
 
 Shared.Logging.Serilog
@@ -360,7 +372,6 @@ Shared.Messaging.Nats
   -> Shared.ModuleComposition
   -> Shared.Naming
   -> Shared.Runtime
-  -> Shared.Tenancy
 
 Shared.Messaging.Nats.Aspire
   -> Shared.Messaging.Nats
@@ -387,6 +398,7 @@ Shared.Notifications.Cqrs
   -> Shared.Cqrs
   -> Shared.Cqrs.Infrastructure
   -> Shared.ModuleComposition
+  -> Shared.Notifications
   -> Shared.Notifications.Infrastructure
   -> Shared.Observability.Infrastructure
   -> Shared.Results
@@ -480,7 +492,6 @@ Shared.Tasks.Infrastructure
   -> Shared.Runtime
   -> Shared.Runtime.Infrastructure
   -> Shared.Tasks
-  -> Shared.Tenancy
 
 Shared.Tenancy
   -> Shared.ModuleComposition
@@ -490,6 +501,37 @@ Shared.Tenancy
 Shared.Tenancy.Infrastructure
   -> Shared.ModuleComposition
   -> Shared.Naming
+  -> Shared.Tenancy
+
+Shared.Tenancy.Caching
+  -> Shared.Caching
+  -> Shared.Caching.Infrastructure
+  -> Shared.ModuleComposition
+  -> Shared.Naming
+  -> Shared.Tenancy
+
+Shared.Tenancy.Cqrs
+  -> Shared.Cqrs.Infrastructure
+  -> Shared.ModuleComposition
+  -> Shared.Observability
+  -> Shared.Tenancy
+
+Shared.Tenancy.Messaging
+  -> Shared.Messaging
+  -> Shared.ModuleComposition
+  -> Shared.Naming
+  -> Shared.Tenancy
+
+Shared.Tenancy.Messaging.Infrastructure
+  -> Shared.Messaging
+  -> Shared.ModuleComposition
+  -> Shared.Tenancy
+  -> Shared.Tenancy.Messaging
+
+Shared.Tenancy.Tasks
+  -> Shared.ModuleComposition
+  -> Shared.Tasks
+  -> Shared.Tasks.Infrastructure
   -> Shared.Tenancy
 ```
 

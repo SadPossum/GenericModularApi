@@ -21,6 +21,7 @@ using Shared.Tasks;
 using Shared.Tasks.Infrastructure;
 using Shared.Tenancy;
 using Shared.Tenancy.Infrastructure;
+using Shared.Tenancy.Tasks;
 using TaskRuntime.Application;
 using TaskRuntime.Persistence;
 
@@ -57,6 +58,7 @@ internal sealed class ProjectionRebuildTestApplication : IAsyncDisposable
 
         builder.AddRuntimeInfrastructure();
         builder.AddTenancyInfrastructure();
+        builder.AddTenantTaskExecutionContext();
         builder.Services.AddTaskRuntimeApplication();
         builder.AddTaskRuntimePersistence();
         builder.AddTaskWorkerRuntime();

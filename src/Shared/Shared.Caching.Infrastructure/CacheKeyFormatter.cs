@@ -1,14 +1,12 @@
 namespace Shared.Caching.Infrastructure;
 
-using Shared.Naming;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Caching;
 using Shared.Runtime;
-using Shared.Tenancy;
 
 internal sealed class CacheKeyFormatter(
-    ITenantContext tenantContext,
+    ICacheScopeValueResolver scopeValueResolver,
     IHostEnvironment environment,
     IOptions<CachingOptions> options,
     IOptions<ApplicationIdentityOptions> applicationIdentity)
@@ -22,12 +20,7 @@ internal sealed class CacheKeyFormatter(
 
     private string Format(string module, string entry, CacheScope scope, IReadOnlyList<string> segments)
     {
-        string tenant = scope switch
-        {
-            CacheScope.Global => "global",
-            CacheScope.Tenant => this.ResolveTenant(),
-            _ => throw new InvalidOperationException($"Unsupported cache scope '{scope}'.")
-        };
+        string scopeValue = scopeValueResolver.Resolve(scope);
         string scopeName = scope.ToString().ToLowerInvariant();
         IEnumerable<string> parts = new[]
         {
@@ -38,7 +31,7 @@ internal sealed class CacheKeyFormatter(
             CacheStorageIdentifiers.NormalizeEnvironmentName(environment.EnvironmentName),
             module,
             scopeName,
-            tenant,
+            scopeValue,
             entry
         }.Concat(segments).Select(Uri.EscapeDataString);
 
@@ -51,20 +44,5 @@ internal sealed class CacheKeyFormatter(
         }
 
         return physicalKey;
-    }
-
-    private string ResolveTenant()
-    {
-        if (!tenantContext.IsEnabled)
-        {
-            return "default";
-        }
-
-        if (string.IsNullOrWhiteSpace(tenantContext.TenantId))
-        {
-            throw new InvalidOperationException("A tenant-scoped cache key requires an active tenant.");
-        }
-
-        return TenantIds.Normalize(tenantContext.TenantId);
     }
 }

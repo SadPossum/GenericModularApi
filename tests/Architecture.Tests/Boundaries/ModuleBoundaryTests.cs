@@ -24,7 +24,12 @@ public sealed class ModuleBoundaryTests
         "Shared.Notifications.Api",
         "Shared.Notifications.Cqrs",
         "Shared.Notifications.SignalR",
-        "Shared.Persistence.EntityFrameworkCore"
+        "Shared.Persistence.EntityFrameworkCore",
+        "Shared.Tenancy.Api.Serilog",
+        "Shared.Tenancy.Caching",
+        "Shared.Tenancy.Cqrs",
+        "Shared.Tenancy.Messaging.Infrastructure",
+        "Shared.Tenancy.Tasks"
     ];
 
     [Fact]

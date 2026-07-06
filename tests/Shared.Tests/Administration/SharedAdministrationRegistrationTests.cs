@@ -17,11 +17,11 @@ public sealed class SharedAdministrationRegistrationTests
         IConfiguration configuration = new ConfigurationBuilder().Build();
 
         Assert.Throws<ArgumentNullException>(() =>
-            Shared.Administration.ServiceCollectionExtensions.AddSharedAdministration(null!));
+            ServiceCollectionExtensions.AddSharedAdministration(null!));
         Assert.Throws<ArgumentNullException>(() =>
-            Shared.Administration.Cli.DependencyInjection.AddSharedAdministrationCli(null!));
+            Administration.Cli.DependencyInjection.AddSharedAdministrationCli(null!));
         Assert.Throws<ArgumentNullException>(() =>
-            Shared.Administration.Api.DependencyInjection.AddSharedAdministrationApi(null!, configuration));
+            Administration.Api.DependencyInjection.AddSharedAdministrationApi(null!, configuration));
         Assert.Throws<ArgumentNullException>(() =>
             new ServiceCollection().AddSharedAdministrationApi(null!));
     }

@@ -1,6 +1,5 @@
 namespace Shared.Tests;
 
-using Shared.Naming;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
 using Xunit;
@@ -12,12 +11,11 @@ public sealed class IntegrationEventMetadataTests
     [MemberData(nameof(InvalidEvents))]
     public void TryGetInvalidReason_classifies_non_retryable_metadata_errors(
         string eventId,
-        string tenantId,
         string eventName,
         int version,
         string expectedReason)
     {
-        IIntegrationEvent integrationEvent = CreateEvent(Guid.Parse(eventId), tenantId, eventName, version);
+        IIntegrationEvent integrationEvent = CreateEvent(Guid.Parse(eventId), eventName, version);
         bool isInvalid = IntegrationEventMetadata.TryGetInvalidReason(integrationEvent, out string reason);
 
         Assert.True(isInvalid);
@@ -33,15 +31,14 @@ public sealed class IntegrationEventMetadataTests
         Assert.Equal(string.Empty, reason);
     }
 
-    public static TheoryData<string, string, string, int, string> InvalidEvents()
+    public static TheoryData<string, string, int, string> InvalidEvents()
     {
         return new()
         {
-            { EmptyEventId, "tenant-a", "item-created", 1, IntegrationEventMetadata.EventIdRequiredReason },
-            { ValidEventId, "tenant-a", " ", 1, IntegrationEventMetadata.EventNameRequiredReason },
-            { ValidEventId, "tenant-a", "item created", 1, IntegrationEventMetadata.EventNameInvalidReason },
-            { ValidEventId, "tenant-a", "item-created", 0, IntegrationEventMetadata.EventVersionInvalidReason },
-            { ValidEventId, new string('x', TenantIds.MaxLength + 1), "item-created", 1, IntegrationEventMetadata.TenantIdInvalidReason }
+            { EmptyEventId, "item-created", 1, IntegrationEventMetadata.EventIdRequiredReason },
+            { ValidEventId, " ", 1, IntegrationEventMetadata.EventNameRequiredReason },
+            { ValidEventId, "item created", 1, IntegrationEventMetadata.EventNameInvalidReason },
+            { ValidEventId, "item-created", 0, IntegrationEventMetadata.EventVersionInvalidReason }
         };
     }
 
@@ -50,19 +47,16 @@ public sealed class IntegrationEventMetadataTests
 
     private static TestIntegrationEvent CreateEvent(
         Guid? eventId = null,
-        string tenantId = "tenant-a",
         string eventName = "item-created",
         int version = 1) =>
         new(
             eventId ?? Guid.Parse(ValidEventId),
-            tenantId,
             new DateTimeOffset(2026, 7, 2, 12, 0, 0, TimeSpan.Zero),
             eventName,
             version);
 
     private sealed record TestIntegrationEvent(
         Guid EventId,
-        string TenantId,
         DateTimeOffset OccurredAtUtc,
         string EventName,
         int Version) : IIntegrationEvent;

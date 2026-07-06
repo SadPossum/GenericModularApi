@@ -12,7 +12,6 @@ using NATS.Client.JetStream.Models;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
 using Shared.Runtime;
-using Shared.Tenancy;
 
 internal sealed class NatsJetStreamConsumerService(
     IServiceProvider services,
@@ -165,12 +164,8 @@ internal sealed class NatsJetStreamConsumerService(
         }
 
         using IServiceScope scope = scopeFactory.CreateScope();
-        ITenantContextAccessor tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContextAccessor>();
-        tenantContext.ClearTenant();
-        if (subscription.IsTenantScoped())
-        {
-            tenantContext.SetTenant(integrationEvent.TenantId);
-        }
+        PrepareProcessingContext(scope.ServiceProvider, subscription, integrationEvent);
+        string? scopeId = ResolveScopeId(scope.ServiceProvider, integrationEvent);
 
         IInboxStore inboxStore = GetRequiredInboxStore(scope.ServiceProvider, subscription.ConsumerModule);
         InboxMessageRecord inboxMessage = new(
@@ -179,7 +174,7 @@ internal sealed class NatsJetStreamConsumerService(
             subject,
             integrationEvent.EventName,
             integrationEvent.Version,
-            integrationEvent.TenantId,
+            scopeId,
             integrationEvent.OccurredAtUtc);
 
         using CancellationTokenSource handlerTimeout = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -219,6 +214,44 @@ internal sealed class NatsJetStreamConsumerService(
         await IntegrationEventHandlerInvoker
             .InvokeAsync(serviceProvider, subscription, integrationEvent, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static void PrepareProcessingContext(
+        IServiceProvider serviceProvider,
+        IntegrationEventSubscription subscription,
+        IIntegrationEvent integrationEvent)
+    {
+        foreach (IIntegrationEventProcessingContextContributor contributor in serviceProvider
+                     .GetServices<IIntegrationEventProcessingContextContributor>())
+        {
+            contributor.Prepare(subscription, integrationEvent);
+        }
+    }
+
+    private static string? ResolveScopeId(IServiceProvider serviceProvider, IIntegrationEvent integrationEvent)
+    {
+        string? resolved = null;
+        foreach (IIntegrationEventScopeResolver resolver in serviceProvider.GetServices<IIntegrationEventScopeResolver>())
+        {
+            string? candidate = MessageScopeIds.NormalizeOptional(
+                resolver.ResolveScopeId(integrationEvent),
+                nameof(IIntegrationEventScopeResolver.ResolveScopeId));
+            if (candidate is null)
+            {
+                continue;
+            }
+
+            if (resolved is not null &&
+                !string.Equals(resolved, candidate, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Integration event '{integrationEvent.EventName}' resolved multiple different message scopes.");
+            }
+
+            resolved = candidate;
+        }
+
+        return resolved;
     }
 
     private void TryRecordInboxProcessed(

@@ -80,9 +80,9 @@ public sealed class AuthApplicationRegistrationTests
     {
         IConfiguration configuration = new ConfigurationBuilder().Build();
 
-        Assert.Throws<ArgumentNullException>(() => Auth.Application.DependencyInjection.AddAuthApplication(null!, configuration));
+        Assert.Throws<ArgumentNullException>(() => Application.DependencyInjection.AddAuthApplication(null!, configuration));
         Assert.Throws<ArgumentNullException>(() => new ServiceCollection().AddAuthApplication(null!));
-        Assert.Throws<ArgumentNullException>(() => Auth.Infrastructure.DependencyInjection.AddAuthInfrastructure(null!, configuration));
+        Assert.Throws<ArgumentNullException>(() => Infrastructure.DependencyInjection.AddAuthInfrastructure(null!, configuration));
         Assert.Throws<ArgumentNullException>(() => new ServiceCollection().AddAuthInfrastructure(null!));
     }
 

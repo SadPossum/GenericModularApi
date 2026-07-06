@@ -423,21 +423,21 @@ internal sealed class NotificationBroadcastRepository(NotificationsDbContext dbC
     private static Notifications.Contracts.NotificationBroadcastAudience ToContractAudience(DomainAudience audience) =>
         audience switch
         {
-            DomainAudience.TenantUsers => Notifications.Contracts.NotificationBroadcastAudience.TenantUsers,
-            DomainAudience.TenantAdmins => Notifications.Contracts.NotificationBroadcastAudience.TenantAdmins,
-            DomainAudience.PlatformUsers => Notifications.Contracts.NotificationBroadcastAudience.PlatformUsers,
-            DomainAudience.PlatformAdmins => Notifications.Contracts.NotificationBroadcastAudience.PlatformAdmins,
-            _ => Notifications.Contracts.NotificationBroadcastAudience.Unknown
+            DomainAudience.TenantUsers => Contracts.NotificationBroadcastAudience.TenantUsers,
+            DomainAudience.TenantAdmins => Contracts.NotificationBroadcastAudience.TenantAdmins,
+            DomainAudience.PlatformUsers => Contracts.NotificationBroadcastAudience.PlatformUsers,
+            DomainAudience.PlatformAdmins => Contracts.NotificationBroadcastAudience.PlatformAdmins,
+            _ => Contracts.NotificationBroadcastAudience.Unknown
         };
 
     private static Notifications.Contracts.NotificationSeverity ToContractSeverity(
         Notifications.Domain.ValueObjects.NotificationSeverity severity) =>
         severity switch
         {
-            Notifications.Domain.ValueObjects.NotificationSeverity.Info => Notifications.Contracts.NotificationSeverity.Info,
-            Notifications.Domain.ValueObjects.NotificationSeverity.Success => Notifications.Contracts.NotificationSeverity.Success,
-            Notifications.Domain.ValueObjects.NotificationSeverity.Warning => Notifications.Contracts.NotificationSeverity.Warning,
-            Notifications.Domain.ValueObjects.NotificationSeverity.Error => Notifications.Contracts.NotificationSeverity.Error,
-            _ => Notifications.Contracts.NotificationSeverity.Unknown
+            Domain.ValueObjects.NotificationSeverity.Info => Contracts.NotificationSeverity.Info,
+            Domain.ValueObjects.NotificationSeverity.Success => Contracts.NotificationSeverity.Success,
+            Domain.ValueObjects.NotificationSeverity.Warning => Contracts.NotificationSeverity.Warning,
+            Domain.ValueObjects.NotificationSeverity.Error => Contracts.NotificationSeverity.Error,
+            _ => Contracts.NotificationSeverity.Unknown
         };
 }

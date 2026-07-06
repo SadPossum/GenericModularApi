@@ -54,7 +54,7 @@ public abstract class EfInboxStore<TDbContext>(
                 message.Subject,
                 message.EventType,
                 message.Version,
-                message.TenantId,
+                message.ScopeId,
                 message.OccurredAtUtc,
                 nowUtc);
             dbContext.Set<InboxMessage>().Add(inboxMessage);
@@ -138,7 +138,7 @@ public abstract class EfInboxStore<TDbContext>(
                 message.Subject,
                 message.EventType,
                 message.Version,
-                message.TenantId,
+                message.ScopeId,
                 message.OccurredAtUtc,
                 nowUtc);
             dbContext.Set<InboxMessage>().Add(inboxMessage);

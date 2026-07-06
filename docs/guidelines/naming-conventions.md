@@ -101,7 +101,13 @@ Shared.Tasks
 Shared.Tasks.Cqrs
 Shared.Tasks.Infrastructure
 Shared.Tenancy
+Shared.Tenancy.Api.Serilog
+Shared.Tenancy.Caching
+Shared.Tenancy.Cqrs
 Shared.Tenancy.Infrastructure
+Shared.Tenancy.Messaging
+Shared.Tenancy.Messaging.Infrastructure
+Shared.Tenancy.Tasks
 ```
 
 ## Folders

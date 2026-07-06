@@ -1,8 +1,8 @@
 namespace Shared.Tests;
 
 using Microsoft.EntityFrameworkCore;
+using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
-using Shared.Naming;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -25,8 +25,11 @@ public sealed class MessagingEntityTypeBuilderExtensionsTests
             OutboxMessage.EventTypeMaxLength,
             entityType.FindProperty(nameof(OutboxMessage.EventType))?.GetMaxLength());
         Assert.Equal(
-            TenantIds.MaxLength,
-            entityType.FindProperty(nameof(OutboxMessage.TenantId))?.GetMaxLength());
+            MessageScopeIds.MaxLength,
+            entityType.FindProperty(nameof(OutboxMessage.ScopeId))?.GetMaxLength());
+        Assert.Equal(
+            "TenantId",
+            entityType.FindProperty(nameof(OutboxMessage.ScopeId))?.GetColumnName());
         Assert.Equal(
             OutboxMessage.LockedByMaxLength,
             entityType.FindProperty(nameof(OutboxMessage.LockedBy))?.GetMaxLength());
@@ -62,8 +65,11 @@ public sealed class MessagingEntityTypeBuilderExtensionsTests
             InboxMessage.EventTypeMaxLength,
             entityType.FindProperty(nameof(InboxMessage.EventType))?.GetMaxLength());
         Assert.Equal(
-            TenantIds.MaxLength,
-            entityType.FindProperty(nameof(InboxMessage.TenantId))?.GetMaxLength());
+            MessageScopeIds.MaxLength,
+            entityType.FindProperty(nameof(InboxMessage.ScopeId))?.GetMaxLength());
+        Assert.Equal(
+            "TenantId",
+            entityType.FindProperty(nameof(InboxMessage.ScopeId))?.GetColumnName());
         Assert.Equal(
             InboxMessage.LockedByMaxLength,
             entityType.FindProperty(nameof(InboxMessage.LockedBy))?.GetMaxLength());

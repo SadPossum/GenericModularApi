@@ -3,12 +3,13 @@ namespace Notifications.Contracts;
 using Shared.Messaging;
 using Shared.Naming;
 using Shared.Tenancy;
+using Shared.Tenancy.Messaging;
 using SharedNotificationNames = Shared.Notifications.NotificationNames;
 
-[IntegrationEventName(UserNotificationRequestedIntegrationEvent.EventType)]
-[IntegrationEventVersion(UserNotificationRequestedIntegrationEvent.EventVersion)]
+[IntegrationEventName(EventType)]
+[IntegrationEventVersion(EventVersion)]
 [TenantScoped]
-public sealed record UserNotificationRequestedIntegrationEvent : IntegrationEvent
+public sealed record UserNotificationRequestedIntegrationEvent : TenantIntegrationEvent
 {
     public const string EventType = "user-notification-requested";
     public const int EventVersion = 1;

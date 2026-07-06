@@ -17,6 +17,8 @@ using TaskRuntime.Application;
 using TaskRuntime.Application.Commands;
 using TaskRuntime.Application.Queries;
 using TaskRuntime.Persistence;
+using Shared.Tenancy.Infrastructure;
+using Shared.Tenancy.Tasks;
 using TaskSamples.Application;
 using TaskSamples.Application.Tasks;
 using TaskSamples.Contracts;
@@ -65,6 +67,8 @@ internal sealed class TaskRuntimeTestApplication : IAsyncDisposable
         }
 
         builder.Services.AddTaskRuntimeApplication();
+        builder.AddTenancyInfrastructure();
+        builder.AddTenantTaskExecutionContext();
         builder.AddTaskRuntimePersistence();
         builder.AddTaskCqrs();
         builder.AddTaskWorkerRuntime();

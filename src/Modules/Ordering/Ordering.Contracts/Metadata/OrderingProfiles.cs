@@ -34,6 +34,10 @@ public static class OrderingProfiles
             TasksCompositionFeatures.WorkerRequired(
                 Provider(DefaultName),
                 "Catalog projection rebuild tasks require a task worker host; live consumers or manual backfill can be used instead.",
+                optional: true),
+            TasksCompositionFeatures.TenantScopeRequired(
+                Provider(DefaultName),
+                "Catalog projection rebuild tasks are tenant-scoped; compose Shared.Tenancy.Tasks in worker hosts that run them.",
                 optional: true)
         ],
         requiredModules:

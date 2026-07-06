@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Shared.Application.Events.Infrastructure;
 using Shared.Cqrs.Infrastructure;
 using Shared.Runtime.Infrastructure;
+using Shared.Tenancy.Cqrs;
 using Shared.Tenancy.Infrastructure;
 
 public static class DependencyInjection
@@ -22,6 +23,7 @@ public static class DependencyInjection
         builder.AddRuntimeInfrastructure();
         builder.AddApplicationEventsInfrastructure();
         builder.AddCqrsInfrastructure();
+        builder.AddTenantCqrsLogging();
         builder.Services.AddSingleton<SharedInfrastructureRegistrationMarker>();
 
         return builder;

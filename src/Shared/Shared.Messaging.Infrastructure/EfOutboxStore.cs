@@ -102,7 +102,7 @@ public abstract class EfOutboxStore<TDbContext>(
             message.Subject,
             message.EventType,
             message.Version,
-            message.TenantId,
+            message.ScopeId,
             message.OccurredAtUtc,
             message.Payload);
 }

@@ -2,11 +2,12 @@ namespace Auth.Contracts;
 
 using Shared.Messaging;
 using Shared.Tenancy;
+using Shared.Tenancy.Messaging;
 
-[IntegrationEventName(MemberSessionsRevokedIntegrationEvent.EventType)]
-[IntegrationEventVersion(MemberSessionsRevokedIntegrationEvent.EventVersion)]
+[IntegrationEventName(EventType)]
+[IntegrationEventVersion(EventVersion)]
 [TenantScoped]
-public sealed record MemberSessionsRevokedIntegrationEvent : IntegrationEvent
+public sealed record MemberSessionsRevokedIntegrationEvent : TenantIntegrationEvent
 {
     public const string EventType = "member-sessions-revoked";
     public const int EventVersion = 1;

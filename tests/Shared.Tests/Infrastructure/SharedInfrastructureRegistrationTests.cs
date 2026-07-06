@@ -5,15 +5,18 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Application.Events;
 using Shared.Application.Events.Infrastructure;
+using Shared.Api.Serilog;
 using Shared.Cqrs;
 using Shared.Caching;
 using Shared.Messaging;
 using Shared.Messaging.Nats;
+using Shared.ModuleComposition;
 using Shared.Runtime.Identity;
 using Shared.Runtime.Time;
 using Shared.Tasks;
 using Shared.Tasks.Cqrs;
 using Shared.Tenancy;
+using Shared.Tenancy.Api.Serilog;
 using Shared.Results;
 using Shared.Infrastructure;
 using Shared.Caching.Infrastructure;
@@ -32,6 +35,10 @@ using NatsDependencyInjection = Shared.Messaging.Nats.DependencyInjection;
 using RuntimeDependencyInjection = Shared.Runtime.Infrastructure.DependencyInjection;
 using TaskCqrsDependencyInjection = Shared.Tasks.Cqrs.DependencyInjection;
 using TaskDependencyInjection = Shared.Tasks.Infrastructure.TaskWorkerRuntimeDependencyInjection;
+using TenantApiSerilogDependencyInjection = Shared.Tenancy.Api.Serilog.DependencyInjection;
+using TenantCachingDependencyInjection = Shared.Tenancy.Caching.DependencyInjection;
+using TenantCqrsDependencyInjection = Shared.Tenancy.Cqrs.DependencyInjection;
+using TenantTasksDependencyInjection = Shared.Tenancy.Tasks.DependencyInjection;
 using TenancyDependencyInjection = Shared.Tenancy.Infrastructure.DependencyInjection;
 
 [Trait("Category", "Unit")]
@@ -45,6 +52,10 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.Throws<ArgumentNullException>(() => RuntimeDependencyInjection.AddRuntimeInfrastructure(null!));
         Assert.Throws<ArgumentNullException>(() => ApplicationEventsDependencyInjection.AddApplicationEventsInfrastructure(null!));
         Assert.Throws<ArgumentNullException>(() => CqrsDependencyInjection.AddCqrsInfrastructure(null!));
+        Assert.Throws<ArgumentNullException>(() => TenantCachingDependencyInjection.AddTenantCaching(null!));
+        Assert.Throws<ArgumentNullException>(() => TenantCqrsDependencyInjection.AddTenantCqrsLogging(null!));
+        Assert.Throws<ArgumentNullException>(() => TenantTasksDependencyInjection.AddTenantTaskExecutionContext(null!));
+        Assert.Throws<ArgumentNullException>(() => TenantApiSerilogDependencyInjection.AddTenantSerilogRequestLogging(null!));
         Assert.Throws<ArgumentNullException>(() => CachingDependencyInjection.AddCachingInfrastructure(null!));
         Assert.Throws<ArgumentNullException>(() => MessagingDependencyInjection.AddMessagingInfrastructure(null!));
         Assert.Throws<ArgumentNullException>(() => MessagingDependencyInjection.AddOutboxPublishing(null!));
@@ -74,11 +85,13 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "RuntimeInfrastructureRegistrationMarker");
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "ApplicationEventsInfrastructureRegistrationMarker");
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "CqrsInfrastructureRegistrationMarker");
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "TenantCqrsLoggingRegistrationMarker");
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType.Name == "SharedInfrastructureRegistrationMarker");
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IIdGenerator));
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(ISystemClock));
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IDomainEventDispatcher));
         Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
+        Assert.Single(builder.Services, descriptor => descriptor.ServiceType == typeof(ICqrsLogScopeContributor));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(ICommandPipelineBehavior<,>), typeof(ValidationCommandBehavior<,>)));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(ICommandPipelineBehavior<,>), typeof(CommandUnitOfWorkBehavior<,>)));
         Assert.Single(builder.Services, HasOpenGenericService(typeof(IQueryPipelineBehavior<,>), typeof(ValidationQueryBehavior<,>)));
@@ -265,6 +278,35 @@ public sealed class SharedInfrastructureRegistrationTests
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType.Name == "CqrsInfrastructureRegistrationMarker");
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IRequestDispatcher));
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(ITaskCommandDispatcher));
+    }
+
+    [Fact]
+    public void Tenant_serilog_request_logging_requires_tenancy_context_provider()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddTenantSerilogRequestLogging();
+
+        ModuleCompositionValidationException exception = Assert.Throws<ModuleCompositionValidationException>(
+            () => builder.ValidateModuleComposition());
+
+        Assert.Contains("tenancy.context", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("ITenantContext", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Tenant_serilog_request_logging_registers_contributor_when_tenancy_is_available()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddTenancyInfrastructure();
+        builder.AddTenantSerilogRequestLogging();
+        ModuleCompositionValidationResult result = builder.ValidateModuleComposition();
+
+        Assert.True(result.IsValid, result.Report);
+        Assert.Single(
+            builder.Services,
+            descriptor => descriptor.ServiceType == typeof(IRequestLoggingDiagnosticContextContributor));
     }
 
     private static Predicate<ServiceDescriptor> HasService<TService, TImplementation>() =>

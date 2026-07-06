@@ -133,7 +133,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Hardened `AdminOperationExecutionResult<T>` so CLI/API admin operation outcomes cannot combine unknown statuses, success statuses with failed results, or failure statuses with successful results.
 - Hardened `AdminOperationRunner` so admin actions that incorrectly return a null `Result<T>` still go through the logged/audited unexpected-failure path.
 - Hardened API module endpoint metadata so `.WithModuleName(...)` stores normalized lowercase module names and rejects invalid observability metadata at construction.
-- Hardened shared integration-event envelope/outbox/inbox records so test fakes, stores, publishers, and consumers all share the same message identity, subject, tenant, version, and handler-name validation.
+- Hardened shared integration-event envelope/outbox/inbox records so test fakes, stores, publishers, and consumers all share the same message identity, subject, scope, version, and handler-name validation.
 - Hardened cache read/invalidation entry points so malformed cache identities are rejected before disabled-cache bypass or fail-open backend handling.
 - Hardened Auth access-token claims and JWT generation so default member/session ids and malformed tenant ids cannot become emitted or parsed token claims.
 - Hardened Ordering's local Catalog projection write/read models so cross-module event data is normalized before storage, invalid scalar data fails early, and undefined Catalog statuses become explicit `Unknown` projection state instead of orderable state.
@@ -350,7 +350,7 @@ These notes capture architectural and developer-experience findings from the bro
 - Admin audit data must remain operation metadata only: actor, tenant, permission, result, timestamps, and error code. Never include passwords, tokens, token hashes, refresh tokens, or raw secrets.
 - Admin audit IDs and timestamps should come from shared infrastructure primitives so audit behavior stays deterministic and replaceable.
 - NATS subjects and integration event names are public contracts. Changing them is a versioned compatibility decision, not a local refactor.
-- `IntegrationEvent` centralizes event id, tenant id, occurrence time, event name, and version validation. Keep payload-specific fields in the module event type, and introduce richer envelope compatibility only through a documented messaging ADR.
+- `IntegrationEvent` centralizes event id, occurrence time, event name, and version validation. Tenant-owned events use `TenantIntegrationEvent` from `Shared.Tenancy.Messaging`; keep payload-specific fields in the module event type, and introduce richer envelope compatibility only through a documented messaging ADR.
 - Cross-module decisions should continue to use local projections or duplicated read data. Do not add cross-module EF relationships or direct domain/application references.
 
 ## Small Local Notes

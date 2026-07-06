@@ -23,6 +23,8 @@
     <ProjectReference Include="..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj" />
     <ProjectReference Include="..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj" />
     <ProjectReference Include="..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj" />
+    <ProjectReference Include="..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />

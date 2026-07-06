@@ -7,5 +7,6 @@
     <ProjectReference Include="..\..\..\Shared\Shared.Naming\Shared.Naming.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.Tenancy.Messaging\Shared.Tenancy.Messaging.csproj" />
   </ItemGroup>
 </Project>

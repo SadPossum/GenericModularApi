@@ -83,7 +83,11 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Messaging\Shared.Tenancy.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Tasks\Shared.Tenancy.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Security\Shared.Security.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj" />

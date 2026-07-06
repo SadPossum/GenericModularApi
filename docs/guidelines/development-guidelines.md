@@ -78,6 +78,9 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | Shared clock/id runtime | `Shared.Runtime.Infrastructure` |
 | Shared cache runtime | `Shared.Caching.Infrastructure` |
 | Shared cache-to-CQRS bridge | `Shared.Caching.Cqrs` |
+| Shared tenancy-to-cache scope bridge | `Shared.Tenancy.Caching` |
+| Shared tenancy-to-CQRS logging bridge | `Shared.Tenancy.Cqrs` |
+| Shared tenancy-to-task execution bridge | `Shared.Tenancy.Tasks` |
 | Shared messaging runtime | `Shared.Messaging.Infrastructure` |
 | Shared NATS messaging transport | `Shared.Messaging.Nats` |
 | Shared notification runtime | `Shared.Notifications.Infrastructure` |
@@ -90,6 +93,7 @@ If a hotfix lands directly on `main`, merge `main` back into `dev` before contin
 | HTTP helpers | `Shared.Api` |
 | OpenAPI/Swagger helpers | `Shared.Api.OpenApi` |
 | HTTP request logging enrichment | `Shared.Api.Serilog` |
+| Tenant HTTP request logging enrichment | `Shared.Tenancy.Api.Serilog` |
 | Host Serilog configuration | `Shared.Logging.Serilog` |
 | Aspire NATS client composition | `Shared.Messaging.Nats.Aspire` |
 | Tests for boundaries | `Architecture.Tests` |
@@ -215,6 +219,7 @@ Before writing tenant-scoped code, answer:
 - Does the aggregate store `TenantId`?
 - Are unique indexes tenant-local?
 - Do queries preserve tenant filters?
+- Are tenant-owned cache keys paired with `CachingCompositionFeatures.TenantScopeRequired(...)`?
 - Are integration events tenant-scoped?
 
 Use `TenantIds` in domain, application, infrastructure, and front-door code when accepting or storing a tenant id from aggregates, headers, commands, events, or configuration. Tenant ids are trimmed, case-preserving, capped at 128 characters, and reject whitespace or control characters to match persistence mappings.
@@ -249,13 +254,14 @@ Rules:
 - application handlers map domain events to integration events;
 - application handlers resolve the owning writer through `IOutboxWriterRegistry`;
 - module outbox writer stores integration events;
-- public integration events inherit `IntegrationEvent` so event id, tenant id, occurrence time, event name, and version validation stay centralized;
+- public integration events inherit `IntegrationEvent` so event id, occurrence time, event name, and version validation stay centralized;
+- tenant-owned integration events inherit `TenantIntegrationEvent` from `Shared.Tenancy.Messaging`; compose `AddTenantAwareMessaging()` in hosts that publish or consume them;
 - hosted publisher sends to `IEventBus` only in hosts that explicitly opt into publishing;
 - consumers implement `IIntegrationEventHandler<TEvent>`;
 - each consuming module owns an inbox table and registers an `IInboxStore`;
 - consumer handlers update local module state or projections idempotently;
 - EF-backed modules map outbox rows through `ConfigureOutboxMessage(...)` and inbox rows through `ConfigureInboxMessage(...)` instead of repeating message keys, indexes, and length limits;
-- shared envelope/outbox/inbox record constructors validate event ids, subject shape, event versions, tenant ids, and handler/event names; do not bypass them with ad hoc anonymous transport payloads;
+- shared envelope/outbox/inbox record constructors validate event ids, subject shape, event versions, generic scope ids, and handler/event names; do not bypass them with ad hoc anonymous transport payloads;
 - custom inbox stores return `InboxProcessResult` through its factories and never hand-build processing outcomes;
 - NATS stays behind infrastructure.
 
@@ -292,6 +298,7 @@ Rules:
 - register task handlers explicitly through the attribute-backed `AddTaskHandler<TPayload,THandler>(moduleName)` overload from the owning module application registration;
 - keep payload code independent from scheduler packages, HTTP, CLI, and other module internals;
 - use `TaskExecutionContext` for run identity, tenant, node, worker id, worker group, attempt, correlation, and cancellation intent;
+- mark tenant-scoped task payloads with `TenantScopedAttribute` from `Shared.Tenancy` and compose `AddTenantTaskExecutionContext()` from `Shared.Tenancy.Tasks` only in worker hosts that actually run them;
 - use explicit task payload versions when changing payload shape; keep old handlers registered until old queued work is drained;
 - use deduplication keys for operator/API/schedule paths where duplicate active work would be harmful;
 - let code-defined schedules use the default version-aware dedupe key shape unless the module has a documented reason to override it: `schedule:<module>:<task>:<schedule>:v<payload-version>:<occurrence>`;

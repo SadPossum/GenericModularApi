@@ -13,6 +13,9 @@ using Shared.Logging.Serilog;
 using Shared.Messaging.Infrastructure;
 using Shared.Messaging.Nats.Aspire;
 using Shared.ModuleComposition;
+using Shared.Tenancy.Api.Serilog;
+using Shared.Tenancy.Caching;
+using Shared.Tenancy.Messaging.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +25,10 @@ builder.Services.AddSharedAdministrationApi(builder.Configuration);
 builder.AddRedisCaching();
 builder.AddCachingCqrs();
 builder.AddSharedInfrastructure();
+builder.AddTenantSerilogRequestLogging();
+builder.AddTenantCaching();
 builder.AddMessagingInfrastructure();
+builder.AddTenantAwareMessaging();
 builder.AddConfiguredNatsJetStreamMessaging();
 builder.Services.AddApiSecurityDefaults();
 

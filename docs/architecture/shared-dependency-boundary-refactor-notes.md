@@ -13,12 +13,13 @@ Temporary working notes for tightening shared-package dependencies. Keep this fi
 
 - `Shared.Caching.Redis` previously referenced `Shared.Caching.Infrastructure` only to read `CachingOptions`, `CacheProvider`, and `IDistributedCacheAdapterRegistration`.
 - Those tiny provider/adapter seam types now live in `Shared.Caching`, so Redis depends on cache contracts rather than the HybridCache runtime package.
-- `Shared.Caching.Infrastructure` still owns option validation, HybridCache registration, metrics, key formatting, and fail-open runtime behavior.
+- `Shared.Caching.Infrastructure` still owns option validation, HybridCache registration, metrics, physical key formatting, and fail-open runtime behavior, while tenant scope value resolution lives in `Shared.Tenancy.Caching`.
 - `Shared.Caching.Cqrs` now owns the command invalidation pipeline behavior and composes cache infrastructure plus CQRS infrastructure explicitly.
-- The shared dependency manifest and architecture overview now encode `Shared.Caching.Redis -> Shared.Caching` and keep CQRS references in `Shared.Caching.Cqrs`.
+- The shared dependency manifest and architecture overview now encode `Shared.Caching.Redis -> Shared.Caching`, keep CQRS references in `Shared.Caching.Cqrs`, and keep tenancy references in `Shared.Tenancy.Caching`.
 - `ICacheInvalidationQueueFlusher` is internal again; `Shared.Caching.Infrastructure` grants `InternalsVisibleTo("Shared.Caching.Cqrs")` so the bridge can flush deferred invalidations without widening the public cache API.
 - `Shared.Tasks.Cqrs` now owns `AddTaskCqrs()` and the `ITaskCommandDispatcher` implementation; `Shared.Tasks.Infrastructure` no longer composes CQRS or registers task command dispatch.
 - `Shared.ProjectionRebuild` is task-neutral again. `Shared.ProjectionRebuild.Tasks` adapts rebuild observers to `ITaskRuntimeReporter` and `ITaskControlLoop` only for task-backed callers.
+- `Shared.Api.Serilog` is tenant-neutral again. `Shared.Tenancy.Api.Serilog` contributes tenant id request-log enrichment only when hosts explicitly compose the bridge.
 
 ## Follow-Up Audit Targets
 

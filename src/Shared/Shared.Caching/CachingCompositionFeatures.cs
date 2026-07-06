@@ -6,6 +6,7 @@ public static class CachingCompositionFeatures
 {
     public static readonly CompositionFeatureId Application = new("caching.application");
     public static readonly CompositionFeatureId Invalidation = new("caching.invalidation");
+    public static readonly CompositionFeatureId TenantScope = new("caching.tenant-scope");
     public static readonly CompositionFeatureId CqrsInvalidation = new("caching.cqrs-invalidation");
     public static readonly CompositionFeatureId Redis = new("caching.redis");
 
@@ -14,6 +15,9 @@ public static class CachingCompositionFeatures
 
     public static ProvidedCompositionFeature InvalidationProvided(string provider) =>
         new(Invalidation, provider, "Deferred cache invalidation queue services are registered.");
+
+    public static ProvidedCompositionFeature TenantScopeProvided(string provider) =>
+        new(TenantScope, provider, "Tenant-owned cache keys resolve through tenant context.");
 
     public static ProvidedCompositionFeature CqrsInvalidationProvided(string provider) =>
         new(CqrsInvalidation, provider, "CQRS command pipeline flushes deferred cache invalidations after successful commits.");
@@ -26,6 +30,9 @@ public static class CachingCompositionFeatures
 
     public static RequiredCompositionFeature InvalidationRequired(string owner, string? reason = null, bool optional = false) =>
         new(Invalidation, owner, optional, reason);
+
+    public static RequiredCompositionFeature TenantScopeRequired(string owner, string? reason = null, bool optional = false) =>
+        new(TenantScope, owner, optional, reason);
 
     public static RequiredCompositionFeature CqrsInvalidationRequired(string owner, string? reason = null, bool optional = false) =>
         new(CqrsInvalidation, owner, optional, reason);

@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Api\Shared.Administration.Api.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Administration.Cli\Shared.Administration.Cli.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Api\Shared.Api.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Api.Serilog\Shared.Api.Serilog.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Application.Composition\Shared.Application.Composition.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Authorization\Shared.Authorization.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Caching\Shared.Caching.csproj" />
@@ -51,7 +52,13 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tenancy\Shared.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Api.Serilog\Shared.Tenancy.Api.Serilog.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Cqrs\Shared.Tenancy.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Messaging\Shared.Tenancy.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.Tenancy.Tasks\Shared.Tenancy.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Runtime\Shared.Runtime.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Security\Shared.Security.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />

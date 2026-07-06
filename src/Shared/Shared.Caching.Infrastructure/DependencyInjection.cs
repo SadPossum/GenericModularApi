@@ -10,7 +10,6 @@ using Microsoft.Extensions.Options;
 using Shared.Caching;
 using Shared.ModuleComposition;
 using Shared.Runtime.Infrastructure;
-using Shared.Tenancy.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -31,7 +30,6 @@ public static class DependencyInjection
         }
 
         builder.AddRuntimeInfrastructure();
-        builder.AddTenancyInfrastructure();
 
         if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(CachingInfrastructureRegistrationMarker)))
         {
@@ -62,6 +60,7 @@ public static class DependencyInjection
         builder.Services.TryAddSingleton<CacheMetrics>();
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Singleton<ILoggerProvider, HybridCacheMetricsLoggerProvider>());
+        builder.Services.TryAddScoped<ICacheScopeValueResolver, DefaultCacheScopeValueResolver>();
         builder.Services.TryAddScoped<CacheKeyFormatter>();
         builder.Services.TryAddScoped<HybridApplicationCache>();
         builder.Services.TryAddScoped<IApplicationCache>(provider => provider.GetRequiredService<HybridApplicationCache>());

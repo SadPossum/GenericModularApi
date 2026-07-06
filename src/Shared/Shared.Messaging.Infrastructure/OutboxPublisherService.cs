@@ -83,7 +83,7 @@ internal sealed class OutboxPublisherService(
                     [ObservabilityLogPropertyNames.Module] = moduleName,
                     [ObservabilityLogPropertyNames.MessageId] = message.Id,
                     [ObservabilityLogPropertyNames.Subject] = message.Subject,
-                    [ObservabilityLogPropertyNames.TenantId] = message.TenantId,
+                    [ObservabilityLogPropertyNames.MessageScopeId] = message.ScopeId,
                     [ObservabilityLogPropertyNames.TraceId] = Activity.Current?.TraceId.ToString(),
                 };
 

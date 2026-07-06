@@ -708,6 +708,12 @@ public sealed partial class DeveloperExperienceGuardTests
             "Shared",
             "Shared.Api.Serilog",
             "Shared.Api.Serilog.csproj"));
+        string tenantSerilogBridgeProject = File.ReadAllText(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Shared",
+            "Shared.Tenancy.Api.Serilog",
+            "Shared.Tenancy.Api.Serilog.csproj"));
         string sharedExtension = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
@@ -720,6 +726,8 @@ public sealed partial class DeveloperExperienceGuardTests
         Assert.Contains("Serilog.Settings.Configuration", serilogHostAdapterProject, StringComparison.Ordinal);
         Assert.Contains("Serilog.Sinks.Console", serilogHostAdapterProject, StringComparison.Ordinal);
         Assert.Contains("Serilog.AspNetCore", serilogAdapterProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("Shared.Tenancy", serilogAdapterProject, StringComparison.Ordinal);
+        Assert.Contains("Shared.Tenancy", tenantSerilogBridgeProject, StringComparison.Ordinal);
         Assert.Contains("UseSerilogRequestLogging", sharedExtension, StringComparison.Ordinal);
         Assert.Contains("EnrichDiagnosticContext", sharedExtension, StringComparison.Ordinal);
 
@@ -730,6 +738,7 @@ public sealed partial class DeveloperExperienceGuardTests
             Assert.Contains("UseConfiguredSerilog()", source, StringComparison.Ordinal);
             Assert.DoesNotContain("UseSerilog(", source, StringComparison.Ordinal);
             Assert.DoesNotContain("ReadFrom.Configuration", source, StringComparison.Ordinal);
+            Assert.Contains("AddTenantSerilogRequestLogging()", source, StringComparison.Ordinal);
             Assert.Contains("UseSharedSerilogRequestLogging()", source, StringComparison.Ordinal);
             Assert.DoesNotContain("UseSerilogRequestLogging", source, StringComparison.Ordinal);
             Assert.DoesNotContain("EnrichDiagnosticContext", source, StringComparison.Ordinal);
@@ -2462,9 +2471,15 @@ public sealed partial class DeveloperExperienceGuardTests
                     hostOffenders.Add($"{hostName} does not reference Shared.Caching.Cqrs");
                 }
 
+                if (!project.Contains("Shared.Tenancy.Caching", StringComparison.Ordinal))
+                {
+                    hostOffenders.Add($"{hostName} does not reference Shared.Tenancy.Caching");
+                }
+
                 int redisIndex = program.IndexOf("builder.AddRedisCaching();", StringComparison.Ordinal);
                 int cachingBridgeIndex = program.IndexOf("builder.AddCachingCqrs();", StringComparison.Ordinal);
                 int sharedInfrastructureIndex = program.IndexOf("builder.AddSharedInfrastructure();", StringComparison.Ordinal);
+                int tenantCachingIndex = program.IndexOf("builder.AddTenantCaching();", StringComparison.Ordinal);
                 if (redisIndex < 0)
                 {
                     hostOffenders.Add($"{hostName} does not call AddRedisCaching");
@@ -2481,6 +2496,15 @@ public sealed partial class DeveloperExperienceGuardTests
                 else if (sharedInfrastructureIndex < 0 || cachingBridgeIndex > sharedInfrastructureIndex)
                 {
                     hostOffenders.Add($"{hostName} must call AddCachingCqrs before AddSharedInfrastructure");
+                }
+
+                if (tenantCachingIndex < 0)
+                {
+                    hostOffenders.Add($"{hostName} does not call AddTenantCaching");
+                }
+                else if (sharedInfrastructureIndex < 0 || tenantCachingIndex < sharedInfrastructureIndex)
+                {
+                    hostOffenders.Add($"{hostName} must call AddTenantCaching after AddSharedInfrastructure");
                 }
 
                 if (!appsettings.Contains("\"Redis\"", StringComparison.Ordinal) ||
@@ -3748,6 +3772,15 @@ public sealed partial class DeveloperExperienceGuardTests
                 ["Microsoft.AspNetCore.App"],
                 [
                     @"..\Shared.Api\Shared.Api.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Api.Serilog",
+                [],
+                ["Microsoft.AspNetCore.App"],
+                [
+                    @"..\Shared.Api.Serilog\Shared.Api.Serilog.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ]),
@@ -3784,9 +3817,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
-                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tenancy\Shared.Tenancy.csproj",
-                    @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj"
                 ]),
             new(
                 "Shared.Cqrs",
@@ -3832,6 +3863,7 @@ public sealed partial class DeveloperExperienceGuardTests
                 ],
                 [],
                 [
+                    @"..\Shared.Caching\Shared.Caching.csproj",
                     @"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
                     @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
@@ -3854,9 +3886,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Observability\Shared.Observability.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
-                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tenancy\Shared.Tenancy.csproj",
-                    @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
+                    @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj"
                 ]),
             new(
                 "Shared.Domain",
@@ -3877,6 +3907,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Application.Events.Infrastructure\Shared.Application.Events.Infrastructure.csproj",
                     @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
                     @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
+                    @"..\Shared.Tenancy.Cqrs\Shared.Tenancy.Cqrs.csproj",
                     @"..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj"
                 ]),
             new(
@@ -3920,8 +3951,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
                     @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
-                    @"..\Shared.Runtime\Shared.Runtime.csproj",
-                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                    @"..\Shared.Runtime\Shared.Runtime.csproj"
                 ]),
             new(
                 "Shared.Messaging.Infrastructure",
@@ -3967,6 +3997,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Cqrs\Shared.Cqrs.csproj",
                     @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
                     @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared.Notifications\Shared.Notifications.csproj",
                     @"..\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj",
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Results\Shared.Results.csproj"
@@ -4123,8 +4154,7 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj",
                     @"..\Shared.Runtime\Shared.Runtime.csproj",
                     @"..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj",
-                    @"..\Shared.Tasks\Shared.Tasks.csproj",
-                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                    @"..\Shared.Tasks\Shared.Tasks.csproj"
                 ]),
             new(
                 "Shared.Runtime",
@@ -4151,6 +4181,63 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Caching",
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Shared.Caching\Shared.Caching.csproj",
+                    @"..\Shared.Caching.Infrastructure\Shared.Caching.Infrastructure.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Cqrs",
+                [
+                    "Microsoft.Extensions.DependencyInjection.Abstractions",
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared.Observability\Shared.Observability.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Messaging",
+                [],
+                [],
+                [
+                    @"..\Shared.Messaging\Shared.Messaging.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared.Naming\Shared.Naming.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Messaging.Infrastructure",
+                [
+                    "Microsoft.Extensions.DependencyInjection.Abstractions",
+                    "Microsoft.Extensions.Hosting"
+                ],
+                [],
+                [
+                    @"..\Shared.Messaging\Shared.Messaging.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared.Tenancy\Shared.Tenancy.csproj",
+                    @"..\Shared.Tenancy.Messaging\Shared.Tenancy.Messaging.csproj"
+                ]),
+            new(
+                "Shared.Tenancy.Tasks",
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared.Tasks\Shared.Tasks.csproj",
+                    @"..\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj",
                     @"..\Shared.Tenancy\Shared.Tenancy.csproj"
                 ])
         ];
@@ -4448,7 +4535,10 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj",
-                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
+                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared\Shared.Tenancy.Api.Serilog\Shared.Tenancy.Api.Serilog.csproj",
+                    @"..\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj",
+                    @"..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj"
                 ]),
             new(
                 Path.Combine("Host.AdminCli", "Host.AdminCli.csproj"),
@@ -4467,7 +4557,9 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
                     @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
                     @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
-                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
+                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj",
+                    @"..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj"
                 ]),
             new(
                 Path.Combine("Host.Api", "Host.Api.csproj"),
@@ -4492,7 +4584,10 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
                     @"..\Shared\Shared.Notifications.Api\Shared.Notifications.Api.csproj",
                     @"..\Shared\Shared.Notifications.Cqrs\Shared.Notifications.Cqrs.csproj",
-                    @"..\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj"
+                    @"..\Shared\Shared.Notifications.SignalR\Shared.Notifications.SignalR.csproj",
+                    @"..\Shared\Shared.Tenancy.Api.Serilog\Shared.Tenancy.Api.Serilog.csproj",
+                    @"..\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj",
+                    @"..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj"
                 ]),
             new(
                 Path.Combine("ServiceDefaults", "ServiceDefaults.csproj"),
@@ -6668,6 +6763,10 @@ public sealed partial class DeveloperExperienceGuardTests
                    normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Tenancy\Shared.Tenancy.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.Tenancy.Messaging\Shared.Tenancy.Messaging.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
                IsOtherModuleContractsReference(moduleName, normalizedReference);
     }
 
@@ -6695,6 +6794,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Notifications\Shared.Notifications.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Pagination\Shared.Pagination.csproj"),
@@ -7453,7 +7553,7 @@ public sealed partial class DeveloperExperienceGuardTests
     [GeneratedRegex(@"public\s+sealed\s+record\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Multiline)]
     private static partial Regex PositionalPublicIntegrationEventPattern();
 
-    [GeneratedRegex(@"public\s+sealed\s+record\s+[A-Za-z_][A-Za-z0-9_]*IntegrationEvent\s*:\s*IntegrationEvent\b", RegexOptions.Multiline)]
+    [GeneratedRegex(@"public\s+sealed\s+record\s+[A-Za-z_][A-Za-z0-9_]*IntegrationEvent\s*:\s*(?:IntegrationEvent|TenantIntegrationEvent)\b", RegexOptions.Multiline)]
     private static partial Regex PublicIntegrationEventBasePattern();
 
     [GeneratedRegex(@"public\s+sealed\s+record\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Multiline)]

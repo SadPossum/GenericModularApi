@@ -1,6 +1,5 @@
 namespace Shared.Messaging.Infrastructure;
 
-using Shared.Naming;
 using Shared.Messaging;
 
 public static class IntegrationEventMetadata
@@ -9,7 +8,6 @@ public static class IntegrationEventMetadata
     public const string EventNameRequiredReason = "event-name-required";
     public const string EventNameInvalidReason = "event-name-invalid";
     public const string EventVersionInvalidReason = "event-version-invalid";
-    public const string TenantIdInvalidReason = "tenant-id-invalid";
 
     public static void ValidateForPublishing(IIntegrationEvent integrationEvent)
     {
@@ -22,7 +20,6 @@ public static class IntegrationEventMetadata
 
         _ = IntegrationEventNaming.NormalizeEventName(integrationEvent.EventName, nameof(IIntegrationEvent.EventName));
         ArgumentOutOfRangeException.ThrowIfLessThan(integrationEvent.Version, 1, nameof(IIntegrationEvent.Version));
-        _ = TenantIds.Normalize(integrationEvent.TenantId);
     }
 
     public static bool TryGetInvalidReason(IIntegrationEvent integrationEvent, out string reason)
@@ -50,12 +47,6 @@ public static class IntegrationEventMetadata
         if (integrationEvent.Version < 1)
         {
             reason = EventVersionInvalidReason;
-            return true;
-        }
-
-        if (!TenantIds.TryNormalize(integrationEvent.TenantId, out _))
-        {
-            reason = TenantIdInvalidReason;
             return true;
         }
 

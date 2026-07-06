@@ -56,7 +56,7 @@ public sealed class AdministrationApplicationRegistrationTests
         IConfiguration configuration = new ConfigurationBuilder().Build();
 
         Assert.Throws<ArgumentNullException>(() =>
-            Administration.Application.DependencyInjection.AddAdministrationApplication(null!, configuration));
+            DependencyInjection.AddAdministrationApplication(null!, configuration));
         Assert.Throws<ArgumentNullException>(() =>
             new ServiceCollection().AddAdministrationApplication(null!));
     }

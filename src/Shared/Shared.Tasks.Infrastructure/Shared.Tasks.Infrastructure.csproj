@@ -10,7 +10,6 @@
     <ProjectReference Include="..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />
     <ProjectReference Include="..\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\Shared.Tasks\Shared.Tasks.csproj" />
-    <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />
     <ProjectReference Include="..\Shared.Runtime\Shared.Runtime.csproj" />
     <ProjectReference Include="..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj" />
   </ItemGroup>

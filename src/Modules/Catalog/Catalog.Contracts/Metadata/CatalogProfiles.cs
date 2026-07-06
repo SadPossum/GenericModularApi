@@ -22,6 +22,9 @@ public static class CatalogProfiles
                 TenancyCompositionFeatures.Context,
                 Provider(DefaultName),
                 reason: "Catalog is tenant-scoped; register TenancyModule or at least Shared.Tenancy.Infrastructure."),
+            CachingCompositionFeatures.TenantScopeRequired(
+                Provider(DefaultName),
+                "Catalog cache keys are tenant-owned; register Shared.Tenancy.Caching alongside Shared.Caching.Infrastructure or Shared.Caching.Cqrs."),
             CachingCompositionFeatures.ApplicationRequired(
                 Provider(DefaultName),
                 "Catalog read handlers use explicit cache-aside; register Shared.Caching.Infrastructure or Shared.Caching.Cqrs."),

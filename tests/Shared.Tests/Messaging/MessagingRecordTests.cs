@@ -1,6 +1,5 @@
 namespace Shared.Tests;
 
-using Shared.Naming;
 using Shared.Messaging;
 using Xunit;
 
@@ -24,7 +23,7 @@ public sealed class MessagingRecordTests
 
         Assert.Equal("gma.auth.member-registered.v1", envelope.Subject);
         Assert.Equal("Auth.Contracts.MemberRegisteredIntegrationEvent", envelope.EventType);
-        Assert.Equal("tenant-a", envelope.TenantId);
+        Assert.Equal("tenant-a", envelope.ScopeId);
         Assert.Equal("{}", envelope.Payload);
     }
 
@@ -42,7 +41,7 @@ public sealed class MessagingRecordTests
 
         Assert.Equal("gma.catalog.item-created.v1", record.Subject);
         Assert.Equal("Catalog.Contracts.CatalogItemCreatedIntegrationEvent", record.EventType);
-        Assert.Equal("tenant-a", record.TenantId);
+        Assert.Equal("tenant-a", record.ScopeId);
         Assert.Equal("{}", record.Payload);
     }
 
@@ -61,7 +60,7 @@ public sealed class MessagingRecordTests
         Assert.Equal("catalog-item-created-projection", record.HandlerName);
         Assert.Equal("gma.catalog.item-created.v1", record.Subject);
         Assert.Equal("item-created", record.EventType);
-        Assert.Equal("tenant-a", record.TenantId);
+        Assert.Equal("tenant-a", record.ScopeId);
     }
 
     [Fact]
@@ -92,13 +91,13 @@ public sealed class MessagingRecordTests
     }
 
     [Fact]
-    public void Message_records_reject_invalid_tenant_ids()
+    public void Message_records_reject_invalid_scope_ids()
     {
-        string tenantId = new('x', TenantIds.MaxLength + 1);
+        string scopeId = new('x', MessageScopeIds.MaxLength + 1);
 
-        Assert.Throws<ArgumentException>(() => CreateEnvelope(tenantId: tenantId));
-        Assert.Throws<ArgumentException>(() => CreateOutboxRecord(tenantId: tenantId));
-        Assert.Throws<ArgumentException>(() => CreateInboxRecord(tenantId: tenantId));
+        Assert.Throws<ArgumentException>(() => CreateEnvelope(scopeId: scopeId));
+        Assert.Throws<ArgumentException>(() => CreateOutboxRecord(scopeId: scopeId));
+        Assert.Throws<ArgumentException>(() => CreateInboxRecord(scopeId: scopeId));
     }
 
     [Fact]
@@ -117,7 +116,7 @@ public sealed class MessagingRecordTests
         string subject = "gma.auth.member-registered.v1",
         string eventType = "Auth.Contracts.MemberRegisteredIntegrationEvent",
         int version = 1,
-        string tenantId = "tenant-a",
+        string? scopeId = "tenant-a",
         DateTimeOffset? occurredAtUtc = null,
         string payload = "{}") =>
         new(
@@ -125,7 +124,7 @@ public sealed class MessagingRecordTests
             subject,
             eventType,
             version,
-            tenantId,
+            scopeId,
             occurredAtUtc ?? OccurredAtUtc,
             payload);
 
@@ -134,7 +133,7 @@ public sealed class MessagingRecordTests
         string subject = "gma.auth.member-registered.v1",
         string eventType = "Auth.Contracts.MemberRegisteredIntegrationEvent",
         int version = 1,
-        string tenantId = "tenant-a",
+        string? scopeId = "tenant-a",
         DateTimeOffset? occurredAtUtc = null,
         string payload = "{}") =>
         new(
@@ -142,7 +141,7 @@ public sealed class MessagingRecordTests
             subject,
             eventType,
             version,
-            tenantId,
+            scopeId,
             occurredAtUtc ?? OccurredAtUtc,
             payload);
 
@@ -152,7 +151,7 @@ public sealed class MessagingRecordTests
         string subject = "gma.auth.member-registered.v1",
         string eventType = "member-registered",
         int version = 1,
-        string tenantId = "tenant-a",
+        string? scopeId = "tenant-a",
         DateTimeOffset? occurredAtUtc = null) =>
         new(
             eventId ?? EventId,
@@ -160,6 +159,6 @@ public sealed class MessagingRecordTests
             subject,
             eventType,
             version,
-            tenantId,
+            scopeId,
             occurredAtUtc ?? OccurredAtUtc);
 }

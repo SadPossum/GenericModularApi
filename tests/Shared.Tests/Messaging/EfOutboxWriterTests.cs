@@ -58,10 +58,32 @@ public sealed class EfOutboxWriterTests
         Assert.Equal("gma.catalog.item-created.v1", message.Subject);
         Assert.Equal(typeof(TestIntegrationEvent).FullName, message.EventType);
         Assert.Equal(1, message.Version);
-        Assert.Equal("tenant-a", message.TenantId);
+        Assert.Null(message.ScopeId);
         Assert.Equal(integrationEvent.OccurredAtUtc, message.OccurredAtUtc);
         Assert.Equal(Now, message.CreatedAtUtc);
         Assert.Contains("\"eventName\":\"item-created\"", message.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Enqueue_applies_optional_scope_resolver()
+    {
+        using TestDbContext dbContext = CreateDbContext();
+        TestOutboxWriter writer = new(
+            dbContext,
+            "catalog",
+            scopeResolvers: [new FixedScopeResolver("tenant-a")]);
+
+        await writer.EnqueueAsync(
+            new TestIntegrationEvent(
+                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                "item-created",
+                1,
+                "tenant-a",
+                Now),
+            CancellationToken.None);
+
+        OutboxMessage message = Assert.Single(dbContext.ChangeTracker.Entries<OutboxMessage>()).Entity;
+        Assert.Equal("tenant-a", message.ScopeId);
     }
 
     [Fact]
@@ -126,12 +148,14 @@ public sealed class EfOutboxWriterTests
     private sealed class TestOutboxWriter(
         TestDbContext dbContext,
         string moduleName,
-        string applicationNamespace = ApplicationNamespaces.Default)
+        string applicationNamespace = ApplicationNamespaces.Default,
+        IEnumerable<IIntegrationEventScopeResolver>? scopeResolvers = null)
         : EfOutboxWriter<TestDbContext>(
             dbContext,
             new TestClock(),
             Options.Create(new ApplicationIdentityOptions { Namespace = applicationNamespace }),
-            moduleName);
+            moduleName,
+            scopeResolvers);
 
     private sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
     {
@@ -147,6 +171,11 @@ public sealed class EfOutboxWriterTests
         Guid EventId,
         string EventName,
         int Version,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent;
+
+    private sealed class FixedScopeResolver(string scopeId) : IIntegrationEventScopeResolver
+    {
+        public string? ResolveScopeId(IIntegrationEvent integrationEvent) => scopeId;
+    }
 }

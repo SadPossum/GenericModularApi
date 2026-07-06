@@ -15,6 +15,9 @@ using Shared.Notifications.SignalR;
 using Shared.Tasks;
 using Shared.Tasks.Cqrs;
 using Shared.Tasks.Infrastructure;
+using Shared.Tenancy.Caching;
+using Shared.Tenancy.Infrastructure;
+using Shared.Tenancy.Tasks;
 using Xunit;
 
 [Trait("Category", "Unit")]
@@ -195,11 +198,13 @@ public sealed class ModuleCompositionFeatureTests
     {
         Assert.Equal("caching.application", CachingCompositionFeatures.Application.Value);
         Assert.Equal("caching.invalidation", CachingCompositionFeatures.Invalidation.Value);
+        Assert.Equal("caching.tenant-scope", CachingCompositionFeatures.TenantScope.Value);
         Assert.Equal("messaging.outbox", MessagingCompositionFeatures.Outbox.Value);
         Assert.Equal("messaging.event-bus", MessagingCompositionFeatures.EventBus.Value);
         Assert.Equal("notifications.history", NotificationsCompositionFeatures.History.Value);
         Assert.Equal("notifications.signalr", NotificationsCompositionFeatures.SignalR.Value);
         Assert.Equal("tasks.run-store", TasksCompositionFeatures.RunStore.Value);
+        Assert.Equal("tasks.tenant-scope", TasksCompositionFeatures.TenantScope.Value);
         Assert.Equal("tasks.worker", TasksCompositionFeatures.Worker.Value);
     }
 
@@ -211,6 +216,9 @@ public sealed class ModuleCompositionFeatureTests
         builder.Configuration["NatsConsumers:Enabled"] = "true";
 
         builder.AddCachingCqrs();
+        builder.AddTenancyInfrastructure();
+        builder.AddTenantCaching();
+        builder.AddTenantTaskExecutionContext();
         builder.AddNatsJetStreamMessaging();
         builder.AddNatsJetStreamConsumers();
         builder.AddUserNotificationsCqrs();
@@ -226,6 +234,8 @@ public sealed class ModuleCompositionFeatureTests
         Assert.True(result.IsValid, result.Report);
         Assert.Contains("caching.application by Shared.Caching.Infrastructure", result.Report, StringComparison.Ordinal);
         Assert.Contains("caching.cqrs-invalidation by Shared.Caching.Cqrs", result.Report, StringComparison.Ordinal);
+        Assert.Contains("caching.tenant-scope by Shared.Tenancy.Caching", result.Report, StringComparison.Ordinal);
+        Assert.Contains("tasks.tenant-scope by Shared.Tenancy.Tasks", result.Report, StringComparison.Ordinal);
         Assert.Contains("messaging.nats-publishing by Shared.Messaging.Nats", result.Report, StringComparison.Ordinal);
         Assert.Contains("messaging.nats-consumers by Shared.Messaging.Nats", result.Report, StringComparison.Ordinal);
         Assert.Contains("notifications.live-feed by Shared.Notifications.Infrastructure", result.Report, StringComparison.Ordinal);
@@ -233,6 +243,20 @@ public sealed class ModuleCompositionFeatureTests
         Assert.Contains("notifications.signalr by Shared.Notifications.SignalR", result.Report, StringComparison.Ordinal);
         Assert.Contains("tasks.worker by Shared.Tasks.Infrastructure", result.Report, StringComparison.Ordinal);
         Assert.Contains("tasks.scheduler by Shared.Tasks.Infrastructure", result.Report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Tenant_caching_requires_tenant_context_provider()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddTenantCaching();
+
+        ModuleCompositionValidationException exception = Assert.Throws<ModuleCompositionValidationException>(
+            () => builder.ValidateModuleComposition());
+
+        Assert.Contains("tenancy.context", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("ITenantContext", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

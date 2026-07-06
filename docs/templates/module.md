@@ -139,7 +139,7 @@ Confirm that persisted enum numeric values are stable, public contract/domain-st
 | --- | --- | --- | --- |
 | `<EventName>` | `{application-namespace}.<module>.<event>.v1` | `1` | yes/no |
 
-Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type.
+Confirm public integration event contracts inherit `IntegrationEvent` from `Shared.Messaging`, pass the stable event name/version to the base constructor, and keep only payload-specific validation in the module contract type. Tenant-owned events should inherit `TenantIntegrationEvent` from `Shared.Tenancy.Messaging`, and hosts that publish or consume them should compose `AddTenantAwareMessaging()`.
 Confirm subject constants or accessors render through `IntegrationEventNaming` or module subject factory methods, with `gma` only as the default `ApplicationIdentity:Namespace`.
 
 ## Notifications
@@ -178,7 +178,7 @@ List module meters, instruments, activity sources, structured log properties, an
 
 ## Caching
 
-List explicit cache-aside reads, logical keys, tags, TTL policy, and the commands/domain events that enqueue invalidation. State why each cached value is non-authoritative and whether it is tenant or global scoped. Confirm that the module references only `Shared.Caching` caching contracts.
+List explicit cache-aside reads, logical keys, tags, TTL policy, and the commands/domain events that enqueue invalidation. State why each cached value is non-authoritative and whether it is tenant or global scoped. Confirm that the module references only `Shared.Caching` caching contracts. Tenant-owned cache keys should require `CachingCompositionFeatures.TenantScopeRequired(...)`; hosts satisfy that through `Shared.Tenancy.Caching`.
 
 ## Extension Points
 

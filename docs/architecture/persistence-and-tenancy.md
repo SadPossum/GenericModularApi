@@ -108,9 +108,9 @@ this.ApplyTenantConventions(modelBuilder);
 
 The shared convention configures `TenantId` as required with `TenantIds.MaxLength` and applies the named EF Core filter `TenantFilter` to every mapped `ITenantScoped` type in that context. The only reflection here is bounded to the current EF model; hosts must not scan assemblies to discover modules or tenant behavior.
 
-Do not add shadow `TenantId` properties to arbitrary models. Tenant id is authoritative data used by aggregates, events, outbox/inbox records, cache keys, task requests, projection checkpoints, auth tokens, and admin audit.
+Do not add shadow `TenantId` properties to arbitrary models. Tenant id is authoritative data used by aggregates, tenant-owned domain/integration events, cache keys, task requests, projection checkpoints, auth tokens, and admin audit.
 
-Infrastructure records are classified deliberately. Outbox/inbox rows are tenant-associated runtime records, but they are not tenant-filtered by default because publishers and consumers need module-owned cross-tenant runtime visibility.
+Infrastructure records are classified deliberately. Outbox/inbox rows use a generic message `ScopeId` in code so base messaging stays tenant-neutral; the current EF mapping stores it in the existing `TenantId` column for compatibility. These rows are not tenant-filtered by default because publishers and consumers need module-owned cross-scope runtime visibility.
 
 `TenantAwareDbContext<TContext>` also validates added and modified `ITenantScoped` entities before `SaveChanges`: tenant ids must be valid, normalized, and, when tenancy is enabled, equal to the active tenant context.
 
@@ -135,9 +135,11 @@ V1 tenancy uses a shared database:
 
 Tenancy configuration is validated at startup. `Tenancy:HeaderName` must be a valid HTTP header name and `Tenancy:LocalDefaultTenantId` must be non-empty, no longer than 128 characters, and free of whitespace or control characters, because the default/null tenant context also uses it when the optional Tenancy module is omitted.
 
-Tenant contracts live in `Shared.Tenancy` so API, persistence, caching, messaging, and task-runtime adapters can depend on tenant context without depending on the broader CQRS/application contract package.
+Tenant contracts live in `Shared.Tenancy` so API, persistence, task-runtime, and bridge adapters can depend on tenant context without depending on the broader CQRS/application contract package.
+Caching stays tenant-neutral by default; `Shared.Tenancy.Caching` is the explicit runtime bridge that resolves tenant-owned cache scope values from `ITenantContext`.
+Messaging stays tenant-neutral by default; `Shared.Tenancy.Messaging` is the explicit contract bridge for tenant-owned integration events, and `Shared.Tenancy.Messaging.Infrastructure` turns those events into message scope metadata and sets tenant context for consumers.
 
-`ITenantContextAccessor` is mutable runtime state, not authoritative domain data. Host/front-door/runtime boundaries set it from the request, CLI operation, or integration-event envelope and clear it before applying a new tenant so reused scopes cannot inherit a stale tenant id. Domain entities and integration events still store their own normalized tenant ids.
+`ITenantContextAccessor` is mutable runtime state, not authoritative domain data. Host/front-door/runtime boundaries set it from the request, CLI operation, or tenant-aware integration event and clear it before applying a new tenant so reused scopes cannot inherit a stale tenant id. Domain entities and tenant-owned integration events still store their own normalized tenant ids.
 
 ## No Cross-Module Foreign Keys
 

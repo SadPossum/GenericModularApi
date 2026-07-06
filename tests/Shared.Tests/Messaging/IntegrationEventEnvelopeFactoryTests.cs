@@ -1,6 +1,5 @@
 namespace Shared.Tests;
 
-using Shared.Naming;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
 using Xunit;
@@ -17,7 +16,27 @@ public sealed class IntegrationEventEnvelopeFactoryTests
             " GMA ");
 
         Assert.Equal("gma.auth.member-registered.v1", envelope.Subject);
-        Assert.Equal("tenant-a", envelope.TenantId);
+        Assert.Null(envelope.ScopeId);
+    }
+
+    [Fact]
+    public void Create_uses_scope_resolver_when_registered()
+    {
+        IntegrationEventEnvelope envelope = IntegrationEventEnvelopeFactory.Create(
+            "catalog",
+            new TestIntegrationEvent("item-created", 1, "tenant-a"),
+            scopeResolvers: [new FixedScopeResolver(" tenant-a ")]);
+
+        Assert.Equal("tenant-a", envelope.ScopeId);
+    }
+
+    [Fact]
+    public void Create_rejects_conflicting_scope_resolvers()
+    {
+        Assert.Throws<InvalidOperationException>(() => IntegrationEventEnvelopeFactory.Create(
+            "catalog",
+            new TestIntegrationEvent("item-created", 1, "tenant-a"),
+            scopeResolvers: [new FixedScopeResolver("tenant-a"), new FixedScopeResolver("tenant-b")]));
     }
 
     [Fact]
@@ -60,20 +79,26 @@ public sealed class IntegrationEventEnvelopeFactoryTests
     }
 
     [Fact]
-    public void Create_rejects_invalid_tenant_id()
+    public void Create_rejects_invalid_scope_id()
     {
         Assert.Throws<ArgumentException>(() => IntegrationEventEnvelopeFactory.Create(
             "auth",
-            new TestIntegrationEvent("member-registered", 1, new string('x', TenantIds.MaxLength + 1))));
+            new TestIntegrationEvent("member-registered", 1, "tenant-a"),
+            scopeResolvers: [new FixedScopeResolver(new string('x', MessageScopeIds.MaxLength + 1))]));
     }
 
     private sealed record TestIntegrationEvent(
         string EventName,
         int Version,
-        string TenantId,
+        string Payload,
         Guid? Id = null) : IIntegrationEvent
     {
         public Guid EventId { get; } = Id ?? Guid.Parse("d1d19ab1-a1e0-4a09-bba6-a4f268bb8f61");
         public DateTimeOffset OccurredAtUtc { get; } = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class FixedScopeResolver(string scopeId) : IIntegrationEventScopeResolver
+    {
+        public string? ResolveScopeId(IIntegrationEvent integrationEvent) => scopeId;
     }
 }

@@ -3,8 +3,8 @@ namespace Ordering.Contracts;
 using Shared.Tasks;
 using Shared.Tenancy;
 
-[TaskName(RebuildCatalogItemProjectionPayload.TaskName)]
-[TaskPayloadVersion(RebuildCatalogItemProjectionPayload.PayloadVersion)]
+[TaskName(TaskName)]
+[TaskPayloadVersion(PayloadVersion)]
 [TaskDescription("Rebuild Ordering's local catalog item projection from Catalog exports.")]
 [TaskKind(ModuleTaskKind.OneShot)]
 [TaskWorkerGroup(OrderingModuleMetadata.ProjectionWorkerGroup)]

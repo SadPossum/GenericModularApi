@@ -13,7 +13,8 @@ Messaging is behind abstractions. Domain and application code should never depen
 - `IEventBus`
 
 Public module integration events inherit `IntegrationEvent` from `Shared.Messaging`.
-The base owns event id, tenant id, occurrence time, event name, and version validation. Module event types keep payload-specific fields and validation local to the owning `.Contracts` project.
+The base owns event id, occurrence time, event name, and version validation. Module event types keep payload-specific fields and validation local to the owning `.Contracts` project.
+Tenant-owned events opt into `Shared.Tenancy.Messaging` by inheriting `TenantIntegrationEvent`; that contract bridge owns tenant id normalization without making base messaging or NATS depend on tenancy.
 This keeps the skeleton compatible with common event metadata practices without forcing a full CloudEvents envelope into module payload classes.
 
 ## Runtime Adapter
@@ -21,11 +22,14 @@ This keeps the skeleton compatible with common event metadata practices without 
 `Shared.Messaging.Infrastructure` registers EF outbox/inbox helpers, the outbox writer registry, outbox options, messaging metrics, the outbox publisher loop, and a fail-fast null event bus. It does not reference NATS and does not start the outbox publisher by itself.
 `Shared.Messaging.Nats` owns the NATS JetStream event bus, consumer hosted service, NATS options, and low-level `AddNatsJetStreamMessaging()` / `AddNatsJetStreamConsumers()` composition hooks.
 `Shared.Messaging.Nats.Aspire` owns Aspire NATS client composition for production-style HTTP hosts.
+`Shared.Tenancy.Messaging` is the optional contract bridge for module contract packages that need tenant-aware integration events.
+`Shared.Tenancy.Messaging.Infrastructure` is the optional runtime bridge for hosts; `AddTenantAwareMessaging()` registers generic scope resolution and consumer tenant-context setup through messaging extension points.
 
 HTTP hosts that need real publishing opt in by referencing `Shared.Messaging.Nats.Aspire` and calling:
 
 ```csharp
 builder.AddMessagingInfrastructure();
+builder.AddTenantAwareMessaging(); // only for hosts/modules that use tenant-scoped integration events
 builder.AddConfiguredNatsJetStreamMessaging();
 ```
 
@@ -112,7 +116,8 @@ Publisher failures are isolated at module-store and message granularity. If one 
 
 Broker-side publish de-duplication is a defensive layer, not a replacement for outbox state. The local outbox row remains the source of retry truth, and consumer inbox tables remain the source of handler idempotency truth.
 
-Outbox metadata limits are declared by `OutboxMessage` and applied through `ConfigureOutboxMessage(...)` from `Shared.Messaging.Infrastructure`. Subject, event type, tenant id, worker id, and bounded failure metadata should fail or truncate in shared infrastructure before a provider-specific `SaveChanges` path can fail late.
+Outbox metadata limits are declared by `OutboxMessage` and applied through `ConfigureOutboxMessage(...)` from `Shared.Messaging.Infrastructure`. Subject, event type, generic message scope id, worker id, and bounded failure metadata should fail or truncate in shared infrastructure before a provider-specific `SaveChanges` path can fail late.
+For storage compatibility, the shared EF mapping currently stores `ScopeId` in the existing `TenantId` column. New code should use `ScopeId` for messaging infrastructure and `TenantId` only inside tenant-aware event payloads or tenant modules.
 
 ## Inbox And Consumers
 
@@ -127,8 +132,8 @@ EF-backed modules should map inbox rows through `ConfigureInboxMessage(...)` so 
 - Use `IOutboxWriterRegistry` from application handlers; do not inject a bare `IOutboxWriter`.
 - Keep event names stable.
 - Version events explicitly.
-- Include tenant id when the event is tenant-scoped.
-- Inherit public module events from `IntegrationEvent`; do not re-declare event id, tenant id, occurrence time, event name, or version in every event.
+- Inherit tenant-owned public events from `TenantIntegrationEvent` and compose `Shared.Tenancy.Messaging.Infrastructure` in hosts that publish or consume them.
+- Inherit tenant-free public events from `IntegrationEvent`; do not re-declare event id, occurrence time, event name, or version in every event.
 - Prefer additive event changes.
 - Do not expose internal domain entities as integration events.
 - Consumers should reference producer `.Contracts` only and duplicate local read data when they need it for decisions.

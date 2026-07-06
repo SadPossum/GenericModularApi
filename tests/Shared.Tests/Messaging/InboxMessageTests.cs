@@ -1,6 +1,5 @@
 namespace Shared.Tests;
 
-using Shared.Naming;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
 using Xunit;
@@ -9,13 +8,13 @@ using Xunit;
 public sealed class InboxMessageTests
 {
     [Fact]
-    public void Create_normalizes_and_validates_tenant_id()
+    public void Create_normalizes_and_validates_scope_id()
     {
         InboxMessage message = CreateMessage(" tenant-a ");
 
-        Assert.Equal("tenant-a", message.TenantId);
-        Assert.Throws<ArgumentException>(() => CreateMessage(" "));
-        Assert.Throws<ArgumentException>(() => CreateMessage(new string('x', TenantIds.MaxLength + 1)));
+        Assert.Equal("tenant-a", message.ScopeId);
+        Assert.Null(CreateMessage(null).ScopeId);
+        Assert.Throws<ArgumentException>(() => CreateMessage(new string('x', MessageScopeIds.MaxLength + 1)));
     }
 
     [Fact]
@@ -158,19 +157,19 @@ public sealed class InboxMessageTests
         Assert.Throws<InvalidOperationException>(() => message.MarkProcessing("worker-1", DateTimeOffset.UtcNow));
     }
 
-    private static InboxMessage CreateMessage(string tenantId = "tenant-a") =>
+    private static InboxMessage CreateMessage(string? scopeId = "tenant-a") =>
         CreateMessageWithMetadata(
             handler: "handler",
             subject: "gma.catalog.item-updated.v1",
             eventType: "item-updated",
-            tenantId: tenantId);
+            scopeId: scopeId);
 
     private static InboxMessage CreateMessageWithMetadata(
         Guid? id = null,
         string handler = "handler",
         string subject = "gma.catalog.item-updated.v1",
         string eventType = "item-updated",
-        string tenantId = "tenant-a",
+        string? scopeId = "tenant-a",
         int version = 1,
         DateTimeOffset? occurredAtUtc = null,
         DateTimeOffset? createdAtUtc = null) =>
@@ -180,7 +179,7 @@ public sealed class InboxMessageTests
             subject,
             eventType,
             version,
-            tenantId,
+            scopeId,
             occurredAtUtc ?? DateTimeOffset.UtcNow,
             createdAtUtc ?? DateTimeOffset.UtcNow);
 }

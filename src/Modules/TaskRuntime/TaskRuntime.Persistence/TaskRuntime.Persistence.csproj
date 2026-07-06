@@ -6,6 +6,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TaskRuntime.Contracts\TaskRuntime.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Persistence.EntityFrameworkCore\Shared.Persistence.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Tasks\Shared.Tasks.csproj" />
     <ProjectReference Include="..\..\..\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj" />

@@ -113,6 +113,11 @@ namespace Catalog.Persistence.PostgreSqlMigrations.Migrations
                     b.Property<DateTimeOffset?>("ProcessingStartedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ScopeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("TenantId");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -120,11 +125,6 @@ namespace Catalog.Persistence.PostgreSqlMigrations.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
 
                     b.Property<int>("Version")
                         .HasColumnType("integer");
@@ -176,15 +176,15 @@ namespace Catalog.Persistence.PostgreSqlMigrations.Migrations
                     b.Property<DateTimeOffset?>("ProcessedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ScopeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("TenantId");
+
                     b.Property<string>("Subject")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
 
                     b.Property<int>("Version")
                         .HasColumnType("integer");

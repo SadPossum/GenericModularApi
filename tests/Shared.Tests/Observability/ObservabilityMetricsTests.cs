@@ -10,7 +10,6 @@ using Shared.Messaging;
 using Shared.Observability;
 using Shared.Runtime;
 using Shared.Tasks;
-using Shared.Tenancy;
 using Shared.Results;
 using Shared.Caching.Infrastructure;
 using Shared.Cqrs.Infrastructure;
@@ -34,7 +33,6 @@ public sealed class ObservabilityMetricsTests
         CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
 
         Result<Unit> result = await behavior.HandleAsync(
@@ -67,7 +65,6 @@ public sealed class ObservabilityMetricsTests
         CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
         Error error = new("Test.Failed", "Expected failure.");
 
@@ -117,7 +114,6 @@ public sealed class ObservabilityMetricsTests
         QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
 
         Result<Unit> result = await behavior.HandleAsync(
@@ -150,7 +146,6 @@ public sealed class ObservabilityMetricsTests
         QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
         Error error = new("Test.Failed", "Expected failure.");
 
@@ -414,7 +409,6 @@ public sealed class ObservabilityMetricsTests
         CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             new ThrowingLogger<LoggingCommandBehavior<TestCommand, Unit>>(),
-            new TestTenantContext(),
             metrics);
 
         Result<Unit> result = await behavior.HandleAsync(
@@ -439,7 +433,6 @@ public sealed class ObservabilityMetricsTests
         QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             new ThrowingLogger<LoggingQueryBehavior<TestQuery, Unit>>(),
-            new TestTenantContext(),
             metrics);
 
         Result<Unit> result = await behavior.HandleAsync(
@@ -463,7 +456,6 @@ public sealed class ObservabilityMetricsTests
         CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
 
         Result<Unit> result = await behavior.HandleAsync(
@@ -484,7 +476,6 @@ public sealed class ObservabilityMetricsTests
         QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
 
         Result<Unit> result = await behavior.HandleAsync(
@@ -496,6 +487,56 @@ public sealed class ObservabilityMetricsTests
     }
 
     [Fact]
+    public async Task Command_behavior_accepts_optional_scope_contributors()
+    {
+        ServiceCollection services = [];
+        services.AddMetrics();
+        await using ServiceProvider provider = services.BuildServiceProvider();
+        CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
+        CapturingLogger<LoggingCommandBehavior<TestCommand, Unit>> logger = new();
+        LoggingCommandBehavior<TestCommand, Unit> behavior = new(
+            logger,
+            metrics,
+            [new TestScopeContributor("cqrs.scope", "command")]);
+
+        Result<Unit> result = await behavior.HandleAsync(
+            new TestCommand(),
+            () => Task.FromResult(Result.Success(Unit.Value)),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        IReadOnlyDictionary<string, object?> scope = Assert.Single(logger.Scopes);
+        Assert.Equal("command", scope["cqrs.scope"]);
+        Assert.Equal("shared", scope[ObservabilityLogPropertyNames.Module]);
+        Assert.Equal(nameof(TestCommand), scope[ObservabilityLogPropertyNames.Operation]);
+    }
+
+    [Fact]
+    public async Task Query_behavior_ignores_scope_contributor_failures()
+    {
+        ThrowingScopeContributor.SeenRequestKinds.Clear();
+        ServiceCollection services = [];
+        services.AddMetrics();
+        await using ServiceProvider provider = services.BuildServiceProvider();
+        QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
+        CapturingLogger<LoggingQueryBehavior<TestQuery, Unit>> logger = new();
+        LoggingQueryBehavior<TestQuery, Unit> behavior = new(
+            logger,
+            metrics,
+            [new ThrowingScopeContributor(), new TestScopeContributor("cqrs.scope", "query")]);
+
+        Result<Unit> result = await behavior.HandleAsync(
+            new TestQuery(),
+            () => Task.FromResult(Result.Success(Unit.Value)),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        IReadOnlyDictionary<string, object?> scope = Assert.Single(logger.Scopes);
+        Assert.Equal("query", scope["cqrs.scope"]);
+        Assert.Equal(CqrsRequestKind.Query, Assert.Single(ThrowingScopeContributor.SeenRequestKinds));
+    }
+
+    [Fact]
     public async Task Command_behavior_preserves_original_exception_when_logger_throws()
     {
         ServiceCollection services = new();
@@ -504,7 +545,6 @@ public sealed class ObservabilityMetricsTests
         CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             new ThrowingLogger<LoggingCommandBehavior<TestCommand, Unit>>(),
-            new TestTenantContext(),
             metrics);
         InvalidOperationException expected = new("handler failed");
 
@@ -526,7 +566,6 @@ public sealed class ObservabilityMetricsTests
         QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             new ThrowingLogger<LoggingQueryBehavior<TestQuery, Unit>>(),
-            new TestTenantContext(),
             metrics);
         InvalidOperationException expected = new("handler failed");
 
@@ -549,7 +588,6 @@ public sealed class ObservabilityMetricsTests
         CommandMetrics metrics = CreateCommandMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingCommandBehavior<TestCommand, Unit> behavior = new(
             NullLogger<LoggingCommandBehavior<TestCommand, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
         InvalidOperationException expected = new("handler failed");
 
@@ -572,7 +610,6 @@ public sealed class ObservabilityMetricsTests
         QueryMetrics metrics = CreateQueryMetrics(provider.GetRequiredService<IMeterFactory>());
         LoggingQueryBehavior<TestQuery, Unit> behavior = new(
             NullLogger<LoggingQueryBehavior<TestQuery, Unit>>.Instance,
-            new TestTenantContext(),
             metrics);
         InvalidOperationException expected = new("handler failed");
 
@@ -666,10 +703,64 @@ public sealed class ObservabilityMetricsTests
         double Value,
         Dictionary<string, object?> Tags);
 
-    private sealed class TestTenantContext : ITenantContext
+    private sealed class TestScopeContributor(string key, object? value) : ICqrsLogScopeContributor
     {
-        public bool IsEnabled => true;
-        public string? TenantId => "high-cardinality-tenant-id";
+        public void Enrich(CqrsLogScopeContext context, IDictionary<string, object?> scopeProperties)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            scopeProperties[key] = value;
+        }
+    }
+
+    private sealed class ThrowingScopeContributor : ICqrsLogScopeContributor
+    {
+        public static List<CqrsRequestKind> SeenRequestKinds { get; } = [];
+
+        public void Enrich(CqrsLogScopeContext context, IDictionary<string, object?> scopeProperties)
+        {
+            SeenRequestKinds.Add(context.RequestKind);
+            throw new InvalidOperationException("Scope contributor unavailable.");
+        }
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<IReadOnlyDictionary<string, object?>> Scopes { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            if (state is IEnumerable<KeyValuePair<string, object?>> properties)
+            {
+                this.Scopes.Add(properties.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal));
+            }
+
+            return NullScope.Instance;
+        }
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+        }
+    }
+
+    private sealed class NullScope : IDisposable
+    {
+        public static readonly NullScope Instance = new();
+
+        private NullScope()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class ThrowingLogger<T> : ILogger<T>

@@ -91,7 +91,7 @@ public sealed class AuthLifecycleIntegrationTests
             new SignOutRequest(refreshed.RefreshToken),
             refreshed.AccessToken).ConfigureAwait(false);
 
-        Assert.Equal(System.Net.HttpStatusCode.NoContent, signOut.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, signOut.StatusCode);
         Assert.False(string.IsNullOrWhiteSpace(registered.AccessToken));
     }
 }

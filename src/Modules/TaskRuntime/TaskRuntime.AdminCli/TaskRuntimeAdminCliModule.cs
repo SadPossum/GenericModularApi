@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Shared.Administration;
 using Shared.Administration.Cli;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Tasks;
 using Shared.Results;
@@ -23,6 +24,7 @@ public sealed class TaskRuntimeAdminCliModule : IAdminCliModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(TaskRuntimeProfiles.Default, "TaskRuntime.AdminCli");
         builder.Services.AddTaskRuntimeApplication();
         builder.AddTaskRuntimePersistence();
     }

@@ -1,6 +1,5 @@
 namespace Shared.Tests;
 
-using Shared.Naming;
 using Shared.Messaging;
 using Xunit;
 
@@ -14,7 +13,6 @@ public sealed class IntegrationEventContractGuardTests
         DateTimeOffset occurredAtUtc = new(2026, 7, 2, 12, 0, 0, TimeSpan.Zero);
 
         Assert.Equal(eventId, IntegrationEventContractGuards.RequireId(eventId, "eventId"));
-        Assert.Equal("tenant-a", IntegrationEventContractGuards.NormalizeTenantId(" tenant-a ", "tenantId"));
         Assert.Equal(occurredAtUtc, IntegrationEventContractGuards.RequireOccurredAtUtc(occurredAtUtc, "occurredAtUtc"));
         Assert.Equal("member-registered", IntegrationEventContractGuards.NormalizeEventName(" Member-Registered ", "eventName"));
         Assert.Equal(1, IntegrationEventContractGuards.RequireVersion(1, "version"));
@@ -25,8 +23,6 @@ public sealed class IntegrationEventContractGuardTests
     public void Guard_rejects_invalid_common_event_contract_metadata()
     {
         Assert.Throws<ArgumentException>(() => IntegrationEventContractGuards.RequireId(Guid.Empty, "eventId"));
-        Assert.Throws<ArgumentException>(() => IntegrationEventContractGuards.NormalizeTenantId(" ", "tenantId"));
-        Assert.Throws<ArgumentException>(() => IntegrationEventContractGuards.NormalizeTenantId(new string('x', TenantIds.MaxLength + 1), "tenantId"));
         Assert.Throws<ArgumentException>(() => IntegrationEventContractGuards.RequireOccurredAtUtc(default, "occurredAtUtc"));
         Assert.Throws<ArgumentException>(() => IntegrationEventContractGuards.NormalizeEventName(" ", "eventName"));
         Assert.Throws<ArgumentException>(() => IntegrationEventContractGuards.NormalizeEventName("member registered", "eventName"));
@@ -55,13 +51,11 @@ public sealed class IntegrationEventContractGuardTests
 
         TestIntegrationEvent integrationEvent = new(
             eventId,
-            " tenant-a ",
             occurredAtUtc,
             " Member-Registered ",
             1);
 
         Assert.Equal(eventId, integrationEvent.EventId);
-        Assert.Equal("tenant-a", integrationEvent.TenantId);
         Assert.Equal(occurredAtUtc, integrationEvent.OccurredAtUtc);
         Assert.Equal("member-registered", integrationEvent.EventName);
         Assert.Equal(1, integrationEvent.Version);
@@ -75,31 +69,21 @@ public sealed class IntegrationEventContractGuardTests
 
         Assert.Throws<ArgumentException>(() => new TestIntegrationEvent(
             Guid.Empty,
-            "tenant-a",
             occurredAtUtc,
             "member-registered",
             1));
         Assert.Throws<ArgumentException>(() => new TestIntegrationEvent(
             eventId,
-            " ",
-            occurredAtUtc,
-            "member-registered",
-            1));
-        Assert.Throws<ArgumentException>(() => new TestIntegrationEvent(
-            eventId,
-            "tenant-a",
             default,
             "member-registered",
             1));
         Assert.Throws<ArgumentException>(() => new TestIntegrationEvent(
             eventId,
-            "tenant-a",
             occurredAtUtc,
             "member registered",
             1));
         Assert.Throws<ArgumentOutOfRangeException>(() => new TestIntegrationEvent(
             eventId,
-            "tenant-a",
             occurredAtUtc,
             "member-registered",
             0));
@@ -116,11 +100,10 @@ public sealed class IntegrationEventContractGuardTests
     {
         public TestIntegrationEvent(
             Guid eventId,
-            string tenantId,
             DateTimeOffset occurredAtUtc,
             string eventName,
             int version)
-            : base(eventId, tenantId, occurredAtUtc, eventName, version)
+            : base(eventId, occurredAtUtc, eventName, version)
         {
         }
     }

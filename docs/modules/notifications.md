@@ -18,6 +18,8 @@ Notifications.AdminApi
 
 The module is not registered in the default hosts. Applications compose the user API and admin API explicitly when they need notification history.
 
+`NotificationsProfiles.Default` is selected by both `Notifications.Api` and `Notifications.AdminApi`. It provides the `notifications.history` and `notifications.broadcasts` composition features and requires tenant context. Live SSE/SignalR delivery is still host-selected through the shared notification adapters, not implied by the durable module profile.
+
 ## User API
 
 `Notifications.Api` maps current-user endpoints:

@@ -3,8 +3,8 @@ namespace TaskSamples.Contracts;
 using Shared.Tasks;
 using Shared.Tenancy;
 
-[TaskName(FlakyReportTaskPayload.TaskName)]
-[TaskPayloadVersion(FlakyReportTaskPayload.PayloadVersion)]
+[TaskName(TaskName)]
+[TaskPayloadVersion(PayloadVersion)]
 [TaskDescription("Demonstrate retry behavior by failing until a configured attempt.")]
 [TaskKind(ModuleTaskKind.OneShot)]
 [TaskWorkerGroup(TaskSamplesModuleMetadata.WorkerGroup)]

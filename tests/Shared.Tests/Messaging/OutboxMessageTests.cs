@@ -1,6 +1,6 @@
 namespace Shared.Tests;
 
-using Shared.Naming;
+using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
 using Xunit;
 
@@ -27,13 +27,13 @@ public sealed class OutboxMessageTests
     }
 
     [Fact]
-    public void Constructor_normalizes_and_validates_tenant_id()
+    public void Constructor_normalizes_and_validates_scope_id()
     {
         OutboxMessage message = CreateMessage(" tenant-a ");
 
-        Assert.Equal("tenant-a", message.TenantId);
-        Assert.Throws<ArgumentException>(() => CreateMessage(" "));
-        Assert.Throws<ArgumentException>(() => CreateMessage(new string('x', TenantIds.MaxLength + 1)));
+        Assert.Equal("tenant-a", message.ScopeId);
+        Assert.Null(CreateMessage(null).ScopeId);
+        Assert.Throws<ArgumentException>(() => CreateMessage(new string('x', MessageScopeIds.MaxLength + 1)));
     }
 
     [Fact]
@@ -168,17 +168,17 @@ public sealed class OutboxMessageTests
         Assert.Throws<InvalidOperationException>(() => message.MarkFailed("temporary", Now.AddSeconds(4), maxAttempts: 3));
     }
 
-    private static OutboxMessage CreateMessage(string tenantId = "tenant-a") =>
+    private static OutboxMessage CreateMessage(string? scopeId = "tenant-a") =>
         CreateMessageWithMetadata(
             subject: "gma.auth.test.v1",
             eventType: "test",
-            tenantId: tenantId);
+            scopeId: scopeId);
 
     private static OutboxMessage CreateMessageWithMetadata(
         Guid? id = null,
         string subject = "gma.auth.test.v1",
         string eventType = "test",
-        string tenantId = "tenant-a",
+        string? scopeId = "tenant-a",
         int version = 1,
         DateTimeOffset? occurredAtUtc = null,
         DateTimeOffset? createdAtUtc = null) =>
@@ -187,7 +187,7 @@ public sealed class OutboxMessageTests
             subject,
             eventType,
             version,
-            tenantId,
+            scopeId,
             occurredAtUtc ?? Now,
             "{}",
             createdAtUtc ?? Now);

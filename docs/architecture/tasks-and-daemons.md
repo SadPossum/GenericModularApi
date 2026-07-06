@@ -216,5 +216,6 @@ The default remains small: persistent tasks, hosted workers, code-defined schedu
 - External scheduler packages stay in explicit adapter projects.
 - Store implementations use `ITaskRunStore` and `TaskRunStatusTransitions` instead of ad hoc status changes.
 - Task worker hosts call `AddTaskWorkerRuntime()` explicitly and must also compose a concrete `ITaskRunStore`.
+- `Shared.Tasks.Infrastructure` is tenant-neutral. Worker hosts that execute payloads marked with `TenantScopedAttribute` must also compose `AddTenantTaskExecutionContext()` from `Shared.Tenancy.Tasks`.
 - Task scheduler hosts call `AddTaskRunScheduling()` explicitly and must also compose a concrete `ITaskRunStore`.
 - Running a task on another node must still use module contracts, integration events, or control messages, not direct cross-module internals.

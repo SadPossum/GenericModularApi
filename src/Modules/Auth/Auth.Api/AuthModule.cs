@@ -1,5 +1,6 @@
 namespace Auth.Api;
 
+using System.Text.Json;
 using System.Security.Claims;
 using Auth.Application;
 using Auth.Application.Commands;
@@ -51,11 +52,14 @@ public sealed class AuthModule(AuthProfile profile) : IModule
             .WithTags("Auth");
 
         RouteHandlerBuilder register = group.MapPost("/register", async (
-            RegisterMemberRequest request,
+            RegisterMemberApiRequest request,
             IRequestDispatcher dispatcher,
             CancellationToken cancellationToken) =>
             (await dispatcher.SendAsync(
-                new RegisterMemberCommand(request.Username, request.UsernameType, request.Password),
+                new RegisterMemberCommand(
+                    request.Username,
+                    UsernameTypeInput.FromJsonElement(request.UsernameType).Value,
+                    request.Password),
                 cancellationToken).ConfigureAwait(false)).ToHttpResult(PublicErrorStatusCodes));
         RequireTenantWhenNeeded(register, requireTenant);
 
@@ -164,6 +168,8 @@ public sealed class AuthModule(AuthProfile profile) : IModule
         new(AuthApplicationErrors.MemberStatusUnknown.Code, StatusCodes.Status403Forbidden),
         new(AuthApplicationErrors.MemberDisabled.Code, StatusCodes.Status403Forbidden),
         new(AuthApplicationErrors.UsernameAlreadyExists.Code, StatusCodes.Status409Conflict));
+
+    public sealed record RegisterMemberApiRequest(string Username, JsonElement UsernameType, string Password);
 
     private static Guid? GetMemberId(ClaimsPrincipal user)
     {

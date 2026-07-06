@@ -62,7 +62,7 @@ public sealed class OrderingApplicationRegistrationTests
     [Fact]
     public void Ordering_application_registration_rejects_null_arguments()
     {
-        Assert.Throws<ArgumentNullException>(() => Ordering.Application.DependencyInjection.AddOrderingApplication(null!));
+        Assert.Throws<ArgumentNullException>(() => DependencyInjection.AddOrderingApplication(null!));
     }
 
     private static bool IsProjectionHandler(ServiceDescriptor descriptor, string handlerTypeName) =>

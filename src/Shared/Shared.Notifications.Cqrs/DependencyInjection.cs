@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Shared.Cqrs;
 using Shared.Cqrs.Infrastructure;
+using Shared.ModuleComposition;
+using Shared.Notifications;
 using Shared.Notifications.Infrastructure;
 
 public static class DependencyInjection
@@ -22,6 +24,7 @@ public static class DependencyInjection
         }
 
         builder.Services.AddSingleton<UserNotificationsCqrsRegistrationMarker>();
+        builder.ProvideFeature(NotificationsCompositionFeatures.CqrsRequestFlushProvided("Shared.Notifications.Cqrs"));
         builder.Services.TryAddEnumerable(
             ServiceDescriptor.Scoped(typeof(ICommandPipelineBehavior<,>), typeof(NotificationRequestCommandBehavior<,>)));
         builder.Services.MoveCommandUnitOfWorkBehaviorToEnd();

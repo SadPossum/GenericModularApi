@@ -6,7 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Shared.Cqrs;
 using Shared.Observability.Infrastructure;
 using Shared.Runtime.Infrastructure;
-using Shared.Tenancy.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -15,7 +14,6 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.AddRuntimeInfrastructure();
-        builder.AddTenancyInfrastructure();
 
         if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(CqrsInfrastructureRegistrationMarker)))
         {

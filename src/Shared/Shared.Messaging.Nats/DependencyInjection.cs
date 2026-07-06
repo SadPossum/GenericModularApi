@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Messaging;
 using Shared.Messaging.Infrastructure;
+using Shared.ModuleComposition;
 
 public static class DependencyInjection
 {
@@ -18,6 +19,8 @@ public static class DependencyInjection
         builder.AddMessagingInfrastructure();
         AddNatsOptionServices(builder);
         builder.Services.Replace(ServiceDescriptor.Singleton<IEventBus, NatsJetStreamEventBus>());
+        builder.ProvideFeature(MessagingCompositionFeatures.EventBusProvided("Shared.Messaging.Nats"));
+        builder.ProvideFeature(MessagingCompositionFeatures.NatsPublishingProvided("Shared.Messaging.Nats"));
         builder.AddOutboxPublishing();
         return builder;
     }
@@ -30,6 +33,14 @@ public static class DependencyInjection
         builder.AddMessagingInfrastructure();
         AddNatsOptionServices(builder);
         builder.Services.TryAddSingleton<IIntegrationEventSubscriptionRegistry, IntegrationEventSubscriptionRegistry>();
+        NatsConsumerOptions consumerOptions = builder.Configuration
+            .GetSection(NatsConsumerOptions.SectionName)
+            .Get<NatsConsumerOptions>() ?? new NatsConsumerOptions();
+        if (consumerOptions.Enabled)
+        {
+            builder.ProvideFeature(MessagingCompositionFeatures.NatsConsumersProvided("Shared.Messaging.Nats"));
+        }
+
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NatsJetStreamConsumerService>());
         return builder;
     }

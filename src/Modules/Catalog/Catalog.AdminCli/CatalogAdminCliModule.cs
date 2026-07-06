@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Shared.Administration;
 using Shared.Administration.Cli;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Results;
 
@@ -21,6 +22,7 @@ public sealed class CatalogAdminCliModule : IAdminCliModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(CatalogProfiles.Default, "Catalog.AdminCli");
         builder.Services.AddCatalogApplication();
         builder.AddCatalogPersistence();
     }

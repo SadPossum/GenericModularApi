@@ -118,8 +118,8 @@ internal sealed class NotificationStreamingTestApplication(bool tenancyEnabled =
             .ConfigureAwait(false);
     }
 
-    [NotificationName(StreamingTestNotificationPayload.Name)]
-    [NotificationVersion(StreamingTestNotificationPayload.Version)]
+    [NotificationName(Name)]
+    [NotificationVersion(Version)]
     [NotificationDescription("Notification streaming integration-test payload.")]
     private sealed record StreamingTestNotificationPayload(string Title) : IUserNotificationPayload
     {

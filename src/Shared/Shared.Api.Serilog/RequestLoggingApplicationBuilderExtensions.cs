@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using global::Serilog;
 using Shared.Api.Observability;
 using Shared.Observability;
-using Shared.Tenancy;
 
 public static class RequestLoggingApplicationBuilderExtensions
 {
@@ -20,7 +19,6 @@ public static class RequestLoggingApplicationBuilderExtensions
             options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
             {
                 ModuleEndpointMetadata? module = httpContext.GetEndpoint()?.Metadata.GetMetadata<ModuleEndpointMetadata>();
-                ITenantContext? tenantContext = httpContext.RequestServices.GetService<ITenantContext>();
                 string traceId = Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier;
 
                 diagnosticContext.Set(ObservabilityLogPropertyNames.TraceId, traceId);
@@ -30,14 +28,27 @@ public static class RequestLoggingApplicationBuilderExtensions
                     diagnosticContext.Set(ObservabilityLogPropertyNames.Module, module.ModuleName);
                 }
 
-                if (!string.IsNullOrWhiteSpace(tenantContext?.TenantId))
-                {
-                    diagnosticContext.Set(ObservabilityLogPropertyNames.TenantId, tenantContext.TenantId);
-                }
+                EnrichDiagnosticContext(diagnosticContext, httpContext);
             };
         });
     }
 
     public static IApplicationBuilder UseGmaSerilogRequestLogging(this IApplicationBuilder app) =>
         UseSharedSerilogRequestLogging(app);
+
+    private static void EnrichDiagnosticContext(IDiagnosticContext diagnosticContext, HttpContext httpContext)
+    {
+        foreach (IRequestLoggingDiagnosticContextContributor contributor in httpContext.RequestServices
+                     .GetServices<IRequestLoggingDiagnosticContextContributor>())
+        {
+            try
+            {
+                contributor.Enrich(diagnosticContext, httpContext);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Request logging must stay best effort; request execution should not fail because enrichment failed.
+            }
+        }
+    }
 }

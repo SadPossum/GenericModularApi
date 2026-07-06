@@ -14,6 +14,7 @@ using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Results;
 
@@ -23,6 +24,7 @@ public sealed class OrderingModule : IModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(OrderingProfiles.Default, "Ordering.Api");
         builder.Services.AddOrderingApplication();
         builder.AddOrderingPersistence();
     }

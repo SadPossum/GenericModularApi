@@ -9,7 +9,5 @@
     <ProjectReference Include="..\Shared.Observability\Shared.Observability.csproj" />
     <ProjectReference Include="..\Shared.Observability.Infrastructure\Shared.Observability.Infrastructure.csproj" />
     <ProjectReference Include="..\Shared.Runtime.Infrastructure\Shared.Runtime.Infrastructure.csproj" />
-    <ProjectReference Include="..\Shared.Tenancy\Shared.Tenancy.csproj" />
-    <ProjectReference Include="..\Shared.Tenancy.Infrastructure\Shared.Tenancy.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

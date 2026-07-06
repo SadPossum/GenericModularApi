@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs\Shared.Cqrs.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Cqrs.Infrastructure\Shared.Cqrs.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Messaging\Shared.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications\Shared.Notifications.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Notifications.Infrastructure\Shared.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\Shared.Results\Shared.Results.csproj" />

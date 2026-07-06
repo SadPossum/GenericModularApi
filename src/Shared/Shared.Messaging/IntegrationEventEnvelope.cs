@@ -1,7 +1,5 @@
 namespace Shared.Messaging;
 
-using Shared.Naming;
-
 public sealed record IntegrationEventEnvelope
 {
     public const int SubjectMaxLength = 256;
@@ -12,7 +10,7 @@ public sealed record IntegrationEventEnvelope
         string subject,
         string eventType,
         int version,
-        string tenantId,
+        string? scopeId,
         DateTimeOffset occurredAtUtc,
         string payload)
     {
@@ -32,7 +30,7 @@ public sealed record IntegrationEventEnvelope
         this.Subject = NormalizeSubject(subject);
         this.EventType = NormalizeRequired(eventType, EventTypeMaxLength, nameof(eventType));
         this.Version = version;
-        this.TenantId = TenantIds.Normalize(tenantId);
+        this.ScopeId = MessageScopeIds.NormalizeOptional(scopeId, nameof(scopeId));
         this.OccurredAtUtc = occurredAtUtc;
         this.Payload = NormalizeRequired(payload, int.MaxValue, nameof(payload), allowControlCharacters: true);
     }
@@ -41,7 +39,7 @@ public sealed record IntegrationEventEnvelope
     public string Subject { get; }
     public string EventType { get; }
     public int Version { get; }
-    public string TenantId { get; }
+    public string? ScopeId { get; }
     public DateTimeOffset OccurredAtUtc { get; }
     public string Payload { get; }
 

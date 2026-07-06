@@ -640,8 +640,8 @@ public sealed class ModuleDescriptorTests
         }
     }
 
-    [IntegrationEventName(AttributedIntegrationEvent.EventType)]
-    [IntegrationEventVersion(AttributedIntegrationEvent.EventVersion)]
+    [IntegrationEventName(EventType)]
+    [IntegrationEventVersion(EventVersion)]
     [TenantScoped]
     private sealed record AttributedIntegrationEvent(
         Guid EventId,
@@ -655,8 +655,8 @@ public sealed class ModuleDescriptorTests
         public int Version => EventVersion;
     }
 
-    [TaskName(AttributedTaskPayload.TaskName)]
-    [TaskPayloadVersion(AttributedTaskPayload.PayloadVersion)]
+    [TaskName(TaskName)]
+    [TaskPayloadVersion(PayloadVersion)]
     [TaskDescription("Rebuild search index.")]
     [TaskKind(ModuleTaskKind.OneShot)]
     [TaskWorkerGroup("search-workers")]

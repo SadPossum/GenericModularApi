@@ -289,7 +289,7 @@ public sealed class NatsJetStreamConsumerServiceTests
 
     private sealed record TestIntegrationEvent(
         Guid EventId,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent
     {
         public string EventName => "test";
@@ -310,7 +310,7 @@ public sealed class NatsJetStreamConsumerServiceTests
 
     private sealed record OtherIntegrationEvent(
         Guid EventId,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent
     {
         public string EventName => "other";

@@ -2,11 +2,12 @@ namespace Catalog.Contracts;
 
 using Shared.Messaging;
 using Shared.Tenancy;
+using Shared.Tenancy.Messaging;
 
-[IntegrationEventName(CatalogItemUpdatedIntegrationEvent.EventType)]
-[IntegrationEventVersion(CatalogItemUpdatedIntegrationEvent.EventVersion)]
+[IntegrationEventName(EventType)]
+[IntegrationEventVersion(EventVersion)]
 [TenantScoped]
-public sealed record CatalogItemUpdatedIntegrationEvent : IntegrationEvent
+public sealed record CatalogItemUpdatedIntegrationEvent : TenantIntegrationEvent
 {
     public const string EventType = "item-updated";
     public const int EventVersion = 1;

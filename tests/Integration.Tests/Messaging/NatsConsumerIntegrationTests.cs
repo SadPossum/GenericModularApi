@@ -21,6 +21,7 @@ using Shared.Messaging.Nats;
 using Shared.Runtime;
 using Shared.Tenancy;
 using Shared.Tenancy.Infrastructure;
+using Shared.Tenancy.Messaging.Infrastructure;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -75,7 +76,7 @@ public sealed class NatsConsumerIntegrationTests
                         envelope.Subject,
                         envelope.EventType,
                         envelope.Version,
-                        envelope.TenantId,
+                        envelope.ScopeId,
                         envelope.OccurredAtUtc,
                         envelope.Payload),
                     CancellationToken.None)
@@ -222,6 +223,7 @@ public sealed class NatsConsumerIntegrationTests
         }));
 
         builder.AddTenancyInfrastructure();
+        builder.AddTenantAwareMessaging();
         builder.Services.AddOrderingApplication();
         builder.AddOrderingPersistence();
         builder.AddNatsJetStreamMessaging();
@@ -230,13 +232,13 @@ public sealed class NatsConsumerIntegrationTests
         return builder.Build();
     }
 
-    private static OutboxMessageRecord CreateMessage(string tenantId, string suffix) =>
+    private static OutboxMessageRecord CreateMessage(string scopeId, string suffix) =>
         new(
             Guid.NewGuid(),
             "gma.test.logger.v1",
             "Integration.Tests.LoggerEvent",
             1,
-            tenantId,
+            scopeId,
             DateTimeOffset.UtcNow,
             $$"""{"suffix":"{{suffix}}"}""");
 

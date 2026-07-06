@@ -64,7 +64,7 @@ That approach weakens domain invariants and makes security-sensitive behavior to
 - Do not switch from shared-database tenancy to schema-per-tenant or database-per-tenant.
 - Do not auto-add `TenantId` as a shadow property to arbitrary entities.
 - Do not make runtime configuration change migration/schema shape.
-- Do not remove tenant ids from integration events, outbox records, cache keys, task requests, projection checkpoints, auth tokens, or admin audit.
+- Do not remove tenant ids from tenant-owned integration-event payloads, cache keys, task requests, projection checkpoints, auth tokens, or admin audit. Messaging infrastructure records should expose generic scope language and use tenant ids only through explicit tenancy bridges.
 - Do not create cross-module foreign keys or cross-module EF navigation properties.
 
 ## Proposed Public API

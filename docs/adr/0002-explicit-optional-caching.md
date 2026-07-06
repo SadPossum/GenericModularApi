@@ -16,11 +16,11 @@ The skeleton needs reusable caching without making cache availability part of do
 
 Use explicit cache-aside reads through `IApplicationCache` in `Shared.Caching`.
 
-Use .NET HybridCache in `Shared.Caching.Infrastructure` for memory caching, serialization, and stampede protection. Keep Redis in the separately referenced `Shared.Caching.Redis` adapter, and keep CQRS post-commit invalidation wiring in `Shared.Caching.Cqrs`. Caching is disabled by default, Redis is host opt-in, and runtime backend failures fail open.
+Use .NET HybridCache in `Shared.Caching.Infrastructure` for memory caching, serialization, and stampede protection. Keep Redis in the separately referenced `Shared.Caching.Redis` adapter, tenant cache scope resolution in `Shared.Tenancy.Caching`, and CQRS post-commit invalidation wiring in `Shared.Caching.Cqrs`. Caching is disabled by default, Redis and tenant scope resolution are host opt-in, and runtime backend failures fail open.
 
 Commands enqueue key or tag invalidations. A command pipeline behavior flushes them only after the unit-of-work behavior commits successfully.
 
-Tenant/global logical key types are mandatory. Infrastructure owns physical key construction and observability.
+Tenant/global logical key types are mandatory. Infrastructure owns physical key construction and observability. Tenant-scoped cache keys fail fast unless the tenant cache bridge is composed.
 
 ## Consequences
 

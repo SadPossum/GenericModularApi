@@ -1,6 +1,5 @@
 namespace Shared.Messaging.Infrastructure;
 
-using Shared.Naming;
 using Shared.Runtime.Workers;
 using Shared.Messaging;
 
@@ -17,7 +16,7 @@ public class InboxMessage
     public string Subject { get; private set; } = string.Empty;
     public string EventType { get; private set; } = string.Empty;
     public int Version { get; private set; }
-    public string TenantId { get; private set; } = string.Empty;
+    public string? ScopeId { get; private set; }
     public InboxMessageStatus Status { get; private set; }
     public int Attempts { get; private set; }
     public DateTimeOffset OccurredAtUtc { get; private set; }
@@ -36,7 +35,7 @@ public class InboxMessage
         string subject,
         string eventType,
         int version,
-        string tenantId,
+        string? scopeId,
         DateTimeOffset occurredAtUtc,
         DateTimeOffset createdAtUtc)
     {
@@ -45,7 +44,7 @@ public class InboxMessage
         this.Subject = subject;
         this.EventType = eventType;
         this.Version = version;
-        this.TenantId = tenantId;
+        this.ScopeId = scopeId;
         this.OccurredAtUtc = occurredAtUtc;
         this.CreatedAtUtc = createdAtUtc;
         this.Status = InboxMessageStatus.Pending;
@@ -57,7 +56,7 @@ public class InboxMessage
         string subject,
         string eventType,
         int version,
-        string tenantId,
+        string? scopeId,
         DateTimeOffset occurredAtUtc,
         DateTimeOffset createdAtUtc)
     {
@@ -70,7 +69,7 @@ public class InboxMessage
         DateTimeOffset normalizedOccurredAtUtc = RequireTimestamp(occurredAtUtc, nameof(occurredAtUtc));
         DateTimeOffset normalizedCreatedAtUtc = RequireTimestamp(createdAtUtc, nameof(createdAtUtc));
 
-        string normalizedTenantId = TenantIds.Normalize(tenantId);
+        string? normalizedScopeId = MessageScopeIds.NormalizeOptional(scopeId, nameof(scopeId));
 
         return new InboxMessage(
             id,
@@ -78,7 +77,7 @@ public class InboxMessage
             NormalizeSubject(subject),
             NormalizeEventType(eventType),
             version,
-            normalizedTenantId,
+            normalizedScopeId,
             normalizedOccurredAtUtc,
             normalizedCreatedAtUtc);
     }

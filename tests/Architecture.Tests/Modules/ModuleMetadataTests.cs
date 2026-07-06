@@ -10,10 +10,12 @@ using Shared.Administration;
 using Shared.Authorization;
 using Shared.Caching;
 using Shared.Messaging;
+using Shared.ModuleComposition;
 using Shared.Modules;
 using Shared.Notifications;
 using Shared.Tasks;
 using Shared.Tenancy;
+using TaskRuntime.Contracts;
 using Xunit;
 
 [Trait("Category", "Architecture")]
@@ -297,6 +299,18 @@ public sealed partial class ModuleMetadataTests
             .ToArray();
 
         Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void Task_runtime_descriptor_exposes_default_composition_profile()
+    {
+        ModuleProfileDescriptor profile = Assert.Single(TaskRuntimeModuleMetadata.Descriptor.GetCompositionProfiles());
+
+        Assert.Equal(TaskRuntimeModuleMetadata.Name, profile.ModuleName);
+        Assert.Equal(TaskRuntimeProfiles.DefaultName, profile.ProfileName);
+        Assert.Contains(profile.Requires, feature => feature.Id == TasksCompositionFeatures.RunStore);
+        Assert.Contains(profile.Requires, feature => feature.Id == TasksCompositionFeatures.RuntimeReporter);
+        Assert.Contains(profile.Requires, feature => feature.Id == TasksCompositionFeatures.ControlChannel);
     }
 
     [Fact]

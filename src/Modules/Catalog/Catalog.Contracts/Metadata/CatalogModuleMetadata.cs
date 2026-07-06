@@ -4,6 +4,7 @@ using Notifications.Contracts;
 using Shared.Authorization;
 using Shared.Caching;
 using Shared.Messaging;
+using Shared.ModuleComposition;
 using Shared.Modules;
 
 public static class CatalogModuleMetadata
@@ -31,5 +32,6 @@ public static class CatalogModuleMetadata
             new ModuleCacheDescriptor(ItemsCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
             new ModuleCacheDescriptor(ItemCacheEntry, CacheScope.Tenant, [ItemsCacheTag]),
         ])
+        .WithProfile(CatalogProfiles.Default)
         .Build();
 }

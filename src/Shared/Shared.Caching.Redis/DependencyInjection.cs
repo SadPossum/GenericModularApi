@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Caching;
+using Shared.ModuleComposition;
 using StackExchange.Redis;
 
 public static class DependencyInjection
@@ -51,6 +52,7 @@ public static class DependencyInjection
         ConfigurationOptions configuration = ConfigurationOptions.Parse(connectionString);
 
         builder.Services.AddSingleton<RedisCachingRegistrationMarker>();
+        builder.ProvideFeature(CachingCompositionFeatures.RedisProvided("Shared.Caching.Redis"));
         builder.Services.AddSingleton<IDistributedCacheAdapterRegistration>(
             provider => provider.GetRequiredService<RedisCachingRegistrationMarker>());
         builder.Services

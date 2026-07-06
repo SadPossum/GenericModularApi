@@ -15,6 +15,7 @@ using Shared.Administration.Api;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Results;
 
@@ -24,6 +25,7 @@ public sealed class CatalogAdminApiModule : IAdminApiModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(CatalogProfiles.Default, "Catalog.AdminApi");
         builder.Services.AddCatalogApplication();
         builder.AddCatalogPersistence();
     }

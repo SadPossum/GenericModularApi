@@ -10,7 +10,8 @@ public abstract class EfOutboxWriter<TDbContext>(
     TDbContext dbContext,
     ISystemClock clock,
     IOptions<ApplicationIdentityOptions> applicationIdentity,
-    string moduleName)
+    string moduleName,
+    IEnumerable<IIntegrationEventScopeResolver>? scopeResolvers = null)
     : IOutboxWriter
     where TDbContext : DbContext
 {
@@ -26,14 +27,15 @@ public abstract class EfOutboxWriter<TDbContext>(
         IntegrationEventEnvelope envelope = IntegrationEventEnvelopeFactory.Create(
             this.ModuleName,
             integrationEvent,
-            this.subjectPrefix);
+            this.subjectPrefix,
+            scopeResolvers);
 
         dbContext.Set<OutboxMessage>().Add(new OutboxMessage(
             envelope.EventId,
             envelope.Subject,
             envelope.EventType,
             envelope.Version,
-            envelope.TenantId,
+            envelope.ScopeId,
             envelope.OccurredAtUtc,
             envelope.Payload,
             clock.UtcNow));

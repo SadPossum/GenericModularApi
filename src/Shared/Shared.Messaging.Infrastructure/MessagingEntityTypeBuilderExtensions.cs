@@ -2,7 +2,7 @@ namespace Shared.Messaging.Infrastructure;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.Naming;
+using Shared.Messaging;
 
 public static class MessagingEntityTypeBuilderExtensions
 {
@@ -17,7 +17,9 @@ public static class MessagingEntityTypeBuilderExtensions
         builder.HasKey(message => message.Id);
         builder.Property(message => message.Subject).HasMaxLength(OutboxMessage.SubjectMaxLength).IsRequired();
         builder.Property(message => message.EventType).HasMaxLength(OutboxMessage.EventTypeMaxLength).IsRequired();
-        builder.Property(message => message.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
+        builder.Property(message => message.ScopeId)
+            .HasColumnName("TenantId")
+            .HasMaxLength(MessageScopeIds.MaxLength);
         builder.Property(message => message.LockedBy).HasMaxLength(OutboxMessage.LockedByMaxLength);
         builder.Property(message => message.Payload).IsRequired();
         builder.HasIndex(message => new
@@ -43,7 +45,9 @@ public static class MessagingEntityTypeBuilderExtensions
         builder.Property(message => message.Handler).HasMaxLength(InboxMessage.HandlerMaxLength).IsRequired();
         builder.Property(message => message.Subject).HasMaxLength(InboxMessage.SubjectMaxLength).IsRequired();
         builder.Property(message => message.EventType).HasMaxLength(InboxMessage.EventTypeMaxLength).IsRequired();
-        builder.Property(message => message.TenantId).HasMaxLength(TenantIds.MaxLength).IsRequired();
+        builder.Property(message => message.ScopeId)
+            .HasColumnName("TenantId")
+            .HasMaxLength(MessageScopeIds.MaxLength);
         builder.Property(message => message.Status).HasConversion<int>().IsRequired();
         builder.Property(message => message.LockedBy).HasMaxLength(InboxMessage.LockedByMaxLength);
         builder.Property(message => message.LastError).HasMaxLength(InboxMessage.LastErrorMaxLength);

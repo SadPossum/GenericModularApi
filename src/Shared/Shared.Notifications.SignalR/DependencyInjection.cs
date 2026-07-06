@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Shared.ModuleComposition;
 using Shared.Notifications;
 
 public static class DependencyInjection
@@ -32,6 +33,17 @@ public static class DependencyInjection
         }
 
         builder.Services.AddSingleton<NotificationSignalRRegistrationMarker>();
+        NotificationsOptions notificationsOptions = builder.Configuration
+            .GetSection(NotificationsOptions.SectionName)
+            .Get<NotificationsOptions>() ?? new NotificationsOptions();
+        if (notificationsOptions.Enabled && signalROptions.Enabled)
+        {
+            builder.ProvideFeature(NotificationsCompositionFeatures.SignalRProvided("Shared.Notifications.SignalR"));
+            builder.RequireFeature(NotificationsCompositionFeatures.PublisherRequired(
+                "Shared.Notifications.SignalR",
+                "Register Shared.Notifications.Infrastructure before enabling notification SignalR delivery."));
+        }
+
         builder.Services
             .AddOptions<NotificationsOptions>()
             .Bind(builder.Configuration.GetSection(NotificationsOptions.SectionName))

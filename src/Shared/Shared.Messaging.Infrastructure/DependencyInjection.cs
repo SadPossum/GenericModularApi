@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Messaging;
+using Shared.ModuleComposition;
 using Shared.Observability.Infrastructure;
 using Shared.Runtime.Infrastructure;
 
@@ -25,6 +26,8 @@ public static class DependencyInjection
         }
 
         builder.Services.AddSingleton<MessagingInfrastructureRegistrationMarker>();
+        builder.ProvideFeature(MessagingCompositionFeatures.OutboxProvided("Shared.Messaging.Infrastructure"));
+        builder.ProvideFeature(MessagingCompositionFeatures.InboxProvided("Shared.Messaging.Infrastructure"));
         builder.Services
             .AddOptions<OutboxOptions>()
             .Bind(builder.Configuration.GetSection(OutboxOptions.SectionName))
@@ -44,6 +47,10 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.AddMessagingInfrastructure();
+        builder.ProvideFeature(MessagingCompositionFeatures.OutboxPublishingProvided("Shared.Messaging.Infrastructure"));
+        builder.RequireFeature(MessagingCompositionFeatures.EventBusRequired(
+            "Shared.Messaging.Infrastructure/OutboxPublisherService",
+            "Register a concrete messaging adapter such as Shared.Messaging.Nats before starting outbox publishing."));
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, OutboxPublisherService>());
         return builder;
     }

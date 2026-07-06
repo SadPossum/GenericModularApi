@@ -14,6 +14,7 @@ using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Api.Tenancy;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Results;
 
@@ -23,6 +24,7 @@ public sealed class CatalogModule : IModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(CatalogProfiles.Default, "Catalog.Api");
         builder.Services.AddCatalogApplication();
         builder.AddCatalogPersistence();
     }

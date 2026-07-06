@@ -14,6 +14,8 @@ using Shared.Caching;
 using Shared.Caching.Cqrs;
 using Shared.Observability;
 using Shared.Tenancy;
+using Shared.Tenancy.Caching;
+using Shared.Tenancy.Infrastructure;
 using Shared.Cqrs.UnitOfWork;
 using Shared.Caching.Redis;
 using Shared.Results;
@@ -78,6 +80,24 @@ public sealed class CachingTests
     }
 
     [Fact]
+    public async Task Tenant_scoped_cache_keys_require_tenant_cache_bridge()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["Caching:Enabled"] = "false";
+        builder.AddCachingInfrastructure();
+        await using ServiceProvider provider = builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using IServiceScope scope = provider.CreateScope();
+        IApplicationCache cache = scope.ServiceProvider.GetRequiredService<IApplicationCache>();
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            cache.GetOrCreateAsync(
+                CacheKey.Tenant("catalog", "product", "42"),
+                _ => ValueTask.FromResult(42)).AsTask());
+
+        Assert.Contains("Shared.Tenancy.Caching", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Tenant_context_is_normalized_before_formatting_physical_cache_key()
     {
         MutableTenantContext tenant = new() { TenantId = " alpha " };
@@ -120,7 +140,7 @@ public sealed class CachingTests
     public void Cache_formatter_normalizes_storage_prefix_and_environment_name()
     {
         var formatter = new CacheKeyFormatter(
-            new MutableTenantContext { TenantId = " alpha " },
+            new FixedCacheScopeValueResolver("alpha"),
             new MutableHostEnvironment { EnvironmentName = " RedisTests_1 " },
             Options.Create(new CachingOptions { KeyPrefix = " GMA-DEV_1 " }),
             Options.Create(new ApplicationIdentityOptions()));
@@ -134,7 +154,7 @@ public sealed class CachingTests
     public void Cache_formatter_uses_application_namespace_when_storage_prefix_is_not_configured()
     {
         var formatter = new CacheKeyFormatter(
-            new MutableTenantContext { TenantId = " alpha " },
+            new FixedCacheScopeValueResolver("alpha"),
             new MutableHostEnvironment { EnvironmentName = " RedisTests " },
             Options.Create(new CachingOptions()),
             Options.Create(new ApplicationIdentityOptions { Namespace = "acme-orders" }));
@@ -637,6 +657,8 @@ public sealed class CachingTests
         HostApplicationBuilder builder = Host.CreateApplicationBuilder();
         builder.Configuration["Caching:Enabled"] = "true";
         builder.Configuration["Caching:Provider"] = "Redis";
+        builder.AddTenancyInfrastructure();
+        builder.AddTenantCaching();
         builder.AddCachingCqrs();
 
         using ServiceProvider provider = builder.Services.BuildServiceProvider();
@@ -780,6 +802,8 @@ public sealed class CachingTests
         }
 
         configureServices?.Invoke(builder.Services);
+        builder.AddTenancyInfrastructure();
+        builder.AddTenantCaching();
         builder.AddCachingCqrs();
 
         if (tenantContext is not null)
@@ -829,6 +853,17 @@ public sealed class CachingTests
     {
         public bool IsEnabled => true;
         public string? TenantId { get; set; }
+    }
+
+    private sealed class FixedCacheScopeValueResolver(string tenantScopeValue) : ICacheScopeValueResolver
+    {
+        public string Resolve(CacheScope scope) =>
+            scope switch
+            {
+                CacheScope.Global => "global",
+                CacheScope.Tenant => tenantScopeValue,
+                _ => throw new InvalidOperationException($"Unsupported cache scope '{scope}'.")
+            };
     }
 
     private sealed class MutableHostEnvironment : IHostEnvironment

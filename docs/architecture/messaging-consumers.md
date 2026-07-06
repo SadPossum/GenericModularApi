@@ -27,7 +27,7 @@ The service:
 - creates a durable JetStream pull consumer per subscription;
 - names durable consumers as a NATS-safe physical key shaped like `<application-namespace>-<environment>-<consumer-module>-<handler-name>`;
 - deserializes messages by subscription event type;
-- sets tenant context from the event tenant id for tenant-scoped subscriptions;
+- runs registered processing-context contributors before the handler, such as `Shared.Tenancy.Messaging.Infrastructure` setting tenant context for tenant-scoped subscriptions;
 - invokes the handler through DI with a cached typed delegate;
 - acknowledges only after the inbox store returns processed or duplicate;
 - negatively acknowledges failed processing so JetStream can redeliver.
@@ -65,7 +65,7 @@ On success, handler effects and the inbox processed marker commit in the same tr
 On failure, handler effects are rolled back before failure metadata is recorded.
 Handler timeout cancellation is treated as a failed attempt and is negatively acknowledged for retry.
 Host shutdown cancellation still propagates so consumers can stop without writing misleading failure metadata.
-Inbox metadata limits are declared by `InboxMessage` and consumed by each module EF mapping. Handler names, subjects, event type names, tenant ids, worker ids, and last-error text are validated or bounded in shared infrastructure before persistence.
+Inbox metadata limits are declared by `InboxMessage` and consumed by each module EF mapping. Handler names, subjects, event type names, generic message scope ids, worker ids, and last-error text are validated or bounded in shared infrastructure before persistence.
 
 Inbox rows track:
 
@@ -73,7 +73,7 @@ Inbox rows track:
 - handler name;
 - subject;
 - event type and version;
-- tenant id;
+- scope id, when a cross-boundary bridge such as tenancy resolves one;
 - processing status;
 - attempt count;
 - timestamps;

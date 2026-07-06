@@ -18,6 +18,8 @@ using Shared.Caching.Cqrs;
 using Shared.Results;
 using Shared.Infrastructure;
 using Shared.Messaging.Infrastructure;
+using Shared.Tenancy.Caching;
+using Shared.Tenancy.Messaging.Infrastructure;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Text.RegularExpressions;
@@ -29,7 +31,7 @@ internal sealed class AdminCliTestApplication : IAsyncDisposable
 
     public AdminCliTestApplication(string provider, string connectionString)
     {
-        HostApplicationBuilder builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder([]);
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder([]);
         builder.Environment.EnvironmentName = "Integration";
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
@@ -50,7 +52,9 @@ internal sealed class AdminCliTestApplication : IAsyncDisposable
         builder.Services.AddSharedAdministrationCli();
         builder.AddCachingCqrs();
         builder.AddSharedInfrastructure();
+        builder.AddTenantCaching();
         builder.AddMessagingInfrastructure();
+        builder.AddTenantAwareMessaging();
         builder.AddAdminModule<AdministrationAdminCliModule>();
         builder.AddAdminModule<AuthAdminCliModule>();
 

@@ -99,28 +99,19 @@ $metadataPermissionDescriptor = if ($AdminCli -or $AdminApi) {
 else {
     $null
 }
-$metadataPermissionsBlock = if ($metadataPermissionDescriptor) {
-    @"
-        .WithPermission($metadataPermissionDescriptor)
-"@
+$metadataDescriptorLines = @(
+    'ModuleDescriptor',
+    '        .Create(Name)',
+    '        .WithSchema(Schema)'
+)
+if ($metadataPermissionDescriptor) {
+    $metadataDescriptorLines += "        .WithPermission($metadataPermissionDescriptor)"
 }
-else {
-    ""
+if ($Cache) {
+    $metadataDescriptorLines += '        .WithCacheEntry(new ModuleCacheDescriptor(ModuleCacheEntry, CacheScope.Tenant, [ModuleCacheTag]))'
 }
-$metadataCacheDescriptorBlock = if ($Cache) {
-    @"
-        .WithCacheEntry(new ModuleCacheDescriptor(ModuleCacheEntry, CacheScope.Tenant, [ModuleCacheTag]))
-"@
-}
-else {
-    ""
-}
-$metadataDescriptor = @"
-ModuleDescriptor
-        .Create(Name)
-        .WithSchema(Schema)
-$metadataPermissionsBlock$metadataCacheDescriptorBlock        .Build()
-"@
+$metadataDescriptorLines += '        .Build()'
+$metadataDescriptor = $metadataDescriptorLines -join "`r`n"
 $metadataUsings = @("using Shared.Modules;")
 if ($AdminCli -or $AdminApi) {
     $metadataUsings = @("using Shared.Authorization;") + $metadataUsings
@@ -722,6 +713,7 @@ $($adminApiReferences -join "`r`n")
         "using $Name.Application;",
         "using $Name.Contracts;",
         'using Microsoft.AspNetCore.Builder;',
+        'using Microsoft.AspNetCore.Http;',
         'using Microsoft.AspNetCore.Routing;',
         'using Microsoft.Extensions.DependencyInjection;',
         'using Microsoft.Extensions.Hosting;',

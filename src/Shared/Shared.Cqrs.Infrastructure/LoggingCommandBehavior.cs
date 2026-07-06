@@ -3,15 +3,13 @@ namespace Shared.Cqrs.Infrastructure;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Shared.Cqrs;
-using Shared.Observability;
-using Shared.Tenancy;
 using Shared.Results;
 using Shared.Observability.Infrastructure;
 
 internal sealed class LoggingCommandBehavior<TCommand, TResponse>(
     ILogger<LoggingCommandBehavior<TCommand, TResponse>> logger,
-    ITenantContext tenantContext,
-    CommandMetrics metrics)
+    CommandMetrics metrics,
+    IEnumerable<ICqrsLogScopeContributor>? scopeContributors = null)
     : ICommandPipelineBehavior<TCommand, TResponse>
     where TCommand : ICommand<TResponse>
 {
@@ -23,13 +21,12 @@ internal sealed class LoggingCommandBehavior<TCommand, TResponse>(
         string commandName = typeof(TCommand).Name;
         string moduleName = ModuleNameResolver.FromType(typeof(TCommand));
         long startedAt = Stopwatch.GetTimestamp();
-        Dictionary<string, object?> scopeProperties = new()
-        {
-            [ObservabilityLogPropertyNames.Module] = moduleName,
-            [ObservabilityLogPropertyNames.Operation] = commandName,
-            [ObservabilityLogPropertyNames.TenantId] = tenantContext.TenantId,
-            [ObservabilityLogPropertyNames.TraceId] = Activity.Current?.TraceId.ToString(),
-        };
+        CqrsLogScopeContext scopeContext = new(
+            moduleName,
+            commandName,
+            typeof(TCommand),
+            CqrsRequestKind.Command);
+        Dictionary<string, object?> scopeProperties = CqrsLogScopeBuilder.Create(scopeContext, scopeContributors);
 
         IDisposable? scope = this.BeginLogScope(scopeProperties);
 

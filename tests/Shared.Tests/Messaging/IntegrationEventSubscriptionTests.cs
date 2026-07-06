@@ -217,7 +217,7 @@ public sealed class IntegrationEventSubscriptionTests
 
     private sealed record TestIntegrationEvent(
         Guid EventId,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent
     {
         public string EventName => "test";
@@ -237,12 +237,12 @@ public sealed class IntegrationEventSubscriptionTests
             Task.CompletedTask;
     }
 
-    [IntegrationEventName(AttributedIntegrationEvent.EventType)]
-    [IntegrationEventVersion(AttributedIntegrationEvent.EventVersion)]
+    [IntegrationEventName(EventType)]
+    [IntegrationEventVersion(EventVersion)]
     [TenantScoped]
     private sealed record AttributedIntegrationEvent(
         Guid EventId,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent
     {
         public const string EventType = "item-created";
@@ -265,10 +265,10 @@ public sealed class IntegrationEventSubscriptionTests
             Task.CompletedTask;
     }
 
-    [IntegrationEventName(MissingVersionIntegrationEvent.EventType)]
+    [IntegrationEventName(EventType)]
     private sealed record MissingVersionIntegrationEvent(
         Guid EventId,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent
     {
         public const string EventType = "missing-version";
@@ -286,7 +286,7 @@ public sealed class IntegrationEventSubscriptionTests
 
     private sealed record OtherIntegrationEvent(
         Guid EventId,
-        string TenantId,
+        string Payload,
         DateTimeOffset OccurredAtUtc) : IIntegrationEvent
     {
         public string EventName => "other";

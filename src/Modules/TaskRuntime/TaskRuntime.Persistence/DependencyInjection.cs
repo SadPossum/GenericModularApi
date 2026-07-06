@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Shared.Tasks;
 using Shared.Cqrs.UnitOfWork;
+using Shared.ModuleComposition;
 using Shared.Persistence.EntityFrameworkCore;
 
 public static class DependencyInjection
@@ -27,6 +28,9 @@ public static class DependencyInjection
         builder.Services.TryAddScoped<ITaskRuntimeReporter>(provider => provider.GetRequiredService<ITaskRunStore>());
         builder.Services.TryAddScoped<ITaskControlChannel>(provider => provider.GetRequiredService<ITaskRunStore>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Scoped<IUnitOfWork, TaskRuntimeUnitOfWork>());
+        builder.ProvideFeature(TasksCompositionFeatures.RunStoreProvided("TaskRuntime.Persistence"));
+        builder.ProvideFeature(TasksCompositionFeatures.RuntimeReporterProvided("TaskRuntime.Persistence"));
+        builder.ProvideFeature(TasksCompositionFeatures.ControlChannelProvided("TaskRuntime.Persistence"));
 
         return builder;
     }

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Observability.Infrastructure;
+using Shared.ModuleComposition;
 using Shared.Runtime.Infrastructure;
 using Shared.Tasks;
 
@@ -22,6 +23,7 @@ public static class TaskWorkerRuntimeDependencyInjection
         }
 
         builder.Services.AddSingleton<TaskInfrastructureRegistrationMarker>();
+        builder.ProvideFeature(TasksCompositionFeatures.InfrastructureProvided("Shared.Tasks.Infrastructure"));
         builder.Services.TryAddScoped<ITaskControlLoop, TaskControlLoop>();
         builder.Services.TryAddSingleton<TaskMetricsSnapshotStore>();
         builder.Services.TryAddSingleton<TaskMetrics>();
@@ -34,6 +36,10 @@ public static class TaskWorkerRuntimeDependencyInjection
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.AddTaskInfrastructure();
+        builder.ProvideFeature(TasksCompositionFeatures.WorkerProvided("Shared.Tasks.Infrastructure"));
+        builder.RequireFeature(TasksCompositionFeatures.RunStoreRequired(
+            "Shared.Tasks.Infrastructure/Worker",
+            "Register a module-owned task run store such as TaskRuntime.Persistence before starting task workers."));
         builder.Services
             .AddOptions<TaskWorkerOptions>()
             .Bind(builder.Configuration.GetSection(TaskWorkerOptions.SectionName))
@@ -52,6 +58,10 @@ public static class TaskWorkerRuntimeDependencyInjection
         ArgumentNullException.ThrowIfNull(builder);
 
         builder.AddTaskInfrastructure();
+        builder.ProvideFeature(TasksCompositionFeatures.SchedulerProvided("Shared.Tasks.Infrastructure"));
+        builder.RequireFeature(TasksCompositionFeatures.RunStoreRequired(
+            "Shared.Tasks.Infrastructure/Scheduler",
+            "Register a module-owned task run store such as TaskRuntime.Persistence before starting task scheduling."));
         builder.Services
             .AddOptions<TaskRunSchedulerOptions>()
             .Bind(builder.Configuration.GetSection(TaskRunSchedulerOptions.SectionName))

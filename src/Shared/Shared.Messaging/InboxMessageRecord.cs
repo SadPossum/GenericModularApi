@@ -1,7 +1,5 @@
 namespace Shared.Messaging;
 
-using Shared.Naming;
-
 public sealed record InboxMessageRecord
 {
     public const int HandlerNameMaxLength = 256;
@@ -14,7 +12,7 @@ public sealed record InboxMessageRecord
         string subject,
         string eventType,
         int version,
-        string tenantId,
+        string? scopeId,
         DateTimeOffset occurredAtUtc)
     {
         if (eventId == Guid.Empty)
@@ -34,7 +32,7 @@ public sealed record InboxMessageRecord
         this.Subject = IntegrationEventEnvelope.NormalizeSubject(subject);
         this.EventType = NormalizeEventType(eventType);
         this.Version = version;
-        this.TenantId = TenantIds.Normalize(tenantId);
+        this.ScopeId = MessageScopeIds.NormalizeOptional(scopeId, nameof(scopeId));
         this.OccurredAtUtc = occurredAtUtc;
     }
 
@@ -43,7 +41,7 @@ public sealed record InboxMessageRecord
     public string Subject { get; }
     public string EventType { get; }
     public int Version { get; }
-    public string TenantId { get; }
+    public string? ScopeId { get; }
     public DateTimeOffset OccurredAtUtc { get; }
 
     private static string NormalizeHandlerName(string handlerName)

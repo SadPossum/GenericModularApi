@@ -10,6 +10,7 @@ using Shared.Administration.Api;
 using Shared.Api.Observability;
 using Shared.Api.Results;
 using Shared.Cqrs;
+using Shared.ModuleComposition;
 using Shared.Pagination;
 using Shared.Tasks;
 using Shared.Results;
@@ -26,6 +27,7 @@ public sealed class TaskRuntimeAdminApiModule : IAdminApiModule
 
     public void AddServices(IHostApplicationBuilder builder)
     {
+        builder.SelectModuleProfile(TaskRuntimeProfiles.Default, "TaskRuntime.AdminApi");
         builder.Services.AddTaskRuntimeApplication();
         builder.AddTaskRuntimePersistence();
     }

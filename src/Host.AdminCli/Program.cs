@@ -10,6 +10,8 @@ using Shared.Caching.Redis;
 using Shared.Infrastructure;
 using Shared.Messaging.Infrastructure;
 using Shared.ModuleComposition;
+using Shared.Tenancy.Caching;
+using Shared.Tenancy.Messaging.Infrastructure;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 
@@ -26,7 +28,9 @@ try
     builder.AddRedisCaching();
     builder.AddCachingCqrs();
     builder.AddSharedInfrastructure();
+    builder.AddTenantCaching();
     builder.AddMessagingInfrastructure();
+    builder.AddTenantAwareMessaging();
     builder.AddAdminModule<AdministrationAdminCliModule>();
     builder.AddAuthAdminModule(AuthProfile.TenantScoped());
     builder.ValidateModuleComposition();

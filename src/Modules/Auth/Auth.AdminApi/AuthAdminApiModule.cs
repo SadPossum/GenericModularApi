@@ -1,5 +1,6 @@
 namespace Auth.AdminApi;
 
+using System.Text.Json;
 using Auth.Admin.Contracts;
 using Auth.Application;
 using Auth.Application.Commands;
@@ -200,7 +201,10 @@ public sealed class AuthAdminApiModule(AuthProfile profile) : IAdminApiModule
         }
 
         Result<AdminCreatedMemberResponse> result = await dispatcher.SendAsync(
-            new AdminCreateMemberCommand(request.Username, request.UsernameType, password.Value.Password),
+            new AdminCreateMemberCommand(
+                request.Username,
+                UsernameTypeInput.FromJsonElement(request.UsernameType).Value,
+                password.Value.Password),
             cancellationToken).ConfigureAwait(false);
 
         return result.IsFailure
@@ -267,7 +271,7 @@ public sealed class AuthAdminApiModule(AuthProfile profile) : IAdminApiModule
     }
 
     private sealed record PasswordInput(string Password, bool Generated);
-    public sealed record CreateAdminMemberRequest(string Username, UsernameType UsernameType, string? Password, bool GeneratePassword);
+    public sealed record CreateAdminMemberRequest(string Username, JsonElement UsernameType, string? Password, bool GeneratePassword);
     public sealed record AdminCreatedMemberApiResponse(Guid MemberId, string Username, string? GeneratedPassword);
     public sealed record DisableAdminMemberRequest(string Reason, bool Confirmed);
     public sealed record ResetAdminMemberPasswordRequest(string? NewPassword, bool GeneratePassword, bool Confirmed);

@@ -25,11 +25,6 @@ public static class IntegrationEventContractGuards
         return value;
     }
 
-    public static string NormalizeTenantId(string tenantId, string parameterName) =>
-        TenantIds.TryNormalize(tenantId, out string? normalized)
-            ? normalized
-            : throw new ArgumentException("Tenant id is not valid.", parameterName);
-
     public static string NormalizeEventName(string eventName, string parameterName) =>
         IntegrationEventNaming.NormalizeEventName(eventName, parameterName);
 

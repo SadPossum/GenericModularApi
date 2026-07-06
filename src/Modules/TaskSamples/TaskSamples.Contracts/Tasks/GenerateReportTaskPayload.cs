@@ -3,8 +3,8 @@ namespace TaskSamples.Contracts;
 using Shared.Tasks;
 using Shared.Tenancy;
 
-[TaskName(GenerateReportTaskPayload.TaskName)]
-[TaskPayloadVersion(GenerateReportTaskPayload.PayloadVersion)]
+[TaskName(TaskName)]
+[TaskPayloadVersion(PayloadVersion)]
 [TaskDescription("Generate a sample tenant report through the task runtime.")]
 [TaskKind(ModuleTaskKind.OneShot)]
 [TaskWorkerGroup(TaskSamplesModuleMetadata.WorkerGroup)]

@@ -178,6 +178,11 @@ namespace Auth.Persistence.SqlServerMigrations.Migrations
                     b.Property<DateTimeOffset?>("ProcessingStartedAtUtc")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("ScopeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("TenantId");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -185,11 +190,6 @@ namespace Auth.Persistence.SqlServerMigrations.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
 
                     b.Property<int>("Version")
                         .HasColumnType("int");
@@ -241,15 +241,15 @@ namespace Auth.Persistence.SqlServerMigrations.Migrations
                     b.Property<DateTimeOffset?>("ProcessedAtUtc")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("ScopeId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("TenantId");
+
                     b.Property<string>("Subject")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
 
                     b.Property<int>("Version")
                         .HasColumnType("int");

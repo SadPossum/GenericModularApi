@@ -762,8 +762,8 @@ public sealed class TaskContractsTests
             Task.CompletedTask;
     }
 
-    [TaskName(AttributedTaskPayload.TaskName)]
-    [TaskPayloadVersion(AttributedTaskPayload.PayloadVersion)]
+    [TaskName(TaskName)]
+    [TaskPayloadVersion(PayloadVersion)]
     [TaskDescription("Rebuild search index.")]
     [TaskKind(ModuleTaskKind.Daemon)]
     [TaskWorkerGroup("search-workers")]
@@ -784,7 +784,7 @@ public sealed class TaskContractsTests
             Task.CompletedTask;
     }
 
-    [TaskName(MissingVersionTaskPayload.TaskName)]
+    [TaskName(TaskName)]
     [TaskDescription("Missing payload version.")]
     [TaskKind(ModuleTaskKind.OneShot)]
     private sealed record MissingVersionTaskPayload : ITaskPayload

@@ -7,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Shared.Runtime.Identity;
 using Shared.Tasks;
-using Shared.Tenancy;
 using Shared.Runtime.Time;
 using Shared.Observability.Infrastructure;
 using Shared.Runtime.Workers;
@@ -105,7 +104,9 @@ internal sealed class TaskWorkerService(
         using IServiceScope scope = scopeFactory.CreateScope();
         ITaskRunStore store = scope.ServiceProvider.GetRequiredService<ITaskRunStore>();
         ITaskHandlerRegistry registry = scope.ServiceProvider.GetRequiredService<ITaskHandlerRegistry>();
-        ITenantContextAccessor tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContextAccessor>();
+        IReadOnlyList<ITaskExecutionContextContributor> contextContributors = scope.ServiceProvider
+            .GetServices<ITaskExecutionContextContributor>()
+            .ToArray();
         ISystemClock clock = scope.ServiceProvider.GetRequiredService<ISystemClock>();
         TaskExecutionContext context = lease.CreateExecutionContext();
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -144,23 +145,23 @@ internal sealed class TaskWorkerService(
             return;
         }
 
-        tenantContext.ClearTenant();
-        if (registration.IsTenantScoped())
+        TaskExecutionContextPreparationContext preparationContext = new(lease, registration, context);
+        TaskExecutionContextPreparationResult preparationResult = await PrepareExecutionContextAsync(
+                contextContributors,
+                preparationContext,
+                stoppingToken)
+            .ConfigureAwait(false);
+        if (preparationResult.IsFailure)
         {
-            if (string.IsNullOrWhiteSpace(lease.TenantId))
-            {
-                await store.MarkFailedAsync(
-                        context,
-                        $"Tenant-scoped task {lease.ModuleName}.{lease.TaskName} has no tenant id.",
-                        clock.UtcNow,
-                        retryAtUtc: null,
-                        stoppingToken)
-                    .ConfigureAwait(false);
-                TryRecordCompleted(metrics, lease, "failed", stopwatch.Elapsed);
-                return;
-            }
-
-            tenantContext.SetTenant(lease.TenantId);
+            await store.MarkFailedAsync(
+                    context,
+                    preparationResult.ErrorMessage!,
+                    clock.UtcNow,
+                    retryAtUtc: null,
+                    stoppingToken)
+                .ConfigureAwait(false);
+            TryRecordCompleted(metrics, lease, "failed", stopwatch.Elapsed);
+            return;
         }
 
         await store.MarkStartedAsync(context, clock.UtcNow, stoppingToken).ConfigureAwait(false);
@@ -216,7 +217,55 @@ internal sealed class TaskWorkerService(
         }
         finally
         {
-            tenantContext.ClearTenant();
+            await CleanupExecutionContextAsync(contextContributors, preparationContext).ConfigureAwait(false);
+        }
+    }
+
+    private static async ValueTask<TaskExecutionContextPreparationResult> PrepareExecutionContextAsync(
+        IReadOnlyList<ITaskExecutionContextContributor> contributors,
+        TaskExecutionContextPreparationContext context,
+        CancellationToken cancellationToken)
+    {
+        List<ITaskExecutionContextContributor> preparedContributors = [];
+        try
+        {
+            foreach (ITaskExecutionContextContributor contributor in contributors)
+            {
+                TaskExecutionContextPreparationResult result = await contributor
+                    .PrepareAsync(context, cancellationToken)
+                    .ConfigureAwait(false);
+                if (result.IsFailure)
+                {
+                    await CleanupExecutionContextAsync(preparedContributors, context).ConfigureAwait(false);
+                    return result;
+                }
+
+                preparedContributors.Add(contributor);
+            }
+        }
+        catch
+        {
+            await CleanupExecutionContextAsync(preparedContributors, context).ConfigureAwait(false);
+            throw;
+        }
+
+        return TaskExecutionContextPreparationResult.Success();
+    }
+
+    private static async ValueTask CleanupExecutionContextAsync(
+        IReadOnlyList<ITaskExecutionContextContributor> contributors,
+        TaskExecutionContextPreparationContext context)
+    {
+        foreach (ITaskExecutionContextContributor contributor in contributors.Reverse())
+        {
+            try
+            {
+                await contributor.CleanupAsync(context, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Context cleanup is best effort; worker leases still rely on persisted task state.
+            }
         }
     }
 

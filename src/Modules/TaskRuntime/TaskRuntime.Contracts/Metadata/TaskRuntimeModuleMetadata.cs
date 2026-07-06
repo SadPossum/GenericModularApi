@@ -1,6 +1,7 @@
 namespace TaskRuntime.Contracts;
 
 using Shared.Authorization;
+using Shared.ModuleComposition;
 using Shared.Modules;
 
 public static class TaskRuntimeModuleMetadata
@@ -20,5 +21,6 @@ public static class TaskRuntimeModuleMetadata
             new ModulePermissionDescriptor(TaskRuntimePermissionCodes.RunsRetry, "Retry task runs.", tenantScoped: false),
             new ModulePermissionDescriptor(TaskRuntimePermissionCodes.RunsControl, "Send task run control messages.", tenantScoped: false),
         ])
+        .WithProfile(TaskRuntimeProfiles.Default)
         .Build();
 }

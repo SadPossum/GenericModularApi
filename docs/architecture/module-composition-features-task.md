@@ -10,7 +10,10 @@ Initial slice implemented:
 - Auth exposes `AuthProfile.Global(...)` and `AuthProfile.TenantScoped()` through public contracts and profile-aware API/Admin API/Admin CLI front doors.
 - Tenancy exposes a default profile that provides `tenancy.context` and `tenancy.header-resolution`; shared tenancy infrastructure provides the baseline `tenancy.context` service for non-HTTP/admin composition.
 - Runtime hosts validate composition explicitly with `ValidateModuleComposition()`.
-- Follow-up slices can expand profiles to Catalog, Ordering, Notifications, TaskRuntime, messaging/outbox, and worker capabilities when their optional compositions need fail-fast validation.
+- Follow-up slice implemented package-owned feature catalogs for caching, messaging, notifications, and tasks; shared adapters now advertise concrete capabilities through composition metadata.
+- Catalog, Ordering, Notifications, and TaskRuntime expose default profiles in their `.Contracts/Metadata` folders, and their public/admin front doors select those profiles explicitly.
+- Auth global-profile tests now prove composition with `Shared.Infrastructure` and without `TenancyModule`; the profile uses the shared null/default tenant context and stores the configured global scope in the existing tenant/scope column.
+- Remaining follow-up work is mostly optional worker-host examples, broader API/Admin API/Admin CLI global-profile smoke coverage when those hosts are made tenant-free, and any future decoupling of tenant-shaped metadata from outbox/inbox/task records.
 
 ## Summary
 
@@ -302,6 +305,7 @@ AuthProfile.Global("global")
   -> no tenancy.context requirement
   -> stores "global" in existing TenantId/scope column
   -> tokens/admin reads use the same global scope
+  -> still composes baseline Shared.Infrastructure so ITenantContext resolves to the configured default scope
 
 AuthProfile.TenantScoped()
   -> requires tenancy.context
@@ -331,6 +335,26 @@ Shared.Caching.Cqrs
 Shared.Notifications.Cqrs
   Notifications + CQRS post-commit behavior
 
+Shared.Tenancy.Api.Serilog
+  Tenancy + HTTP request logging enrichment
+
+Shared.Tenancy.Caching
+  Tenancy + cache scope value resolution
+
+Shared.Tenancy.Cqrs
+  Tenancy + CQRS logging scope enrichment
+
+Shared.Tenancy.Messaging
+  tenant integration-event base type
+  tenant messaging composition feature ids
+
+Shared.Tenancy.Messaging.Infrastructure
+  generic messaging scope resolver
+  tenant context setup for consumers
+
+Shared.Tenancy.Tasks
+  tenant context setup for task workers
+
 Shared.Messaging.Nats.Aspire
   Messaging + Aspire/NATS connection composition
 
@@ -341,15 +365,9 @@ Shared.ProjectionRebuild.Tasks
 Future examples:
 
 ```text
-Shared.Tenancy.Messaging
-  tenant metadata contributors for integration events
-  tenant context setup for consumers
 
 Shared.Tenancy.Outbox
   optional tenant metadata storage/mapping for outbox rows
-
-Shared.Tenancy.Tasks
-  tenant metadata helpers for task payloads and scheduled runs
 
 Shared.AccessControl.Administration
   optional adapter from admin RBAC decisions to resource-policy decisions
@@ -359,9 +377,13 @@ These packages should depend only on the smallest contracts needed from each sid
 
 ## Tenancy And Outbox Decoupling Direction
 
-Current shared messaging/outbox types are tenant-shaped. That is acceptable for the current skeleton, but it makes tenant-free or differently scoped reusable modules feel like tenancy is in the walls.
+Shared messaging/outbox code is tenant-neutral in source: base integration events, envelopes, outbox records, and inbox records expose generic message scope metadata. Tenant-owned event contracts live in `Shared.Tenancy.Messaging`; runtime scope/context behavior lives in `Shared.Tenancy.Messaging.Infrastructure`.
 
-Future decoupling should consider:
+Shared caching runtime is tenant-neutral in source: `Shared.Caching.Infrastructure` formats logical cache scopes through a generic `ICacheScopeValueResolver`. Tenant-owned cache keys require the `caching.tenant-scope` feature provided by `Shared.Tenancy.Caching`.
+
+Shared task worker runtime is tenant-neutral in source: `Shared.Tasks.Infrastructure` prepares execution context through generic `ITaskExecutionContextContributor` instances. Tenant-scoped task payloads require the `tasks.tenant-scope` feature provided by `Shared.Tenancy.Tasks`.
+
+The implemented shape is:
 
 ```text
 Base event/envelope:
@@ -370,11 +392,12 @@ Base event/envelope:
   version
   occurred at
   payload
-  metadata bag
+  optional generic scope id
 
 Tenancy adapter:
-  tenant scope metadata
+  TenantIntegrationEvent base type
   tenant id validation
+  generic scope resolver
   tenant context setup
 
 Outbox base storage:
@@ -384,13 +407,13 @@ Outbox base storage:
   payload
   lifecycle fields
 
-Optional tenant outbox storage:
-  tenant id metadata column when a module/profile wants it
+Compatibility storage:
+  ScopeId currently maps to the existing TenantId column
 ```
 
 Do not remove tenant ids from real modules casually. For many reusable modules, especially Auth, keeping one stable schema with an explicit global/default scope value is better than generating tenant-free and tenant-scoped migrations.
 
-The first slice should document this direction but avoid a broad migration.
+The first slice intentionally avoided a broad migration or physical column rename.
 
 ## Auth Proof Slice
 
@@ -518,7 +541,7 @@ Docs must explain:
 6. Add tests with a small fake/test module profile.
 7. Add Auth global versus tenant-scoped profile as the first real proof, if feasible.
 8. Document cross-boundary adapter package rules.
-9. Plan tenancy/messaging/outbox decoupling as a follow-up, not part of the first slice.
+9. Plan remaining tenancy/caching/tasks decoupling as follow-up bridge packages.
 
 ## Open Questions For Implementation
 
@@ -526,5 +549,5 @@ Docs must explain:
 - Should validation run through an explicit `builder.ValidateModuleComposition()` call, an `IHostedService`, options validation, or all of these for different host types?
 - Should provided features be multi-provider by default, exclusive by default, or require a per-feature policy?
 - Should module profile descriptors live only in contracts metadata, or should runtime selected profiles be separate objects?
-- Should Auth introduce `ScopeId` language in code while keeping the physical `TenantId` column for compatibility?
-- Which cross-boundary package should be split first after the feature model exists: tenancy plus messaging, tenancy plus outbox, or tenancy plus tasks?
+- Should Auth introduce `ScopeId` language in infrastructure code while keeping tenant id in domain payloads?
+- Which cross-boundary package should be split next after tenant messaging: tenancy plus caching, tenancy plus tasks, or tenant-aware CQRS logging?

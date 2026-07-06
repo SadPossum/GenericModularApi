@@ -3,15 +3,13 @@ namespace Shared.Cqrs.Infrastructure;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Shared.Cqrs;
-using Shared.Observability;
-using Shared.Tenancy;
 using Shared.Results;
 using Shared.Observability.Infrastructure;
 
 internal sealed class LoggingQueryBehavior<TQuery, TResponse>(
     ILogger<LoggingQueryBehavior<TQuery, TResponse>> logger,
-    ITenantContext tenantContext,
-    QueryMetrics metrics)
+    QueryMetrics metrics,
+    IEnumerable<ICqrsLogScopeContributor>? scopeContributors = null)
     : IQueryPipelineBehavior<TQuery, TResponse>
     where TQuery : IQuery<TResponse>
 {
@@ -23,13 +21,12 @@ internal sealed class LoggingQueryBehavior<TQuery, TResponse>(
         string queryName = typeof(TQuery).Name;
         string moduleName = ModuleNameResolver.FromType(typeof(TQuery));
         long startedAt = Stopwatch.GetTimestamp();
-        Dictionary<string, object?> scopeProperties = new()
-        {
-            [ObservabilityLogPropertyNames.Module] = moduleName,
-            [ObservabilityLogPropertyNames.Operation] = queryName,
-            [ObservabilityLogPropertyNames.TenantId] = tenantContext.TenantId,
-            [ObservabilityLogPropertyNames.TraceId] = Activity.Current?.TraceId.ToString(),
-        };
+        CqrsLogScopeContext scopeContext = new(
+            moduleName,
+            queryName,
+            typeof(TQuery),
+            CqrsRequestKind.Query);
+        Dictionary<string, object?> scopeProperties = CqrsLogScopeBuilder.Create(scopeContext, scopeContributors);
 
         IDisposable? scope = this.BeginLogScope(scopeProperties);
 

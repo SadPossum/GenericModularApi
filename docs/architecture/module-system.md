@@ -31,9 +31,9 @@ The shared core is intentionally small:
 - `Shared.Modules` owns module metadata primitives and references only `Shared.Naming`.
 - `Shared.ModuleComposition` owns module profile, provided-feature, required-feature, required-module, and fail-fast composition validation primitives. It references only `Shared.Modules`, `Shared.Naming`, and hosting abstractions needed by composition roots.
 - `Shared.Authorization` owns permission metadata descriptor extensions and references only `Shared.Modules` and `Shared.Naming`.
-- `Shared.Caching` owns cache contracts, provider/options seams, adapter markers, and cache descriptor metadata, and references only `Shared.Modules` plus `Shared.Naming` for module-name alignment.
-- `Shared.Messaging` owns integration event, outbox/inbox, subscription, and messaging descriptor contracts and references only shared primitives plus DI abstractions.
-- `Shared.Tasks` owns task contracts and task descriptor metadata and does not reference CQRS or runtime adapters.
+- `Shared.Caching` owns cache contracts, provider/options seams, adapter markers, cache descriptor metadata, and cache composition feature ids. It references `Shared.ModuleComposition`, `Shared.Modules`, and `Shared.Naming`.
+- `Shared.Messaging` owns integration event, outbox/inbox, subscription, messaging descriptor contracts, and messaging composition feature ids. It references shared primitives plus DI abstractions, not transport adapters.
+- `Shared.Tasks` owns task contracts, task descriptor metadata, and task runtime composition feature ids. It does not reference CQRS or runtime adapters.
 - `Shared.Caching.Cqrs` owns the optional bridge for flushing deferred cache invalidations after successful CQRS unit-of-work commits.
 - `Shared.Tasks.Cqrs` owns the optional bridge for dispatching application commands from task payload handlers.
 - `Shared.ProjectionRebuild` owns the task-neutral rebuild loop, checkpoint contracts, source/writer contracts, and metrics; `Shared.ProjectionRebuild.Tasks` adapts that loop to task progress and control messages.
@@ -44,7 +44,7 @@ The shared core is intentionally small:
 - `Shared.Application.Events` owns domain-event handler and dispatcher contracts. It references `Shared.Domain` only.
 - `Shared.Pagination` owns normalized paging request helpers and remains dependency-free.
 - `Shared.Application.Composition` owns constrained application assembly registration only. It may reference `Shared.Application.Events`, `Shared.Cqrs`, and small dependency-injection abstractions, but not domain models directly, HTTP, EF, messaging transports, cache backends, logging backends, hosting, or provider packages.
-- Adapter projects such as `Shared.Infrastructure`, `Shared.Application.Events.Infrastructure`, `Shared.Cqrs.Infrastructure`, `Shared.Runtime.Infrastructure`, `Shared.Tenancy.Infrastructure`, `Shared.Caching.Infrastructure`, `Shared.Caching.Cqrs`, `Shared.Messaging.Infrastructure`, `Shared.Messaging.Nats`, `Shared.Tasks.Infrastructure`, `Shared.ProjectionRebuild.Tasks`, `Shared.Persistence.EntityFrameworkCore`, `Shared.Api.*`, `Shared.Caching.Redis`, `Shared.Messaging.Nats.Aspire`, and `Shared.Logging.Serilog` own concrete runtime packages.
+- Adapter projects such as `Shared.Infrastructure`, `Shared.Application.Events.Infrastructure`, `Shared.Cqrs.Infrastructure`, `Shared.Runtime.Infrastructure`, `Shared.Tenancy.Infrastructure`, `Shared.Tenancy.Api.Serilog`, `Shared.Tenancy.Caching`, `Shared.Tenancy.Cqrs`, `Shared.Tenancy.Tasks`, `Shared.Caching.Infrastructure`, `Shared.Caching.Cqrs`, `Shared.Messaging.Infrastructure`, `Shared.Messaging.Nats`, `Shared.Tasks.Infrastructure`, `Shared.ProjectionRebuild.Tasks`, `Shared.Persistence.EntityFrameworkCore`, `Shared.Api.*`, `Shared.Caching.Redis`, `Shared.Messaging.Nats.Aspire`, and `Shared.Logging.Serilog` own concrete runtime packages.
 
 This keeps every module free to depend on shared contracts and primitives without inheriting optional infrastructure choices.
 
@@ -55,6 +55,10 @@ Shared project ownership quick reference:
 - `Shared.Cqrs.Infrastructure`: request dispatcher, CQRS pipeline behaviors, command unit-of-work behavior, and CQRS runtime registration.
 - `Shared.Runtime.Infrastructure`: default clock and id generator implementations.
 - `Shared.Tenancy.Infrastructure`: default/null tenant context, tenant option validation, and baseline tenancy service wiring.
+- `Shared.Tenancy.Api.Serilog`: optional tenant-to-HTTP-request-log bridge that contributes tenant id to Serilog diagnostic context without making the base Serilog adapter depend on tenancy.
+- `Shared.Tenancy.Caching`: optional tenant-to-cache bridge that resolves tenant-owned cache scope values without making cache infrastructure depend on tenancy.
+- `Shared.Tenancy.Cqrs`: optional tenant-to-CQRS logging bridge that contributes tenant context to CQRS log scopes without making CQRS infrastructure depend on tenancy.
+- `Shared.Tenancy.Tasks`: optional tenant-to-task execution bridge that prepares tenant context for tenant-scoped task handlers without making task infrastructure depend on tenancy.
 - `Shared.Caching.Infrastructure`: HybridCache-backed cache-aside runtime, cache invalidation queue, cache metrics, and cache option validation.
 - `Shared.Caching.Cqrs`: optional command pipeline bridge that flushes deferred cache invalidations after successful CQRS unit-of-work commits.
 - `Shared.Messaging.Infrastructure`: EF outbox/inbox base helpers, outbox publisher, outbox options, a null event bus, and messaging metrics.
@@ -81,6 +85,8 @@ Shared project ownership quick reference:
 - `Shared.Runtime.Infrastructure`: default runtime implementations for clock and id generator contracts.
 - `Shared.Security`: shared claim/security constants.
 - `Shared.Caching`: cache-aside contracts, cache key/tag primitives, provider/options contracts, distributed adapter registration marker, and cache descriptor metadata.
+- `Shared.Tenancy.Caching`: optional tenant-to-cache scope bridge.
+- `Shared.Tenancy.Tasks`: optional tenant-to-task execution context bridge.
 - `Shared.Caching.Cqrs`: optional cache-to-CQRS invalidation bridge.
 - `Shared.Messaging`: integration event contracts, outbox/inbox contracts, subscription registry contracts, and messaging descriptor metadata.
 - `Shared.Tasks`: task payload, handler, control, schedule, run-store, and task descriptor contracts.
@@ -88,7 +94,8 @@ Shared project ownership quick reference:
 - `Shared.Tenancy`: tenant context contracts, tenant options, and tenant errors.
 - `Shared.Api`: ASP.NET Core-neutral API primitives and endpoint helpers.
 - `Shared.Api.OpenApi`: Swagger/OpenAPI package ownership.
-- `Shared.Api.Serilog`: HTTP request logging enrichment package ownership.
+- `Shared.Api.Serilog`: tenant-neutral HTTP request logging enrichment package ownership.
+- `Shared.Tenancy.Api.Serilog`: optional tenant-to-request-logging enrichment bridge.
 - `Shared.Logging.Serilog`: host logging configuration package ownership.
 - `Shared.Caching.Redis`: Redis cache adapter package ownership. It depends only on `Shared.Caching` contracts plus Redis packages, not the HybridCache runtime package.
 - `Shared.Messaging.Nats.Aspire`: Aspire/NATS client composition package ownership.
@@ -227,6 +234,8 @@ builder.AddAuthModule(AuthProfile.Global("global"));
 builder.ValidateModuleComposition();
 ```
 
+The global profile omits `TenancyModule`; it does not omit the baseline shared tenant context service. Compose `Shared.Infrastructure` (or `Shared.Tenancy.Infrastructure`) so `ITenantContext` resolves to the configured `Tenancy:LocalDefaultTenantId`, which Auth sets to the global scope value.
+
 Rules:
 
 - profiles live in the owning module's `.Contracts/Metadata` folder when they are part of the public composition surface;
@@ -234,6 +243,15 @@ Rules:
 - shared adapters may call `ProvideFeature(...)` for generic capabilities they make available;
 - profile validation reports selected modules, provided features, required features, and required modules deterministically;
 - profile metadata must not register services, map endpoints, start workers, or scan assemblies.
+
+Current reusable/example profiles:
+
+- `CatalogProfiles.Default` provides `catalog.items` and requires tenant context, cache-aside/invalidation services, and outbox infrastructure because its handlers directly depend on those contracts.
+- `OrderingProfiles.Default` provides orders plus Ordering-owned catalog item projections. It requires Catalog item facts and tenant context, while NATS consumers and task workers remain optional projection-maintenance enhancements.
+- `NotificationsProfiles.Default` provides durable notification history and broadcasts and requires tenant context. Shared live delivery remains separate through `Shared.Notifications.Infrastructure`, `Shared.Notifications.Api`, and `Shared.Notifications.SignalR`.
+- `TaskRuntimeProfiles.Default` describes the admin front door and requires the persisted run store, reporter, and control channel provided by `TaskRuntime.Persistence`. Worker-only hosts may compose `TaskRuntime.Persistence` with `Shared.Tasks.Infrastructure` directly and still validate the `tasks.run-store` requirement.
+
+Current adapter feature catalogs live in the capability packages that own the small public contract: `Shared.Caching.CachingCompositionFeatures`, `Shared.Messaging.MessagingCompositionFeatures`, `Shared.Notifications.NotificationsCompositionFeatures`, and `Shared.Tasks.TasksCompositionFeatures`.
 
 Compiled module projects are also listed in `tests/Architecture.Tests/Support/ArchitectureCatalog.cs`. That catalog feeds architecture tests only and must not be used for runtime composition.
 

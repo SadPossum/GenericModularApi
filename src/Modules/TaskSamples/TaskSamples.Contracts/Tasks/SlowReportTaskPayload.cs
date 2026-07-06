@@ -3,8 +3,8 @@ namespace TaskSamples.Contracts;
 using Shared.Tasks;
 using Shared.Tenancy;
 
-[TaskName(SlowReportTaskPayload.TaskName)]
-[TaskPayloadVersion(SlowReportTaskPayload.PayloadVersion)]
+[TaskName(TaskName)]
+[TaskPayloadVersion(PayloadVersion)]
 [TaskDescription("Demonstrate long-running task progress, heartbeat reporting, and cooperative control.")]
 [TaskKind(ModuleTaskKind.OneShot)]
 [TaskWorkerGroup(TaskSamplesModuleMetadata.WorkerGroup)]

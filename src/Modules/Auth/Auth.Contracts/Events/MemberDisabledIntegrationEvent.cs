@@ -2,11 +2,12 @@ namespace Auth.Contracts;
 
 using Shared.Messaging;
 using Shared.Tenancy;
+using Shared.Tenancy.Messaging;
 
-[IntegrationEventName(MemberDisabledIntegrationEvent.EventType)]
-[IntegrationEventVersion(MemberDisabledIntegrationEvent.EventVersion)]
+[IntegrationEventName(EventType)]
+[IntegrationEventVersion(EventVersion)]
 [TenantScoped]
-public sealed record MemberDisabledIntegrationEvent : IntegrationEvent
+public sealed record MemberDisabledIntegrationEvent : TenantIntegrationEvent
 {
     public const string EventType = "member-disabled";
     public const int EventVersion = 1;

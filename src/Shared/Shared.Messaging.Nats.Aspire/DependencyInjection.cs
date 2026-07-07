@@ -1,6 +1,7 @@
 namespace Shared.Messaging.Nats.Aspire;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shared.Messaging.Nats;
@@ -22,22 +23,63 @@ public static class DependencyInjection
         }
 
         ValidateNatsOptions(natsOptions);
+        AddConfiguredNatsClient(
+            builder,
+            NatsJetStreamOptions.SectionName,
+            typeof(NatsJetStreamOptions),
+            "NATS JetStream publishing is enabled");
+        builder.AddNatsJetStreamMessaging();
+
+        return builder;
+    }
+
+    public static IHostApplicationBuilder AddConfiguredNatsJetStreamConsumers(this IHostApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        IConfigurationSection section = builder.Configuration.GetSection(NatsConsumerOptions.SectionName);
+        NatsConsumerOptions consumerOptions = section.Get<NatsConsumerOptions>() ?? new NatsConsumerOptions();
+
+        if (!consumerOptions.Enabled)
+        {
+            return builder;
+        }
+
+        AddConfiguredNatsClient(
+            builder,
+            NatsConsumerOptions.SectionName,
+            typeof(NatsConsumerOptions),
+            "NATS JetStream consumers are enabled");
+        builder.AddNatsJetStreamConsumers();
+
+        return builder;
+    }
+
+    private static void AddConfiguredNatsClient(
+        IHostApplicationBuilder builder,
+        string optionsSectionName,
+        Type optionsType,
+        string reason)
+    {
+        if (builder.Services.Any(descriptor => descriptor.ServiceType == typeof(ConfiguredNatsClientRegistrationMarker)))
+        {
+            return;
+        }
+
         string? connectionString = builder.Configuration.GetConnectionString(ConnectionName);
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new OptionsValidationException(
-                NatsJetStreamOptions.SectionName,
-                typeof(NatsJetStreamOptions),
-                [$"ConnectionStrings:{ConnectionName} is required when NATS JetStream publishing is enabled."]);
+                optionsSectionName,
+                optionsType,
+                [$"ConnectionStrings:{ConnectionName} is required when {reason}."]);
         }
 
         builder.AddNatsClient(ConnectionName, (_, options) =>
         {
             return options with { Url = connectionString };
         });
-        builder.AddNatsJetStreamMessaging();
-
-        return builder;
+        builder.Services.AddSingleton<ConfiguredNatsClientRegistrationMarker>();
     }
 
     private static void ValidateNatsOptions(NatsJetStreamOptions options)
@@ -49,4 +91,6 @@ public static class DependencyInjection
             throw new OptionsValidationException(NatsJetStreamOptions.SectionName, typeof(NatsJetStreamOptions), result.Failures);
         }
     }
+
+    private sealed class ConfiguredNatsClientRegistrationMarker;
 }

@@ -72,6 +72,9 @@ Shared.Caching.Redis
 Shared.Cqrs
 Shared.Cqrs.Infrastructure
 Shared.Domain
+Shared.FileManagement
+Shared.FileManagement.LocalStorage
+Shared.FileManagement.Minio
 Shared.Results
 Shared.Infrastructure
 Shared.Logging.Serilog

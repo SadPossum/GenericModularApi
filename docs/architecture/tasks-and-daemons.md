@@ -128,6 +128,16 @@ builder.AddTaskWorkerRuntime();
 builder.Services.AddTaskSamplesApplication(); // or your real task-owning modules
 ```
 
+`Host.Worker` is the default production process for these loops when HTTP isolation matters. It still keeps task execution opt-in:
+
+```text
+Worker__Modules__TaskRuntime=true
+Tasks__Worker__Enabled=true
+Tasks__Worker__WorkerGroups__0=projection-workers
+```
+
+Then compose the task-owning module group explicitly, such as `Worker__Modules__Ordering=true` for the compiled Catalog-to-Ordering projection rebuild task or `Worker__Modules__TaskSamples=true` for the sample handlers. If `Tasks:Worker:Enabled=true` but no persisted run store is composed, module composition validation fails before the worker starts.
+
 Worker configuration lives under `Tasks:Worker`:
 
 - `Enabled`
@@ -216,6 +226,7 @@ The default remains small: persistent tasks, hosted workers, code-defined schedu
 - External scheduler packages stay in explicit adapter projects.
 - Store implementations use `ITaskRunStore` and `TaskRunStatusTransitions` instead of ad hoc status changes.
 - Task worker hosts call `AddTaskWorkerRuntime()` explicitly and must also compose a concrete `ITaskRunStore`.
+- `Host.Worker` calls `AddTaskWorkerRuntime()` only when `Tasks:Worker:Enabled=true`; disabled task settings must not register worker hosted services.
 - `Shared.Tasks.Infrastructure` is tenant-neutral. Worker hosts that execute payloads marked with `TenantScopedAttribute` must also compose `AddTenantTaskExecutionContext()` from `Shared.Tenancy.Tasks`.
 - Task scheduler hosts call `AddTaskRunScheduling()` explicitly and must also compose a concrete `ITaskRunStore`.
 - Running a task on another node must still use module contracts, integration events, or control messages, not direct cross-module internals.

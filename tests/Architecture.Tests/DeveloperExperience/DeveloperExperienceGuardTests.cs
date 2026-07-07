@@ -321,6 +321,7 @@ public sealed partial class DeveloperExperienceGuardTests
         string runApi = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-api.ps1"));
         string runAdminApi = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-admin-api.ps1"));
         string runAdmin = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-admin.ps1"));
+        string runWorker = File.ReadAllText(Path.Combine(repositoryRoot, "eng", "run-worker.ps1"));
         string appHost = File.ReadAllText(Path.Combine(repositoryRoot, "src", "AppHost", "Program.cs"));
 
         Assert.Contains("'--launch-profile'", runApi, StringComparison.Ordinal);
@@ -328,7 +329,10 @@ public sealed partial class DeveloperExperienceGuardTests
         Assert.Contains("'Host.AdminApi'", runAdminApi, StringComparison.Ordinal);
         Assert.Contains("DOTNET_ENVIRONMENT", runAdmin, StringComparison.Ordinal);
         Assert.Contains("'Development'", runAdmin, StringComparison.Ordinal);
+        Assert.Contains("DOTNET_ENVIRONMENT", runWorker, StringComparison.Ordinal);
+        Assert.Contains("'Development'", runWorker, StringComparison.Ordinal);
         Assert.Contains(".WithEnvironment(\"ASPNETCORE_ENVIRONMENT\", \"Development\")", appHost, StringComparison.Ordinal);
+        Assert.Contains(".WithEnvironment(\"DOTNET_ENVIRONMENT\", \"Development\")", appHost, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -786,6 +790,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(Path.Combine("src", "Host.Api", "ApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminApi", "AdminApiAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Host.AdminCli", "AdminCliAssemblyReference.cs")),
+            NormalizePath(Path.Combine("src", "Host.Worker", "WorkerAssemblyReference.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Administration", "Administration.Persistence", "AdminDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Auth", "Auth.Persistence", "AuthDbContext.cs")),
             NormalizePath(Path.Combine("src", "Modules", "Catalog", "Catalog.Persistence", "CatalogDbContext.cs")),
@@ -3712,6 +3717,42 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void File_management_core_stays_dependency_neutral()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string projectRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.FileManagement");
+        XDocument project = XDocument.Load(Path.Combine(projectRoot, "Shared.FileManagement.csproj"));
+        string[] packageReferences = GetProjectIncludes(project, "PackageReference");
+        string[] projectReferences = GetProjectIncludes(project, "ProjectReference");
+        string[] forbiddenSourceOffenders = Directory
+            .EnumerateFiles(projectRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                string[] forbiddenTokens =
+                [
+                    "using Microsoft.Extensions",
+                    "using Shared.Tenancy",
+                    "Shared.Tenancy",
+                    "using Shared.ModuleComposition",
+                    "Shared.ModuleComposition"
+                ];
+
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{relativePath} contains forbidden dependency token '{token}'.");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(packageReferences);
+        Assert.Empty(projectReferences);
+        Assert.Empty(forbiddenSourceOffenders);
+    }
+
+    [Fact]
     public void Shared_project_dependency_manifest_matches_intended_adapter_boundaries()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -3902,6 +3943,36 @@ public sealed partial class DeveloperExperienceGuardTests
                 [
                     @"..\Shared.Naming\Shared.Naming.csproj",
                     @"..\Shared.Numerics\Shared.Numerics.csproj"
+                ]),
+            new(
+                "Shared.FileManagement",
+                [],
+                [],
+                []),
+            new(
+                "Shared.FileManagement.LocalStorage",
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions"
+                ],
+                [],
+                [
+                    @"..\Shared.FileManagement\Shared.FileManagement.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
+                ]),
+            new(
+                "Shared.FileManagement.Minio",
+                [
+                    "Microsoft.Extensions.Configuration.Binder",
+                    "Microsoft.Extensions.Hosting",
+                    "Microsoft.Extensions.Options.ConfigurationExtensions",
+                    "Minio"
+                ],
+                [],
+                [
+                    @"..\Shared.FileManagement\Shared.FileManagement.csproj",
+                    @"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"
                 ]),
             new("Shared.Results", [], [], []),
             new(
@@ -4469,6 +4540,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(Path.Combine("src", "Host.Api", "Host.Api.csproj")),
             NormalizePath(Path.Combine("src", "Host.AdminApi", "Host.AdminApi.csproj")),
             NormalizePath(Path.Combine("src", "Host.AdminCli", "Host.AdminCli.csproj")),
+            NormalizePath(Path.Combine("src", "Host.Worker", "Host.Worker.csproj")),
             NormalizePath(Path.Combine("tests", "Integration.Tests", "Integration.Tests.csproj")),
             NormalizePath(Path.Combine("tests", "Shared.Tests", "Shared.Tests.csproj"))
         };
@@ -4517,7 +4589,8 @@ public sealed partial class DeveloperExperienceGuardTests
                 [],
                 [
                     @"..\Host.AdminApi\Host.AdminApi.csproj",
-                    @"..\Host.Api\Host.Api.csproj"
+                    @"..\Host.Api\Host.Api.csproj",
+                    @"..\Host.Worker\Host.Worker.csproj"
                 ]),
             new(
                 Path.Combine("Host.AdminApi", "Host.AdminApi.csproj"),
@@ -4597,6 +4670,45 @@ public sealed partial class DeveloperExperienceGuardTests
                     @"..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj"
                 ]),
             new(
+                Path.Combine("Host.Worker", "Host.Worker.csproj"),
+                ["Microsoft.Extensions.Hosting"],
+                [],
+                [
+                    @"..\Modules\Auth\Auth.Contracts\Auth.Contracts.csproj",
+                    @"..\Modules\Auth\Auth.Persistence\Auth.Persistence.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.PostgreSqlMigrations\Auth.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Auth\Auth.Persistence.SqlServerMigrations\Auth.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\Catalog\Catalog.Application\Catalog.Application.csproj",
+                    @"..\Modules\Catalog\Catalog.Contracts\Catalog.Contracts.csproj",
+                    @"..\Modules\Catalog\Catalog.Persistence\Catalog.Persistence.csproj",
+                    @"..\Modules\Catalog\Catalog.Persistence.PostgreSqlMigrations\Catalog.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Catalog\Catalog.Persistence.SqlServerMigrations\Catalog.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\Ordering\Ordering.Application\Ordering.Application.csproj",
+                    @"..\Modules\Ordering\Ordering.Contracts\Ordering.Contracts.csproj",
+                    @"..\Modules\Ordering\Ordering.Persistence\Ordering.Persistence.csproj",
+                    @"..\Modules\Ordering\Ordering.Persistence.PostgreSqlMigrations\Ordering.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\Ordering\Ordering.Persistence.SqlServerMigrations\Ordering.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\TaskRuntime\TaskRuntime.Application\TaskRuntime.Application.csproj",
+                    @"..\Modules\TaskRuntime\TaskRuntime.Contracts\TaskRuntime.Contracts.csproj",
+                    @"..\Modules\TaskRuntime\TaskRuntime.Persistence\TaskRuntime.Persistence.csproj",
+                    @"..\Modules\TaskRuntime\TaskRuntime.Persistence.PostgreSqlMigrations\TaskRuntime.Persistence.PostgreSqlMigrations.csproj",
+                    @"..\Modules\TaskRuntime\TaskRuntime.Persistence.SqlServerMigrations\TaskRuntime.Persistence.SqlServerMigrations.csproj",
+                    @"..\Modules\TaskSamples\TaskSamples.Application\TaskSamples.Application.csproj",
+                    @"..\ServiceDefaults\ServiceDefaults.csproj",
+                    @"..\Shared\Shared.Caching.Cqrs\Shared.Caching.Cqrs.csproj",
+                    @"..\Shared\Shared.Caching.Redis\Shared.Caching.Redis.csproj",
+                    @"..\Shared\Shared.Infrastructure\Shared.Infrastructure.csproj",
+                    @"..\Shared\Shared.Logging.Serilog\Shared.Logging.Serilog.csproj",
+                    @"..\Shared\Shared.Messaging.Infrastructure\Shared.Messaging.Infrastructure.csproj",
+                    @"..\Shared\Shared.Messaging.Nats.Aspire\Shared.Messaging.Nats.Aspire.csproj",
+                    @"..\Shared\Shared.ModuleComposition\Shared.ModuleComposition.csproj",
+                    @"..\Shared\Shared.Tasks.Cqrs\Shared.Tasks.Cqrs.csproj",
+                    @"..\Shared\Shared.Tasks.Infrastructure\Shared.Tasks.Infrastructure.csproj",
+                    @"..\Shared\Shared.Tenancy.Caching\Shared.Tenancy.Caching.csproj",
+                    @"..\Shared\Shared.Tenancy.Messaging.Infrastructure\Shared.Tenancy.Messaging.Infrastructure.csproj",
+                    @"..\Shared\Shared.Tenancy.Tasks\Shared.Tenancy.Tasks.csproj"
+                ]),
+            new(
                 Path.Combine("ServiceDefaults", "ServiceDefaults.csproj"),
                 [
                     "Microsoft.Extensions.Http.Resilience",
@@ -4648,6 +4760,7 @@ public sealed partial class DeveloperExperienceGuardTests
                    string.Equals(projectName, "Host.Api", StringComparison.Ordinal) ||
                    string.Equals(projectName, "Host.AdminApi", StringComparison.Ordinal) ||
                    string.Equals(projectName, "Host.AdminCli", StringComparison.Ordinal) ||
+                   string.Equals(projectName, "Host.Worker", StringComparison.Ordinal) ||
                    string.Equals(projectName, "ServiceDefaults", StringComparison.Ordinal);
         }
     }
@@ -5497,6 +5610,7 @@ public sealed partial class DeveloperExperienceGuardTests
         [
             Path.Combine(repositoryRoot, "eng", "run-api.ps1"),
             Path.Combine(repositoryRoot, "eng", "run-admin-api.ps1"),
+            Path.Combine(repositoryRoot, "eng", "run-worker.ps1"),
             Path.Combine(repositoryRoot, "eng", "run-aspire.ps1")
         ];
 
@@ -6653,6 +6767,7 @@ public sealed partial class DeveloperExperienceGuardTests
             NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Cqrs\Shared.Cqrs.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Domain\Shared.Domain.csproj"),
+            NormalizePath(@"..\..\..\Shared\Shared.FileManagement\Shared.FileManagement.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Naming\Shared.Naming.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Results\Shared.Results.csproj"),
             NormalizePath(@"..\..\..\Shared\Shared.Messaging\Shared.Messaging.csproj"),
@@ -6815,6 +6930,10 @@ public sealed partial class DeveloperExperienceGuardTests
                string.Equals(
                    normalizedReference,
                    NormalizePath(@"..\..\..\Shared\Shared.Caching\Shared.Caching.csproj"),
+                   StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(
+                   normalizedReference,
+                   NormalizePath(@"..\..\..\Shared\Shared.FileManagement\Shared.FileManagement.csproj"),
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(
                    normalizedReference,

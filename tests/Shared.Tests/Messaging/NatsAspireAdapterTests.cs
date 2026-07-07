@@ -17,6 +17,7 @@ public sealed class NatsAspireAdapterTests
     public void Configured_nats_adapter_rejects_null_builder()
     {
         Assert.Throws<ArgumentNullException>(() => NatsAspireDependencyInjection.AddConfiguredNatsJetStreamMessaging(null!));
+        Assert.Throws<ArgumentNullException>(() => NatsAspireDependencyInjection.AddConfiguredNatsJetStreamConsumers(null!));
     }
 
     [Fact]
@@ -28,6 +29,19 @@ public sealed class NatsAspireAdapterTests
         builder.AddConfiguredNatsJetStreamMessaging();
 
         Assert.DoesNotContain(builder.Services, descriptor => descriptor.ServiceType == typeof(IEventBus));
+    }
+
+    [Fact]
+    public void Configured_nats_consumer_adapter_is_noop_when_disabled()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["NatsConsumers:Enabled"] = "false";
+
+        builder.AddConfiguredNatsJetStreamConsumers();
+
+        Assert.DoesNotContain(builder.Services, descriptor =>
+            descriptor.ServiceType == typeof(IHostedService) &&
+            descriptor.ImplementationType == typeof(NatsJetStreamConsumerService));
     }
 
     [Fact]
@@ -61,6 +75,22 @@ public sealed class NatsAspireAdapterTests
         Assert.Contains(exception.Failures, failure => failure.Contains("ConnectionStrings:nats", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Configured_nats_consumer_adapter_requires_connection_when_enabled(string? connectionString)
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["NatsConsumers:Enabled"] = "true";
+        builder.Configuration["ConnectionStrings:nats"] = connectionString;
+
+        OptionsValidationException exception = Assert.Throws<OptionsValidationException>(() =>
+            builder.AddConfiguredNatsJetStreamConsumers());
+
+        Assert.Contains(exception.Failures, failure => failure.Contains("ConnectionStrings:nats", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Configured_nats_adapter_registers_event_bus_and_publisher_when_enabled()
     {
@@ -77,5 +107,26 @@ public sealed class NatsAspireAdapterTests
         Assert.Single(builder.Services, descriptor =>
             descriptor.ServiceType == typeof(IHostedService) &&
             descriptor.ImplementationType == typeof(OutboxPublisherService));
+    }
+
+    [Fact]
+    public void Configured_nats_consumer_adapter_registers_consumers_without_publisher_when_enabled()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["NatsJetStream:Enabled"] = "false";
+        builder.Configuration["NatsConsumers:Enabled"] = "true";
+        builder.Configuration["ConnectionStrings:nats"] = "nats://localhost:4222";
+
+        builder.AddConfiguredNatsJetStreamConsumers();
+
+        Assert.DoesNotContain(builder.Services, descriptor =>
+            descriptor.ServiceType == typeof(IHostedService) &&
+            descriptor.ImplementationType == typeof(OutboxPublisherService));
+        Assert.DoesNotContain(builder.Services, descriptor =>
+            descriptor.ServiceType == typeof(IEventBus) &&
+            descriptor.ImplementationType == typeof(NatsJetStreamEventBus));
+        Assert.Single(builder.Services, descriptor =>
+            descriptor.ServiceType == typeof(IHostedService) &&
+            descriptor.ImplementationType == typeof(NatsJetStreamConsumerService));
     }
 }

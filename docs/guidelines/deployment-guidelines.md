@@ -13,6 +13,7 @@ Current dependencies:
 - Redis only when `Caching:Enabled=true` and `Caching:Provider=Redis`
 - SignalR/SSE notification streaming only when `Notifications:Enabled=true`
 - notification history tables only when the optional `Notifications` module is composed
+- `Host.Worker` only when background publishing, consumers, inbox/projection handling, or task workers should run outside HTTP hosts
 
 ## Configuration
 
@@ -46,6 +47,13 @@ Recommended production configuration:
 - `NatsConsumers:MaxDeliver`
 - `NatsConsumers:HandlerTimeout`
 - `NatsConsumers:NakDelay`
+- `Worker:Modules:Auth` for workers that drain Auth outbox rows
+- `Worker:Modules:Catalog` for workers that drain Catalog outbox rows or provide Catalog projection export sources
+- `Worker:Modules:Ordering` for workers that consume Catalog events or run Ordering projection rebuild tasks
+- `Worker:Modules:TaskRuntime` for workers that execute persisted task runs
+- `Worker:Modules:TaskSamples` only for sample/demo task execution
+- `Tasks:Worker:Enabled` only for worker processes that should claim task runs
+- `Tasks:Worker:WorkerGroups`
 - `Tenancy:Enabled`
 - `Tenancy:HeaderName`
 - `Tenancy:LocalDefaultTenantId`
@@ -143,9 +151,45 @@ When enabling notifications:
 - if composing the `Notifications` module, run its provider-specific migrations and treat history as a user-facing read model, not the source of authorization or business truth;
 - if using durable notification requests, compose the Notifications consumer runtime and verify producer modules publish `{ApplicationIdentity:Namespace}.{producer-module}.user-notification-requested.v1` through their outbox.
 
-## Outbox Publisher
+## Background Processing
 
-The outbox publisher runs as a hosted service inside the API process.
+Simple deployments can keep background publishing inside the API process:
+
+```text
+Host.Api:
+  NatsJetStream:Enabled=true
+  NatsConsumers:Enabled=false
+
+Host.Worker:
+  not deployed
+```
+
+Separated production deployments keep HTTP hosts request-focused and run background pressure in worker replicas:
+
+```text
+Host.Api:
+  NatsJetStream:Enabled=false
+  NatsConsumers:Enabled=false
+
+Host.Worker:
+  Worker:Modules:Auth=true
+  NatsJetStream:Enabled=true
+  NatsConsumers:Enabled=false
+```
+
+Enable consumers and task workers only in worker replicas that compose the required module stores and handlers:
+
+```text
+Host.Worker:
+  Worker:Modules:Catalog=true
+  Worker:Modules:Ordering=true
+  Worker:Modules:TaskRuntime=true
+  NatsConsumers:Enabled=true
+  Tasks:Worker:Enabled=true
+  Tasks:Worker:WorkerGroups:0=projection-workers
+```
+
+The outbox publisher runs as a hosted service in whichever process composes configured NATS publishing and module outbox stores.
 
 Operational expectations:
 
@@ -153,6 +197,12 @@ Operational expectations:
 - stale locks can be reclaimed;
 - failed messages retry until max attempts;
 - exhausted messages require operational review.
+- run module migrations before starting worker replicas that query those module schemas;
+- size worker database connection pools separately from API pools;
+- tune outbox batch size and poll interval for backlog and database pressure;
+- tune NATS consumer batch size, ack wait, max deliver, handler timeout, and nak delay for handler behavior;
+- keep at least one worker replica healthy before disabling API-side publishing;
+- rollback by re-enabling API-side publishing or rolling forward with replacement worker replicas.
 
 ## Tenancy
 

@@ -39,15 +39,17 @@ public static class DependencyInjection
         ValidateMinioOptions(minioOptions);
 
         builder.Services.AddSingleton<MinioFileStorageRegistrationMarker>();
-        builder.ProvideFeature(FileManagementCompositionFeatures.StorageProvided("Shared.FileManagement.Minio"));
+        builder.ProvideFeature(new ProvidedCompositionFeature(
+            new CompositionFeatureId(FileManagementCompositionFeatures.Storage),
+            "Shared.FileManagement.Minio",
+            "File storage backend services are registered."));
         builder.Services.AddSingleton<IMinioClient>(_ => BuildClient(minioOptions));
         builder.Services.AddSingleton<IFileStorage, MinioFileStorage>();
         builder.Services
             .AddOptions<FileManagementOptions>()
             .Bind(fileManagement)
+            .Validate(IsValidFileManagementOptions, FileManagementOptionsValidation.FailureMessage)
             .ValidateOnStart();
-        builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IValidateOptions<FileManagementOptions>, FileManagementOptionsValidator>());
         builder.Services
             .AddOptions<MinioFileStorageOptions>()
             .Bind(minio)
@@ -72,15 +74,18 @@ public static class DependencyInjection
 
     private static void ValidateFileManagementOptions(FileManagementOptions options)
     {
-        ValidateOptionsResult result = new FileManagementOptionsValidator().Validate(name: null, options);
-        if (result.Failed)
+        string[] failures = FileManagementOptionsValidation.Validate(options);
+        if (failures.Length > 0)
         {
             throw new OptionsValidationException(
                 FileManagementOptions.SectionName,
                 typeof(FileManagementOptions),
-                result.Failures);
+                failures);
         }
     }
+
+    private static bool IsValidFileManagementOptions(FileManagementOptions options) =>
+        FileManagementOptionsValidation.Validate(options).Length == 0;
 
     private static void ValidateMinioOptions(MinioFileStorageOptions options)
     {

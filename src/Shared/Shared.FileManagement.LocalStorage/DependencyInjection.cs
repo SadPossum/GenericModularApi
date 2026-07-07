@@ -38,14 +38,16 @@ public static class DependencyInjection
         ValidateLocalStorageOptions(localStorageOptions);
 
         builder.Services.AddSingleton<LocalFileStorageRegistrationMarker>();
-        builder.ProvideFeature(FileManagementCompositionFeatures.StorageProvided("Shared.FileManagement.LocalStorage"));
+        builder.ProvideFeature(new ProvidedCompositionFeature(
+            new CompositionFeatureId(FileManagementCompositionFeatures.Storage),
+            "Shared.FileManagement.LocalStorage",
+            "File storage backend services are registered."));
         builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
         builder.Services
             .AddOptions<FileManagementOptions>()
             .Bind(fileManagement)
+            .Validate(IsValidFileManagementOptions, FileManagementOptionsValidation.FailureMessage)
             .ValidateOnStart();
-        builder.Services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IValidateOptions<FileManagementOptions>, FileManagementOptionsValidator>());
         builder.Services
             .AddOptions<LocalFileStorageOptions>()
             .Bind(localStorage)
@@ -58,15 +60,18 @@ public static class DependencyInjection
 
     private static void ValidateFileManagementOptions(FileManagementOptions options)
     {
-        ValidateOptionsResult result = new FileManagementOptionsValidator().Validate(name: null, options);
-        if (result.Failed)
+        string[] failures = FileManagementOptionsValidation.Validate(options);
+        if (failures.Length > 0)
         {
             throw new OptionsValidationException(
                 FileManagementOptions.SectionName,
                 typeof(FileManagementOptions),
-                result.Failures);
+                failures);
         }
     }
+
+    private static bool IsValidFileManagementOptions(FileManagementOptions options) =>
+        FileManagementOptionsValidation.Validate(options).Length == 0;
 
     private static void ValidateLocalStorageOptions(LocalFileStorageOptions options)
     {

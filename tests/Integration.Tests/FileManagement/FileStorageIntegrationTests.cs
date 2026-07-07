@@ -8,8 +8,11 @@ using Files.Application.Commands;
 using Files.Application.Queries;
 using Files.Application.ReadModels;
 using Files.Contracts;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Shared.AccessControl;
 using Shared.Api.Modules;
 using Shared.Cqrs;
 using Shared.Cqrs.Infrastructure;
@@ -35,21 +38,26 @@ public sealed class FileStorageIntegrationTests
             using ServiceProvider provider = BuildFilesProvider(root);
             using IServiceScope scope = provider.CreateScope();
             IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+            FormOptions formOptions = scope.ServiceProvider.GetRequiredService<IOptions<FormOptions>>().Value;
             byte[] payload = Encoding.UTF8.GetBytes("module-upload");
+
+            Assert.Equal(1048576, formOptions.MultipartBodyLengthLimit);
 
             await using MemoryStream uploadContent = new(payload);
             Result<FileUploadResponse> upload = await dispatcher.SendAsync(new UploadFileCommand(
                 uploadContent,
                 payload.Length,
                 "text/plain",
-                "profile.txt"));
+                "profile.txt",
+                UserSubject("user-a")));
 
             Assert.True(upload.IsSuccess, upload.Error.Message);
             Assert.Equal("text/plain", upload.Value.ContentType);
             Assert.Equal(payload.Length, upload.Value.ContentLength);
             Assert.Equal("profile.txt", upload.Value.FileName);
 
-            Result<FileDownload> download = await dispatcher.QueryAsync(new GetFileQuery(upload.Value.FileId));
+            Result<FileDownload> download = await dispatcher.QueryAsync(
+                new GetFileQuery(upload.Value.FileId, UserSubject("user-a")));
             Assert.True(download.IsSuccess, download.Error.Message);
 
             await using MemoryStream downloaded = new();
@@ -57,12 +65,58 @@ public sealed class FileStorageIntegrationTests
 
             Assert.Equal(payload, downloaded.ToArray());
 
-            Result<Unit> delete = await dispatcher.SendAsync(new DeleteFileCommand(upload.Value.FileId));
+            Result<Unit> delete = await dispatcher.SendAsync(
+                new DeleteFileCommand(upload.Value.FileId, UserSubject("user-a")));
             Assert.True(delete.IsSuccess, delete.Error.Message);
 
-            Result<FileDownload> afterDelete = await dispatcher.QueryAsync(new GetFileQuery(upload.Value.FileId));
+            Result<FileDownload> afterDelete = await dispatcher.QueryAsync(
+                new GetFileQuery(upload.Value.FileId, UserSubject("user-a")));
             Assert.True(afterDelete.IsFailure);
             Assert.Equal(Files.Application.FilesApplicationErrors.FileNotFound, afterDelete.Error);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Files_module_keeps_user_objects_isolated_with_local_storage()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"gma-files-module-{Guid.NewGuid():N}");
+
+        try
+        {
+            using ServiceProvider provider = BuildFilesProvider(root);
+            using IServiceScope scope = provider.CreateScope();
+            IRequestDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<IRequestDispatcher>();
+            byte[] payload = Encoding.UTF8.GetBytes("private-user-upload");
+
+            await using MemoryStream uploadContent = new(payload);
+            Result<FileUploadResponse> upload = await dispatcher.SendAsync(new UploadFileCommand(
+                uploadContent,
+                payload.Length,
+                "text/plain",
+                "private.txt",
+                UserSubject("user-a")));
+
+            Assert.True(upload.IsSuccess, upload.Error.Message);
+
+            Result<FileDownload> otherUserDownload = await dispatcher.QueryAsync(
+                new GetFileQuery(upload.Value.FileId, UserSubject("user-b")));
+            Result<Unit> otherUserDelete = await dispatcher.SendAsync(
+                new DeleteFileCommand(upload.Value.FileId, UserSubject("user-b")));
+            Result<FileDownload> ownerDownload = await dispatcher.QueryAsync(
+                new GetFileQuery(upload.Value.FileId, UserSubject("user-a")));
+
+            Assert.True(otherUserDownload.IsFailure);
+            Assert.Equal(Files.Application.FilesApplicationErrors.FileNotFound, otherUserDownload.Error);
+            Assert.True(otherUserDelete.IsFailure);
+            Assert.Equal(Files.Application.FilesApplicationErrors.FileNotFound, otherUserDelete.Error);
+            Assert.True(ownerDownload.IsSuccess, ownerDownload.Error.Message);
         }
         finally
         {
@@ -164,4 +218,6 @@ public sealed class FileStorageIntegrationTests
         builder.AddMinioFileStorage();
         return builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
+
+    private static AccessSubject UserSubject(string userId) => AccessSubject.User(userId, tenantId: null);
 }

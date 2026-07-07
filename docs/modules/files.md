@@ -11,7 +11,7 @@ It provides:
 
 - `files.objects`
 
-Use it when a host wants a centralized upload/download/delete surface for shared files such as avatars, attachments, imports, or exports. Feature modules can also bypass the front door and use `Shared.FileManagement` directly when they own their own file lifecycle.
+Use it when a host wants a centralized upload/download/delete surface for private user files such as profile images, attachments, imports, or exports. Feature modules can bypass the front door and use `Shared.FileManagement` directly when they own public files, cross-user sharing, or business-specific file lifecycle rules.
 
 ## Endpoints
 
@@ -21,7 +21,7 @@ GET    /api/files/{fileId}
 DELETE /api/files/{fileId}
 ```
 
-All endpoints require authorization. When tenancy is enabled, the standard tenant header is required and the storage key is partitioned by a tenant hash.
+All endpoints require authorization. When tenancy is enabled, the standard tenant header is required and must match the authenticated token tenant claim. Storage keys are partitioned by tenant hash and caller subject hash, so another authenticated user in the same tenant cannot read or delete a private file by guessing its id.
 
 ## Composition Example
 

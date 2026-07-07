@@ -11,7 +11,7 @@ File management is split into shared storage plumbing and an optional front-door
 - `FileStorageWriteRequest`
 - `FileStorageReadResult`
 - `FileManagementOptions`
-- the `file-management.storage` composition feature
+- the neutral `file-management.storage` feature key
 
 Concrete adapters live beside it:
 
@@ -19,6 +19,8 @@ Concrete adapters live beside it:
 - `Shared.FileManagement.Minio`
 
 Modules depend on `Shared.FileManagement`, not on MinIO or local disk. Hosts decide the provider by registering an adapter and setting `FileManagement:Provider`.
+
+The core `Shared.FileManagement` project deliberately has no NuGet package references and no project references. Composition objects, host registration, and adapter-specific packages stay outside the core storage contract so it cannot accidentally depend on tenancy, ASP.NET Core, MinIO, local disk registration, or host infrastructure.
 
 ## Configuration
 
@@ -78,6 +80,8 @@ builder.ValidateModuleComposition();
 
 Each adapter is a no-op unless `FileManagement:Enabled=true` and its provider is selected. A host may also register only the provider it deploys.
 
+When `FilesModule` is registered, it configures ASP.NET Core multipart parsing with `FileManagement:MaximumObjectBytes`. The command handler still validates the length, but the HTTP parser is also bounded before the file reaches application code.
+
 ## Files Module
 
 `Files` is the optional public front door:
@@ -86,16 +90,18 @@ Each adapter is a no-op unless `FileManagement:Enabled=true` and its provider is
 - `GET /api/files/{fileId}`
 - `DELETE /api/files/{fileId}`
 
-The module requires authorization and tenant context. It stores objects under application-generated keys shaped like:
+The module requires authorization and tenant context. It resolves the caller into a user `AccessSubject`, verifies the token tenant matches the current tenant when tenancy is enabled, and stores objects under application-generated keys shaped like:
 
 ```text
-files/{global-or-tenant-hash}/{file-id}
+files/{global-or-tenant-hash}/user-{subject-hash}/{file-id}
 ```
 
-The HTTP API never uses the user-supplied filename as a storage key. The filename is kept only as metadata after validation.
+The HTTP API never uses the user-supplied filename or raw user/tenant ids as a storage key. The filename is kept only as metadata after validation. Another user in the same tenant cannot download or delete a file by guessing its id because their subject hash resolves to a different object key.
+
+This front door is intentionally private-file oriented. Feature modules that need public files, cross-user sharing, business-specific ACLs, ownership transfer, review workflows, or lifecycle state should own those rules in their own module and use `Shared.FileManagement` as the byte-storage contract.
 
 ## First Slice Boundary
 
-This slice intentionally does not add `Files.Persistence`. The object store metadata is enough for upload, download, and delete. Add persistence later when the product needs listing, owner-specific ACLs, lifecycle states, audit trails, or cross-object queries.
+This slice intentionally does not add `Files.Persistence`. The object store metadata is enough for private upload, download, and delete by id. Add persistence later when the product needs listing, owner-specific ACLs, lifecycle states, audit trails, retention policies, virus scanning state, content hashes, or cross-object queries.
 
 `UploadFileCommand` and `DeleteFileCommand` are plain CQRS commands in this slice because there is no module database unit-of-work to commit. If a future `Files.Persistence` package owns file records, lifecycle states, or audit trails, convert these commands to `ITransactionalCommand<T>` in that same change.

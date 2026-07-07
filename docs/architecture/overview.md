@@ -372,7 +372,7 @@ Shared.Domain
   -> Shared.Numerics
 
 Shared.FileManagement
-  -> Shared.ModuleComposition
+  -> no project references
 
 Shared.FileManagement.LocalStorage
   -> Shared.FileManagement
@@ -583,6 +583,7 @@ Files.Contracts
 
 Files.Application
   -> Files.Contracts
+  -> Shared.AccessControl
   -> Shared.Application.Composition
   -> Shared.Cqrs
   -> Shared.FileManagement
@@ -593,11 +594,14 @@ Files.Application
 Files.Api
   -> Files.Application
   -> Files.Contracts
+  -> Shared.AccessControl
   -> Shared.Api
   -> Shared.Cqrs
-  -> Shared.FileManagement
   -> Shared.ModuleComposition
+  -> Shared.Naming
   -> Shared.Results
+  -> Shared.Security
+  -> Shared.Tenancy
 ```
 
 Cross-module dependencies must go through:

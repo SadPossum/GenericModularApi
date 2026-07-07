@@ -8,6 +8,10 @@ public static class FilesApplicationErrors
         "Files.TenantRequired",
         "A tenant is required for file operations.");
 
+    public static readonly Error AccessDenied = new(
+        "Files.AccessDenied",
+        "The current subject cannot access this file.");
+
     public static readonly Error FileRequired = new(
         "Files.FileRequired",
         "A file is required.");

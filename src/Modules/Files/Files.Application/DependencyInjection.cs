@@ -2,8 +2,6 @@ namespace Files.Application;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
 using Shared.Application.Composition;
 using Shared.FileManagement;
 
@@ -19,11 +17,13 @@ public static class DependencyInjection
         services
             .AddOptions<FileManagementOptions>()
             .Bind(configuration.GetSection(FileManagementOptions.SectionName))
+            .Validate(IsValidFileManagementOptions, FileManagementOptionsValidation.FailureMessage)
             .ValidateOnStart();
-        services.TryAddEnumerable(
-            ServiceDescriptor.Singleton<IValidateOptions<FileManagementOptions>, FileManagementOptionsValidator>());
         services.AddApplicationServicesFromAssembly(typeof(DependencyInjection).Assembly);
 
         return services;
     }
+
+    private static bool IsValidFileManagementOptions(FileManagementOptions options) =>
+        FileManagementOptionsValidation.Validate(options).Length == 0;
 }

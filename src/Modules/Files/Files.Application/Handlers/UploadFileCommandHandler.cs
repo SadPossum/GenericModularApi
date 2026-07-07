@@ -8,6 +8,7 @@ using Shared.FileManagement;
 using Shared.Results;
 using Shared.Runtime.Identity;
 using Shared.Tenancy;
+using Files.Application.Visibility;
 
 internal sealed class UploadFileCommandHandler(
     IFileStorage storage,
@@ -20,9 +21,10 @@ internal sealed class UploadFileCommandHandler(
         UploadFileCommand command,
         CancellationToken cancellationToken)
     {
-        if (tenantContext.IsEnabled && string.IsNullOrWhiteSpace(tenantContext.TenantId))
+        Result<Unit> access = FilesAccess.EnsureUserSubject(command.Subject, tenantContext);
+        if (access.IsFailure)
         {
-            return Result.Failure<FileUploadResponse>(FilesApplicationErrors.TenantRequired);
+            return Result.Failure<FileUploadResponse>(access.Error);
         }
 
         if (command.Content is null || !command.Content.CanRead)
@@ -54,7 +56,7 @@ internal sealed class UploadFileCommandHandler(
             return Result.Failure<FileUploadResponse>(FilesApplicationErrors.FileIdInvalid);
         }
 
-        FileStorageObjectKey key = FilesStorageKeys.For(fileId, tenantContext);
+        FileStorageObjectKey key = FilesStorageKeys.For(fileId, command.Subject, tenantContext);
         FileStorageWriteRequest request = new(
             key,
             command.Content,

@@ -21,9 +21,10 @@ public static class FilesProfiles
                 TenancyCompositionFeatures.Context,
                 Provider(DefaultName),
                 reason: "Files are tenant-partitioned when tenancy is enabled; register TenancyModule or Shared.Tenancy.Infrastructure."),
-            FileManagementCompositionFeatures.StorageRequired(
+            new RequiredCompositionFeature(
+                new CompositionFeatureId(FileManagementCompositionFeatures.Storage),
                 Provider(DefaultName),
-                "Files stores bytes through Shared.FileManagement; register a concrete adapter such as LocalStorage or MinIO.")
+                reason: "Files stores bytes through Shared.FileManagement; register a concrete adapter such as LocalStorage or MinIO.")
         ],
         displayName: "Files default",
         description: "Tenant-scoped file upload, download, and delete front door backed by shared file storage.");

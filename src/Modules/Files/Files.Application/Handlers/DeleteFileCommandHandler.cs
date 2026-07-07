@@ -1,6 +1,7 @@
 namespace Files.Application.Handlers;
 
 using Files.Application.Commands;
+using Files.Application.Visibility;
 using Shared.Cqrs;
 using Shared.FileManagement;
 using Shared.Results;
@@ -15,9 +16,10 @@ internal sealed class DeleteFileCommandHandler(
         DeleteFileCommand command,
         CancellationToken cancellationToken)
     {
-        if (tenantContext.IsEnabled && string.IsNullOrWhiteSpace(tenantContext.TenantId))
+        Result<Unit> access = FilesAccess.EnsureUserSubject(command.Subject, tenantContext);
+        if (access.IsFailure)
         {
-            return Result.Failure<Unit>(FilesApplicationErrors.TenantRequired);
+            return access;
         }
 
         if (command.FileId == Guid.Empty)
@@ -25,7 +27,7 @@ internal sealed class DeleteFileCommandHandler(
             return Result.Failure<Unit>(FilesApplicationErrors.FileIdInvalid);
         }
 
-        FileStorageObjectKey key = FilesStorageKeys.For(command.FileId, tenantContext);
+        FileStorageObjectKey key = FilesStorageKeys.For(command.FileId, command.Subject, tenantContext);
         bool deleted = await storage.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
 
         return deleted

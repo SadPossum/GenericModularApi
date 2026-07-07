@@ -3,6 +3,7 @@ namespace Shared.Tests;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Shared.FileManagement;
 using Shared.FileManagement.LocalStorage;
 using Xunit;
@@ -20,6 +21,59 @@ public sealed class FileManagementTests
         Assert.False(FileStorageObjectKey.TryCreate("/files/avatar", out _));
         Assert.False(FileStorageObjectKey.TryCreate("files//avatar", out _));
         Assert.False(FileStorageObjectKey.TryCreate("files/avatar name", out _));
+    }
+
+    [Fact]
+    public void File_management_options_validation_rejects_invalid_enabled_configuration()
+    {
+        string[] failures = FileManagementOptionsValidation.Validate(new FileManagementOptions
+        {
+            Enabled = true,
+            Provider = FileStorageProvider.Unknown,
+            MaximumObjectBytes = 0,
+            AllowedContentTypes = ["text/plain", "not-a-content-type"]
+        });
+
+        Assert.Contains(failures, failure => failure.Contains("Provider", StringComparison.Ordinal));
+        Assert.Contains(failures, failure => failure.Contains("MaximumObjectBytes", StringComparison.Ordinal));
+        Assert.Contains(failures, failure => failure.Contains("AllowedContentTypes", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Local_storage_registration_is_noop_when_file_management_is_disabled()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+        builder.AddLocalFileStorage();
+
+        using ServiceProvider provider = builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IFileStorage>());
+    }
+
+    [Fact]
+    public void Local_storage_registration_is_noop_for_another_selected_provider()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["FileManagement:Enabled"] = "true";
+        builder.Configuration["FileManagement:Provider"] = "Minio";
+
+        builder.AddLocalFileStorage();
+
+        using ServiceProvider provider = builder.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IFileStorage>());
+    }
+
+    [Fact]
+    public void Local_storage_registration_fails_fast_for_invalid_shared_options()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        builder.Configuration["FileManagement:Enabled"] = "true";
+        builder.Configuration["FileManagement:Provider"] = "Unknown";
+
+        OptionsValidationException exception = Assert.Throws<OptionsValidationException>(
+            () => builder.AddLocalFileStorage());
+
+        Assert.Contains(exception.Failures, failure => failure.Contains("Provider", StringComparison.Ordinal));
     }
 
     [Fact]

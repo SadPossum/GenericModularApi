@@ -3717,6 +3717,42 @@ public sealed partial class DeveloperExperienceGuardTests
     }
 
     [Fact]
+    public void File_management_core_stays_dependency_neutral()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string projectRoot = Path.Combine(repositoryRoot, "src", "Shared", "Shared.FileManagement");
+        XDocument project = XDocument.Load(Path.Combine(projectRoot, "Shared.FileManagement.csproj"));
+        string[] packageReferences = GetProjectIncludes(project, "PackageReference");
+        string[] projectReferences = GetProjectIncludes(project, "ProjectReference");
+        string[] forbiddenSourceOffenders = Directory
+            .EnumerateFiles(projectRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !HasIgnoredPathSegment(path))
+            .SelectMany(path =>
+            {
+                string source = File.ReadAllText(path);
+                string relativePath = Path.GetRelativePath(repositoryRoot, path);
+                string[] forbiddenTokens =
+                [
+                    "using Microsoft.Extensions",
+                    "using Shared.Tenancy",
+                    "Shared.Tenancy",
+                    "using Shared.ModuleComposition",
+                    "Shared.ModuleComposition"
+                ];
+
+                return forbiddenTokens
+                    .Where(token => source.Contains(token, StringComparison.Ordinal))
+                    .Select(token => $"{relativePath} contains forbidden dependency token '{token}'.");
+            })
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.Empty(packageReferences);
+        Assert.Empty(projectReferences);
+        Assert.Empty(forbiddenSourceOffenders);
+    }
+
+    [Fact]
     public void Shared_project_dependency_manifest_matches_intended_adapter_boundaries()
     {
         string repositoryRoot = FindRepositoryRoot();
@@ -3910,9 +3946,9 @@ public sealed partial class DeveloperExperienceGuardTests
                 ]),
             new(
                 "Shared.FileManagement",
-                ["Microsoft.Extensions.Options"],
                 [],
-                [@"..\Shared.ModuleComposition\Shared.ModuleComposition.csproj"]),
+                [],
+                []),
             new(
                 "Shared.FileManagement.LocalStorage",
                 [

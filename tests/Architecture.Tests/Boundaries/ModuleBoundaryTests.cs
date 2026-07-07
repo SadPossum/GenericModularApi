@@ -477,7 +477,7 @@ public sealed class ModuleBoundaryTests
     [Fact]
     public void Feature_module_commands_and_item_queries_have_explicit_validators()
     {
-        string[] modulesWithValidatorPolicy = ["Administration", "Auth", "Catalog", "Ordering"];
+        string[] modulesWithValidatorPolicy = ["Administration", "Auth", "Catalog", "Files", "Ordering"];
         string[] offenders = ArchitectureCatalog.ModuleProjects
             .Where(project => project.Kind == ModuleProjectKind.Application)
             .Where(project => modulesWithValidatorPolicy.Contains(project.ModulePrefix, StringComparer.Ordinal))

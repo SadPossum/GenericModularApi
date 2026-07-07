@@ -2,6 +2,7 @@ namespace Files.Application.Handlers;
 
 using Files.Application.Queries;
 using Files.Application.ReadModels;
+using Files.Application.Visibility;
 using Shared.Cqrs;
 using Shared.FileManagement;
 using Shared.Results;
@@ -16,9 +17,10 @@ internal sealed class GetFileQueryHandler(
         GetFileQuery query,
         CancellationToken cancellationToken)
     {
-        if (tenantContext.IsEnabled && string.IsNullOrWhiteSpace(tenantContext.TenantId))
+        Result<Unit> access = FilesAccess.EnsureUserSubject(query.Subject, tenantContext);
+        if (access.IsFailure)
         {
-            return Result.Failure<FileDownload>(FilesApplicationErrors.TenantRequired);
+            return Result.Failure<FileDownload>(access.Error);
         }
 
         if (query.FileId == Guid.Empty)
@@ -26,7 +28,7 @@ internal sealed class GetFileQueryHandler(
             return Result.Failure<FileDownload>(FilesApplicationErrors.FileIdInvalid);
         }
 
-        FileStorageObjectKey key = FilesStorageKeys.For(query.FileId, tenantContext);
+        FileStorageObjectKey key = FilesStorageKeys.For(query.FileId, query.Subject, tenantContext);
         FileStorageReadResult? file = await storage.OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
 
         return file is null
